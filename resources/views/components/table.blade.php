@@ -21,8 +21,7 @@
         tabel, en dan schuift de titel uit beeld terwijl de kolommen bewegen.
     --}}
     @isset($header)
-        <div class="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3"
-             style="border-color: var(--line)">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-4 py-3">
             {{ $header }}
         </div>
     @endisset
@@ -46,21 +45,21 @@
     <div @class(['overflow-x-auto', 'max-h-[70vh] overflow-y-auto print:max-h-none print:overflow-visible' => $sticky && isset($head)])>
         <table class="min-w-full">
             @isset($head)
-                <thead @class(['sticky top-0 z-10' => $sticky]) style="background: var(--surface)">
-                    <tr class="border-b" style="border-color: var(--line)">
+                <thead @class(['bg-white', 'sticky top-0 z-10' => $sticky])>
+                    <tr class="border-b border-gray-200">
                         {{ $head }}
                     </tr>
                 </thead>
             @endisset
 
-            <tbody class="divide-y" style="border-color: var(--line)">
+            <tbody class="divide-y divide-gray-200">
                 {{ $slot }}
             </tbody>
         </table>
     </div>
 
     @isset($footer)
-        <div class="border-t px-4 py-2.5 text-xs" style="border-color: var(--line); color: var(--ink-faint)">
+        <div class="border-t border-gray-200 px-4 py-2.5 text-xs text-gray-500">
             {{ $footer }}
         </div>
     @endisset

@@ -21,7 +21,6 @@
 
 <dl {{ $attributes->class([
     'grid gap-x-6 gap-y-3 '.$columns => ! $stacked,
-    'space-y-3' => $stacked,
 ]) }}
     @if ($stacked) data-detail-stacked @endif>
     {{ $slot }}

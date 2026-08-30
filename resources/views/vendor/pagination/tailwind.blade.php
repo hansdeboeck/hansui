@@ -13,8 +13,8 @@
      3. ze brengt een eigen palet mee (blauwe focusring, dark:-varianten) dat
         botst met het gray-900-designsysteem van OTA en POS.
 
-    De knopklassen komen uit resources/css/app.css, zodat deze weergave meebeweegt
-    met de rest.
+    De knopklassen komen uit hansui.css, zodat deze weergave meebeweegt met de
+    rest.
 --}}
 @if ($paginator->hasPages())
     <nav role="navigation" aria-label="{{ __('Paginering') }}"

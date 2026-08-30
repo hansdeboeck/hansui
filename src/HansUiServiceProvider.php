@@ -31,21 +31,40 @@ use Illuminate\Support\ServiceProvider;
  * dat het package namen claimt in de gedeelde ruimte -- vandaar dat de lijst
  * hieronder kort en saai is, en dat een app hem kan overschrijven door een
  * gelijknamig bestand in resources/views/components te zetten.
+ *
+ * DAT LAATSTE HEEFT EEN KEERZIJDE, en die geldt binnen dit package zelf: een
+ * component van HansUI die <x-icon> schrijft, krijgt de icoon van de APPLICATIE
+ * zodra die de naam overschrijft -- en die kent onze namen niet. Intern
+ * verwijzen componenten daarom altijd met de prefix: <x-hansui::icon>.
  */
 class HansUiServiceProvider extends ServiceProvider
 {
     /**
      * De componenten die dit package levert.
      *
-     * Expliciet opgesomd en niet "alles in de map": zo staat er in de code welke
-     * namen HansUI claimt, en levert een nieuw bestand in het package niet
-     * stilzwijgend een botsing op in een applicatie die die naam zelf al
-     * gebruikt.
+     * Hier stond dat ze "expliciet opgesomd" zijn en niet "alles in de map".
+     * Dat was niet waar: `anonymousComponentPath()` hieronder neemt de hele map,
+     * en deze lijst werd nergens gebruikt.
+     *
+     * Nu is ze wel waar, maar andersom dan het klonk. De lijst is geen filter
+     * maar een INVENTARIS: hier staat welke namen HansUI in de gedeelde ruimte
+     * claimt, en ComponentsTest valt om zodra de map en deze lijst uit elkaar
+     * lopen -- in beide richtingen. Een nieuw bestand in het package levert dus
+     * geen stilzwijgende botsing meer op, maar een rode test.
+     *
+     * Per component registreren zou de lijst afdwingen zonder test, maar dan
+     * moet elk van deze eenentwintig een klasse krijgen in plaats van een
+     * Blade-bestand. Dat is de omhaal niet waard voor dezelfde bewaking.
      *
      * @var array<int, string>
      */
     public const COMPONENTS = [
         'page',
+        'card',
+        'button',
+        'badge',
+        'code-block',
+        'key-value',
         'table',
         'th-sort',
         'filter-bar',
@@ -68,6 +87,21 @@ class HansUiServiceProvider extends ServiceProvider
         $this->loadViewsFrom($this->path('resources/views'), 'hansui');
 
         /*
+        | De eigen strings van dit package, GELADEN en niet gepubliceerd -- het
+        | omgekeerde van de frameworkvertalingen hieronder, en met reden.
+        |
+        | FileLoader::loadJsonPaths() zet de paden van de packages VOOR die van
+        | de applicatie en merget met array_merge, waar het laatste wint. Een
+        | applicatie overschrijft een sleutel dus gewoon door hem in haar eigen
+        | lang/{locale}.json te zetten. Bij loadPaths(), voor de PHP-bestanden,
+        | ligt dat andersom -- vandaar dat die gepubliceerd worden.
+        |
+        | Alleen en. De sleutels ZIJN het Nederlands, dus een nl.json zou elke
+        | regel op zichzelf laten wijzen.
+        */
+        $this->loadJsonTranslationsFrom($this->path('lang'));
+
+        /*
         | Zonder prefix, en daarnaast ook mét.
         |
         | De eerste registratie geeft <x-page>. De tweede geeft <x-hansui::page>
@@ -77,21 +111,31 @@ class HansUiServiceProvider extends ServiceProvider
         Blade::anonymousComponentPath($this->path('resources/views/components'));
         Blade::anonymousComponentPath($this->path('resources/views/components'), 'hansui');
 
+        /*
+        | De doelpaden via $this->app en niet via lang_path()/resource_path().
+        |
+        | Die twee helpers wonen in illuminate/foundation -- het framework zelf --
+        | en dit package vraagt alleen illuminate/support en illuminate/view. In
+        | een applicatie bestaan ze altijd, dus het viel niet op, maar dan staat
+        | er in composer.json een afhankelijkheid minder dan de code gebruikt.
+        | De methodes hieronder staan in ContractsFoundationApplication, en
+        | die komt met illuminate/support mee.
+        */
         $this->publishes([
-            $this->path('lang/nl') => lang_path('nl'),
+            $this->path('lang/nl') => $this->app->langPath('nl'),
         ], 'hansui-lang');
 
         $this->publishes([
-            $this->path('resources/views/errors') => resource_path('views/errors'),
+            $this->path('resources/views/errors') => $this->app->resourcePath('views/errors'),
         ], 'hansui-errors');
 
         $this->publishes([
-            $this->path('resources/views/components') => resource_path('views/components'),
-            $this->path('resources/views/partials') => resource_path('views/partials'),
+            $this->path('resources/views/components') => $this->app->resourcePath('views/components'),
+            $this->path('resources/views/partials') => $this->app->resourcePath('views/partials'),
         ], 'hansui-views');
 
         $this->publishes([
-            $this->path('resources/views/vendor') => resource_path('views/vendor'),
+            $this->path('resources/views/vendor') => $this->app->resourcePath('views/vendor'),
         ], 'hansui-pagination');
     }
 

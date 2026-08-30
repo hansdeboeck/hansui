@@ -11,7 +11,7 @@
 <footer {{ $attributes->class([
     'px-4 py-6 text-center text-xs',
     'on-dark opacity-60' => $dark,
-]) }}
-    @unless ($dark) style="color: var(--ink-faint)" @endunless>
+    'text-gray-500' => ! $dark,
+]) }}>
     &copy; {{ date('Y') }} {{ $owner }}. {{ __('Alle rechten voorbehouden.') }}
 </footer>

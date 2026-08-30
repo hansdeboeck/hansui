@@ -17,17 +17,17 @@
         <span @class(['badge', 'badge-danger' => $result->hasFailures(), 'badge-success' => ! $result->hasFailures()])>
             {{ $result->doneCount() }}
         </span>
-        <span class="text-sm font-medium" style="color: var(--ink)">
+        <span class="text-sm font-medium text-gray-900">
             {{ trans_choice('{0}Niets uitgevoerd|{1}Een gelukt|[2,*]:count gelukt', $result->doneCount(), ['count' => $result->doneCount()]) }}
         </span>
     </div>
 
     @if ($result->hasFailures())
-        <ul class="divide-y border-t" style="border-color: var(--line)">
+        <ul class="divide-y divide-gray-200 border-t border-gray-200">
             @foreach ($result->failures() as $name => $reason)
                 <li class="flex flex-wrap items-baseline gap-x-2 px-4 py-2 text-sm">
-                    <span class="font-medium" style="color: var(--ink)">{{ $name }}</span>
-                    <span style="color: var(--ink-faint)">{{ $reason }}</span>
+                    <span class="font-medium text-gray-900">{{ $name }}</span>
+                    <span class="text-gray-500">{{ $reason }}</span>
                 </li>
             @endforeach
         </ul>

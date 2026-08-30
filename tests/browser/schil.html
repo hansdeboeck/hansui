@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="utf-8">
+    <title>HansUI schil — harnas</title>
+
+    <!--
+        Geen stijlblad: dit harnas toont GEDRAG en geen opmaak, net als
+        bulk.html. Eén regel is er toch nodig, want hansui.js schakelt de
+        klasse `hidden` en die komt normaal van Tailwind.
+    -->
+    <style>.hidden { display: none }</style>
+</head>
+<body>
+
+<!--
+    De schil: uitklapmenu's, thema en dichtheid.
+
+    Het uitklapmenu staat bovenaan omdat het hier het langst zonder gedrag
+    stond: <x-nav-dropdown> kwam byte-identiek uit shippingtail terwijl de
+    listener waarop hij leunde achterbleef, en het paneel ging dus nooit open.
+    Precies het soort fout dat je in een minuut naloopt en anders nooit ziet.
+-->
+
+<h2>Uitklapmenu's — data-dropdown</h2>
+
+<p>Verwacht: klikken opent; buiten klikken sluit; Escape sluit en zet de focus
+terug op de knop; de tweede openen sluit de eerste; een klik binnen een open
+paneel laat het staan.</p>
+
+<div data-dropdown>
+    <button type="button" data-dropdown-toggle aria-haspopup="true" aria-expanded="false" id="toggle-a">
+        Beheer
+    </button>
+    <div data-dropdown-panel class="hidden" id="paneel-a">
+        <a href="#">Medewerkers</a>
+        <a href="#">Afdelingen</a>
+    </div>
+</div>
+
+<div data-dropdown>
+    <button type="button" data-dropdown-toggle aria-haspopup="true" aria-expanded="false" id="toggle-b">
+        Voorraad
+    </button>
+    <div data-dropdown-panel class="hidden" id="paneel-b">
+        <a href="#">Zendingen</a>
+    </div>
+</div>
+
+<h2>Thema en dichtheid</h2>
+
+<p>Verwacht: de knop klapt om, de sleutel verschijnt in localStorage, en na
+verversen blijft de keuze staan. Bij "ruim" wordt de dichtheidssleutel gewist en
+niet op een tegenwaarde gezet.</p>
+
+<button type="button" data-theme-toggle>Thema omklappen</button>
+<span data-theme-icon="light">[zon]</span>
+<span data-theme-icon="dark">[maan]</span>
+
+<button type="button" data-density-toggle>Dichtheid omklappen</button>
+
+<h2>Stand van zaken</h2>
+<pre id="stand"></pre>
+
+<!--
+    Open dit bestand met een statische server naast het package, bijvoorbeeld:
+
+        cd hansui && php -S 127.0.0.1:8020
+        open http://127.0.0.1:8020/tests/browser/schil.html
+
+    Het script in de <head> dat het thema vóór de eerste verf zet, staat hier
+    bewust NIET: dat hoort in de applicatie en de README beschrijft het. Wat je
+    hier naloopt is of hansui.js de sleutel schrijft die dat script leest.
+-->
+<script type="module" src="../../resources/js/hansui.js"></script>
+<script>
+    const toon = () => {
+        const el = document.documentElement;
+        const open = (id) => ! document.getElementById(id).classList.contains('hidden');
+
+        document.getElementById('stand').textContent = [
+            'data-theme      : ' + (el.dataset.theme ?? '(niet gezet)'),
+            'data-density    : ' + (el.dataset.density ?? '(niet gezet)'),
+            'hansui.theme    : ' + (localStorage.getItem('hansui.theme') ?? '(niet gezet)'),
+            'hansui.density  : ' + (localStorage.getItem('hansui.density') ?? '(niet gezet)'),
+            'paneel A open   : ' + open('paneel-a'),
+            'paneel B open   : ' + open('paneel-b'),
+            'aria-expanded A : ' + document.getElementById('toggle-a').getAttribute('aria-expanded'),
+            'aria-expanded B : ' + document.getElementById('toggle-b').getAttribute('aria-expanded'),
+            'focus           : ' + (document.activeElement.id || document.activeElement.tagName),
+        ].join('\n');
+    };
+
+    // Ná hansui.js in de wachtrij, zodat de aflezing de stand toont zoals ze
+    // is nadat het package zijn werk gedaan heeft.
+    document.addEventListener('click', () => setTimeout(toon));
+    document.addEventListener('keydown', () => setTimeout(toon));
+    toon();
+</script>
+</body>
+</html>

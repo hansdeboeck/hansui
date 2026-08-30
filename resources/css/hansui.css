@@ -68,16 +68,68 @@
         --nav-high: #ffffff;
 
         /*
+        | De twee vlakken van een navigatie-item stonden als losse rgb()-waarden
+        | in .nav-item zelf, en dat gaat op precies een plaats mis: een witte
+        | overlay is onzichtbaar op een wit vlak. Als token kan .nav-light ze
+        | omzetten zonder de klasse te forken.
+        |
+        | Ze staan alleen HIER en niet in de twee donkere blokken: het zijn
+        | overlays op een vlak dat in beide thema's donker is, dus ze kantelen
+        | niet mee.
+        */
+        --nav-hover:     rgb(255 255 255 / 0.07);
+        --nav-active:    rgb(255 255 255 / 0.1);
+        --nav-group-ink: rgb(255 255 255 / 0.34);
+
+        /*
         | Merk en semantiek staan LOS van elkaar. Groen is Growtail; groen is
         | nooit een status. Daarom een eigen --ok, ook al lijkt hij erop: zo
         | verandert een huisstijl in een andere kleur niet stilletjes de
         | betekenis van "in orde".
+        |
+        | TWEE KNOPPEN, EEN PER THEMA, en verder niets.
+        |
+        | --brand-primary en --brand-primary-dark zijn wat een APPLICATIE zet.
+        | --brand, --brand-deep, --brand-soft, --brand-line en --on-brand worden
+        | eruit afgeleid; die zet je niet.
+        |
+        | Dat was hier omgekeerd, en het brak op de eerste afwijking. --brand
+        | kon je overschrijven maar de rest van de familie stond vast: een
+        | magenta knop werd bij hover groen, .badge-brand zette magenta tekst op
+        | een lichtgroen vlak, en in donkere modus bleef --on-brand op
+        | bijna-zwart staan omdat het blok ervan uitging dat --brand daar altijd
+        | de opgelichte variant was. De primaire knop van zo'n applicatie was
+        | dan bijna-zwart op donkerrood: contrast 1,9:1.
+        |
+        | WAAROM TWEE EN NIET EEN. Donker afleiden betekent naar wit mengen, en
+        | dat trekt de verzadiging eruit: #1a6a52 wordt zo een grijzig #a6c1b6
+        | in plaats van het levendige #92d1b8 dat er hoort te staan. Wie zijn
+        | merk in beide standen even sterk wil, geeft de donkere apart op; wie
+        | dat niet doet krijgt een gedempte, maar correcte en LEESBARE variant.
         */
-        --brand:      var(--brand-primary, #1a6a52);
-        --brand-deep: #12513e;
-        --brand-soft: #e1ede8;
-        --brand-line: #b4cfc5;
-        --on-brand:   var(--brand-on-primary, #ffffff);
+        --brand-primary: #1a6a52;
+
+        /*
+        | De donkere basis is STANDAARD AFGELEID en niet hardgecodeerd.
+        |
+        | Dat verschil is het hele punt. Stond hier een vaste kleur, dan kreeg
+        | een applicatie die alleen --brand-primary zet netjes haar eigen merk
+        | in het licht en het groen van dit package in het donker -- en dat
+        | valt pas op als iemand het thema omklapt.
+        |
+        | De prijs is dat het standaardgroen in het donker gedempter is dan een
+        | met de hand gekozen tint: naar wit mengen trekt de verzadiging eruit.
+        | Wie dat erg vindt, zet --brand-primary-dark er zelf bij; die knop
+        | staat in de README. Correct voor iedereen als standaard, levendig
+        | voor wie erom vraagt -- niet andersom.
+        */
+        --brand-primary-dark: color-mix(in oklab, var(--brand-primary) 50%, #ffffff);
+
+        --brand:      var(--brand-primary);
+        --brand-deep: color-mix(in oklab, var(--brand-primary) 80%, #000000);
+        --brand-soft: color-mix(in oklab, var(--brand-primary) 12%, var(--n-0));
+        --brand-line: color-mix(in oklab, var(--brand-primary) 33%, var(--n-0));
+        --on-brand:   #ffffff;
 
         --ok:        #1e7a4f;
         --ok-soft:   #e3f0e9;
@@ -96,6 +148,20 @@
         --row-y: 0.75rem;
     }
 
+    /*
+    | HIERONDER STAAT HET DONKERE PALET TWEE KEER, EN DAT MOET.
+    |
+    | Een media-query en een attribuutselector kunnen geen regel delen, en de
+    | drie standen vragen allebei: wie niets kiest volgt het systeem, wie wel
+    | kiest zet data-theme en dat wint in beide richtingen.
+    |
+    | Er is een uitweg -- light-dark() maakt er een lijst van -- maar die tilt
+    | de ondergrens naar Safari 17.5, hoger dan wat Tailwind v4 zelf vraagt.
+    | Niet waard voor deze paar regels.
+    |
+    | WIJZIG ZE DUS SAMEN. StylesheetTest vergelijkt de twee blokken op
+    | sleutel en waarde en valt om zodra er een uit de pas loopt.
+    */
     @media (prefers-color-scheme: dark) {
         :root:not([data-theme='light']) {
             --n-0:  #161a1c;
@@ -116,11 +182,11 @@
             --nav-ink:  #b4bfc4;
             --nav-high: #ffffff;
 
-            --brand:      color-mix(in srgb, var(--brand-primary, #4fb58d) 62%, #ffffff);
-            --brand-deep: #74cca6;
-            --brand-soft: #15251e;
-            --brand-line: #2c4839;
-            --on-brand:   #06120d;
+            --brand:      var(--brand-primary-dark);
+            --brand-deep: color-mix(in oklab, var(--brand-primary-dark) 72%, #ffffff);
+            --brand-soft: color-mix(in oklab, var(--brand-primary-dark) 16%, var(--n-0));
+            --brand-line: color-mix(in oklab, var(--brand-primary-dark) 34%, var(--n-0));
+            --on-brand:   color-mix(in oklab, var(--brand-primary-dark) 22%, #000000);
 
             --ok:          #56c093;
             --ok-soft:     #14251d;
@@ -156,11 +222,11 @@
         --nav-ink:  #b4bfc4;
         --nav-high: #ffffff;
 
-        --brand:      color-mix(in srgb, var(--brand-primary, #4fb58d) 62%, #ffffff);
-        --brand-deep: #74cca6;
-        --brand-soft: #15251e;
-        --brand-line: #2c4839;
-        --on-brand:   #06120d;
+        --brand:      var(--brand-primary-dark);
+        --brand-deep: color-mix(in oklab, var(--brand-primary-dark) 72%, #ffffff);
+        --brand-soft: color-mix(in oklab, var(--brand-primary-dark) 16%, var(--n-0));
+        --brand-line: color-mix(in oklab, var(--brand-primary-dark) 34%, var(--n-0));
+        --on-brand:   color-mix(in oklab, var(--brand-primary-dark) 22%, #000000);
 
         --ok:          #56c093;
         --ok-soft:     #14251d;
@@ -247,37 +313,93 @@
     --color-gray-800: var(--n-9);
     --color-gray-900: var(--n-10);
 
+    /*
+    | En de semantische schalen, ZONDER GATEN.
+    |
+    | Hier stonden alleen 50, 100, 500, 600 en 700 -- en dat was precies genoeg
+    | om verkeerd af te lopen. De flash-partial schreef `text-emerald-800` op
+    | een `bg-emerald-50`: de achtergrond kantelde mee naar #14251d, de tekst
+    | bleef Tailwinds eigen #065f46, en in donkere modus stond er donkergroen op
+    | bijna-zwart met een contrast van 1,4:1. Bij rood was 200 wel meegenomen en
+    | 800 niet; die asymmetrie was het bewijs dat het geen keuze was.
+    |
+    | De regel die geen gat meer laat: 50 tot 200 is de ZACHTE variant, 300 tot
+    | 950 de VOLLE. Elke stap die een view kan typen, bestaat en kantelt mee.
+    | Dat 300 en 400 daarmee voller worden dan bij Tailwind is de bedoeling --
+    | het package heeft twee tinten per rol, geen negen, en een halve tint
+    | verzinnen is hoe je opnieuw bij een vaste kleur uitkomt.
+    */
     --color-red-50: var(--danger-soft);
     --color-red-100: var(--danger-soft);
     --color-red-200: var(--danger-soft);
+    --color-red-300: var(--danger);
+    --color-red-400: var(--danger);
     --color-red-500: var(--danger);
     --color-red-600: var(--danger);
     --color-red-700: var(--danger);
+    --color-red-800: var(--danger);
+    --color-red-900: var(--danger);
+    --color-red-950: var(--danger);
 
     --color-emerald-50: var(--ok-soft);
     --color-emerald-100: var(--ok-soft);
+    --color-emerald-200: var(--ok-soft);
+    --color-emerald-300: var(--ok);
+    --color-emerald-400: var(--ok);
     --color-emerald-500: var(--ok);
     --color-emerald-600: var(--ok);
     --color-emerald-700: var(--ok);
+    --color-emerald-800: var(--ok);
+    --color-emerald-900: var(--ok);
+    --color-emerald-950: var(--ok);
 
     --color-amber-50: var(--warn-soft);
     --color-amber-100: var(--warn-soft);
+    --color-amber-200: var(--warn-soft);
+    --color-amber-300: var(--warn);
+    --color-amber-400: var(--warn);
     --color-amber-500: var(--warn);
     --color-amber-600: var(--warn);
     --color-amber-700: var(--warn);
+    --color-amber-800: var(--warn);
+    --color-amber-900: var(--warn);
+    --color-amber-950: var(--warn);
 
     --color-blue-50: var(--info-soft);
     --color-blue-100: var(--info-soft);
+    --color-blue-200: var(--info-soft);
+    --color-blue-300: var(--info);
+    --color-blue-400: var(--info);
     --color-blue-500: var(--info);
     --color-blue-600: var(--info);
     --color-blue-700: var(--info);
+    --color-blue-800: var(--info);
+    --color-blue-900: var(--info);
+    --color-blue-950: var(--info);
 }
 
 @layer components {
     /* ---------------------------------------------------------------- knoppen */
     .btn {
         @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition;
-        @apply focus-visible:outline-none disabled:cursor-default disabled:opacity-50;
+        @apply disabled:cursor-default disabled:opacity-50;
+    }
+
+    /*
+    | De focusring.
+    |
+    | Hier stond `focus-visible:outline-none` en verder niets. Omdat
+    | @layer components van @layer base wint, haalde die regel de ring uit de
+    | basislaag weg zonder er iets voor in de plaats te zetten: geen enkele knop
+    | liet zien waar de focus stond -- het omgekeerde van wat er tachtig regels
+    | hoger staat beloofd.
+    |
+    | Een box-shadow en geen outline: dat is wat .input al doet, en een schaduw
+    | volgt de ronding van de knop.
+    */
+    .btn:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 3px color-mix(in oklab, var(--brand) 35%, transparent);
     }
     .btn-sm {
         @apply gap-1.5 px-3 py-1.5 text-xs;
@@ -416,9 +538,110 @@
         background: var(--info-soft);
         color: var(--info);
     }
+    /*
+    | Een VOLLE badge, voor het uiterste van een schaal.
+    |
+    | .badge-danger is de zachte variant, en die volstaat zolang er een gewone
+    | fout in staat. Zodra een scherm ook iets ergers kent -- fataal naast fout,
+    | geblokkeerd naast open -- moet het onderscheid uit meer komen dan een
+    | woord, anders leest de ergste regel als de rest.
+    |
+    | Naast en niet in plaats van de zachte: .badge .badge-danger .badge-solid.
+    */
+    .badge-solid {
+        color: var(--on-brand);
+    }
+    .badge-solid.badge-danger {
+        background: var(--danger);
+    }
+    .badge-solid.badge-success {
+        background: var(--ok);
+    }
+    .badge-solid.badge-warning {
+        background: var(--warn);
+    }
+    .badge-solid.badge-info {
+        background: var(--info);
+    }
+
+    /* Een randje, want --brand-soft ligt in donkere modus vlak bij het
+       oppervlak: zonder rand is deze badge daar bijna niet te zien. */
     .badge-brand {
         background: var(--brand-soft);
         color: var(--brand);
+        box-shadow: inset 0 0 0 1px var(--brand-line);
+    }
+
+    /* ---------------------------------------------------------- meldingen */
+
+    /*
+    | De meldingsbalk.
+    |
+    | Stond als losse utilities in de flash-partial, en ging mis op de plaats
+    | waar losse utilities altijd misgaan: een tint die het @theme-blok niet
+    | dekte. Nu een klasse, zoals .btn, .badge, .card en .chip.
+    |
+    | De TEKST is gewoon --ink en niet de statuskleur. Een melding moet in de
+    | eerste plaats leesbaar zijn; welke soort het is, leest af van de tint en
+    | van het puntje -- dezelfde vorm-naast-kleur als bij .badge, om dezelfde
+    | reden.
+    |
+    | Inline en geen toast: een melding die vanzelf verdwijnt is een melding die
+    | iemand mist.
+    */
+    .alert {
+        @apply flex items-start gap-3 rounded-lg border px-4 py-3 text-sm;
+        background: var(--surface);
+        border-color: var(--line);
+        color: var(--ink);
+    }
+    .alert::before {
+        content: '';
+        width: 0.5rem;
+        height: 0.5rem;
+        margin-top: 0.375rem;
+        border-radius: 9999px;
+        background: var(--ink-faint);
+        flex: none;
+    }
+    .alert-body {
+        @apply min-w-0 flex-1;
+    }
+    .alert-dismiss {
+        @apply -my-1 flex-none cursor-pointer rounded p-1 text-lg leading-none transition;
+        color: var(--ink-faint);
+    }
+    .alert-dismiss:hover {
+        color: var(--ink);
+    }
+
+    .alert-success {
+        background: var(--ok-soft);
+        border-color: color-mix(in oklab, var(--ok) 30%, transparent);
+    }
+    .alert-success::before {
+        background: var(--ok);
+    }
+    .alert-danger {
+        background: var(--danger-soft);
+        border-color: color-mix(in oklab, var(--danger) 30%, transparent);
+    }
+    .alert-danger::before {
+        background: var(--danger);
+    }
+    .alert-warning {
+        background: var(--warn-soft);
+        border-color: color-mix(in oklab, var(--warn) 30%, transparent);
+    }
+    .alert-warning::before {
+        background: var(--warn);
+    }
+    .alert-info {
+        background: var(--info-soft);
+        border-color: color-mix(in oklab, var(--info) 30%, transparent);
+    }
+    .alert-info::before {
+        background: var(--info);
     }
 
     /* ----------------------------------------------------------------- tabellen */
@@ -440,6 +663,23 @@
     .td-num,
     .th-num {
         text-align: right;
+    }
+
+    /* --------------------------------------------------------- detaillijst */
+
+    /*
+    | <x-detail-list :stacked>: het label boven de waarde.
+    |
+    | De ruimte hoort TUSSEN de paren te staan en niet tussen een label en zijn
+    | eigen waarde. Met een gelijke space-y vielen de twee helften van een paar
+    | even ver uit elkaar als twee paren, en dan leest de lijst als een rij
+    | losse regels in plaats van als een lijst van paren.
+    */
+    [data-detail-stacked] > dt + dd {
+        margin-top: 0.125rem;
+    }
+    [data-detail-stacked] > dd + dt {
+        margin-top: 0.875rem;
     }
 
     /* --------------------------------------------------------------------- chip */
@@ -487,11 +727,11 @@
         color: var(--nav-ink);
     }
     .nav-item:hover {
-        background: rgb(255 255 255 / 0.07);
+        background: var(--nav-hover);
         color: var(--nav-high);
     }
     .nav-item[aria-current='page'] {
-        background: rgb(255 255 255 / 0.1);
+        background: var(--nav-active);
         color: var(--nav-high);
         font-weight: 600;
     }
@@ -500,7 +740,52 @@
     }
     .nav-group {
         @apply px-2.5 pb-1 pt-4 text-[0.625rem] font-bold uppercase tracking-widest;
-        color: rgb(255 255 255 / 0.34);
+        color: var(--nav-group-ink);
+    }
+
+    /*
+    | Een navigatie op een LICHT vlak.
+    |
+    | Niet een tweede set klassen maar dezelfde .nav-item op andere tokens --
+    | wat dit bestand overal doet, en de enige vorm die niet uit elkaar loopt
+    | zodra er iets aan een navigatie-item verandert.
+    |
+    | Zet hem op de <aside> of de <nav>; alles eronder erft de rollen. De
+    | actieve regel wordt --brand-soft en niet --surface-sunk: op een licht vlak
+    | is "waar sta ik" anders niet te onderscheiden van "waar hangt mijn muis".
+    */
+    .nav-light {
+        --nav:           var(--surface);
+        --nav-ink:       var(--ink-soft);
+        --nav-high:      var(--ink);
+        --nav-hover:     var(--surface-sunk);
+        --nav-active:    var(--brand-soft);
+        --nav-group-ink: var(--ink-faint);
+        background: var(--nav);
+    }
+
+    /*
+    | Het paneel van <x-nav-dropdown>. De max-hoogte met scroll hoort erbij:
+    | een paneel mag nooit onder de onderrand van het scherm verdwijnen.
+    */
+    .dropdown-panel {
+        @apply absolute top-full z-40 mt-2 max-h-[calc(100vh-6rem)] overflow-y-auto rounded-xl p-2;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        box-shadow: var(--shadow-lg);
+    }
+
+    /* ------------------------------------------------------------------ tekst */
+
+    /* Een gedempte link die bij hover aanscherpt -- de terugkeerlink van
+       <x-page>. Stond daar als onmouseover/onmouseout in het HTML, wat de
+       eigen regel van dit package overtrad en onder een strikte CSP sneuvelt. */
+    .link-muted {
+        @apply inline-flex items-center gap-1 transition;
+        color: var(--ink-faint);
+    }
+    .link-muted:hover {
+        color: var(--ink);
     }
 
     /* ------------------------------------------------------------- lege staat */
@@ -515,17 +800,28 @@
 }
 
 @layer utilities {
-    /* Op een altijd-donker vlak (navigatie, foutpagina) is wit gewoon wit en
-       geen token dat omklapt. */
+    /*
+    | Op een altijd-donker vlak (navigatie, foutpagina) is wit gewoon wit en
+    | geen token dat omklapt.
+    |
+    | Vandaar ook de twee gedempte varianten: `bg-white/10` en
+    | `text-white/40` zouden hier meekantelen met het thema, want --color-white
+    | ligt op de ladder. Deze twee niet -- ze horen bij het vlak, niet bij de
+    | voorkeur van de lezer.
+    */
     .on-dark {
         color: var(--nav-high);
+    }
+    .on-dark-soft {
+        color: rgb(255 255 255 / 0.4);
     }
     .surface-dark {
         background: var(--nav);
     }
-}
+    .surface-dark-tint {
+        background: rgb(255 255 255 / 0.1);
+    }
 
-@layer utilities {
     /* Het accent van de organisatie, voor wie er bewust om vraagt. */
     .text-accent {
         color: var(--brand-accent, var(--brand));

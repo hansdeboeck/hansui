@@ -8,5 +8,5 @@
     de lijst al weet, en dan staat er ooit een gestapelde regel in een rasterlijst.
 --}}
 
-<dt class="text-sm font-medium" style="color: var(--ink-faint)">{{ $label }}</dt>
-<dd class="text-sm" style="color: var(--ink-soft)">{{ $slot }}</dd>
+<dt class="text-sm font-medium text-gray-500">{{ $label }}</dt>
+<dd class="text-sm text-gray-700">{{ $slot }}</dd>

@@ -2,11 +2,10 @@
 
 {{-- Een link in een uitklappaneel, met een regel uitleg eronder. --}}
 <a href="{{ $href }}"
-   class="block rounded-lg px-3 py-2 transition"
-   style="{{ $active ? 'background: var(--surface-sunk)' : '' }}"
+   {{ $attributes->class(['block rounded-lg px-3 py-2 transition', 'bg-gray-100' => $active]) }}
    @if ($active) aria-current="page" @endif>
-    <span class="block text-sm font-medium" style="color: var(--ink)">{{ $label }}</span>
+    <span class="block text-sm font-medium text-gray-900">{{ $label }}</span>
     @if ($desc)
-        <span class="block text-xs" style="color: var(--ink-faint)">{{ $desc }}</span>
+        <span class="block text-xs text-gray-500">{{ $desc }}</span>
     @endif
 </a>

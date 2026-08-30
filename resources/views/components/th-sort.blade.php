@@ -14,13 +14,12 @@
     $next = $active && $direction === 'asc' ? 'desc' : 'asc';
 @endphp
 
-<th class="th" @if ($align === 'right') style="text-align: right" @endif
+<th {{ $attributes->class(['th', 'th-num' => $align === 'right']) }}
     aria-sort="{{ $active ? ($direction === 'asc' ? 'ascending' : 'descending') : 'none' }}">
     <a href="{{ request()->fullUrlWithQuery(['sort' => $by, 'dir' => $next, 'page' => null]) }}"
-       class="inline-flex items-center gap-1 transition hover:opacity-70"
-       @if ($active) style="color: var(--ink)" @endif>
+       @class(['inline-flex items-center gap-1 transition hover:opacity-70', 'text-gray-900' => $active])>
         {{ $slot }}
-        <span class="text-[0.6rem] leading-none" @unless ($active) style="opacity: .35" @endunless>
+        <span @class(['text-[0.6rem] leading-none', 'opacity-[.35]' => ! $active])>
             {{ $active && $direction === 'desc' ? '▼' : '▲' }}
         </span>
     </a>

@@ -43,15 +43,14 @@
                          formulier: hij hoort deelbaar en terug-knop-bestendig te
                          zijn, net als de filters zelf. --}}
                     <a href="{{ request()->fullUrlWithoutQuery([$key, 'page']) }}"
-                       class="grid h-4 w-4 place-items-center rounded-full transition"
-                       style="color: var(--ink-faint)"
+                       class="grid h-4 w-4 place-items-center rounded-full text-gray-500 transition"
                        aria-label="{{ __('Filter :naam wissen', ['naam' => $labels[$key]]) }}">&times;</a>
                 </span>
             @endforeach
 
             @if ($query->count() > 1)
                 <a href="{{ request()->fullUrlWithoutQuery(array_merge(array_keys($labels), ['page'])) }}"
-                   class="text-xs underline-offset-2 hover:underline" style="color: var(--ink-faint)">
+                   class="text-xs text-gray-500 underline-offset-2 hover:underline">
                     {{ __('Alles wissen') }}
                 </a>
             @endif

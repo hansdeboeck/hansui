@@ -20,19 +20,17 @@
 
 <div {{ $attributes->merge(['class' => 'mb-6']) }}>
     @if ($back)
-        <a href="{{ $back }}" class="mb-1 inline-flex items-center gap-1 text-xs transition"
-           style="color: var(--ink-faint)"
-           onmouseover="this.style.color='var(--ink)'" onmouseout="this.style.color='var(--ink-faint)'">
+        <a href="{{ $back }}" class="link-muted mb-1 text-xs">
             &larr; {{ $backLabel ?? __('Terug') }}
         </a>
     @endif
 
     <div class="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
         <div class="min-w-0">
-            <h1 class="text-xl font-semibold" style="color: var(--ink)">{{ $title }}</h1>
+            <h1 class="text-xl font-semibold text-gray-900">{{ $title }}</h1>
 
             @if ($subtitle)
-                <p class="mt-1 text-sm" style="color: var(--ink-faint)">{{ $subtitle }}</p>
+                <p class="mt-1 text-sm text-gray-500">{{ $subtitle }}</p>
             @endif
         </div>
 

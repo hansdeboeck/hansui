@@ -14,6 +14,7 @@
 |
 |   data-dismiss / data-flash    een melding wegklikken
 |   data-menu-toggle             een uitklapmenu open- en dichtklappen
+|   data-dropdown*               een uitklappaneel in de navigatiebalk
 |   data-copy                    klik om te kopieren
 |   data-confirm                 bevestiging voor een gevaarlijke actie
 |   data-autosubmit              een filter dat zijn formulier meteen indient
@@ -22,6 +23,8 @@
 |   data-theme-toggle            licht of donker
 |   data-density-toggle          compacte of ruime regels
 |   data-palette-open            een venster-event voor een zoekpalet
+|   data-regel*                  herhaalbare formulierregels
+|   data-sortable                slepen om te herordenen, met PUT naar de server
 |
 | De applicatie importeert dit in haar eigen app.js en voegt daar haar eigen
 | helpers aan toe.
@@ -61,6 +64,65 @@ document.addEventListener('click', (e) => {
     toggle.setAttribute('aria-expanded', String(open));
 });
 
+/*
+| Een uitklappaneel in de navigatiebalk -- <x-nav-dropdown>.
+|
+| Dit stond in shippingtail en pos, en de component is hier byte-identiek
+| binnengekomen ZONDER het gedrag dat eronder hing: het paneel kreeg 'hidden'
+| mee en niets haalde dat er ooit af. Vandaar dit blok.
+|
+| Drie manieren om te sluiten, en ze zijn alle drie nodig. Buiten klikken, want
+| dat is wat iemand doet die zich bedacht heeft. Escape, want de zijbalk kan het
+| ook en een schil met twee verschillende antwoorden op dezelfde toets is een
+| schil die je moet onthouden. En een tweede dropdown openen, want twee panelen
+| die tegelijk over de balk hangen, overlappen elkaar.
+*/
+function hansuiSluitDropdowns(behalve = null) {
+    document.querySelectorAll('[data-dropdown]').forEach((drop) => {
+        if (drop === behalve) {
+            return;
+        }
+
+        drop.querySelector('[data-dropdown-panel]')?.classList.add('hidden');
+        drop.querySelector('[data-dropdown-toggle]')?.setAttribute('aria-expanded', 'false');
+    });
+}
+
+document.addEventListener('click', (e) => {
+    const toggle = e.target.closest('[data-dropdown-toggle]');
+
+    if (toggle) {
+        const drop = toggle.closest('[data-dropdown]');
+        const paneel = drop?.querySelector('[data-dropdown-panel]');
+
+        if (!paneel) {
+            return;
+        }
+
+        const open = paneel.classList.toggle('hidden') === false;
+        toggle.setAttribute('aria-expanded', String(open));
+        hansuiSluitDropdowns(drop);
+
+        return;
+    }
+
+    // Een klik BINNEN een paneel laat dat paneel staan -- er staan
+    // formulieren en submenu's in -- en sluit alleen de andere.
+    hansuiSluitDropdowns(e.target.closest('[data-dropdown]'));
+});
+
+document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') {
+        return;
+    }
+
+    // De focus terug naar de knop die het paneel opende: wie met het
+    // toetsenbord sluit, staat anders in een paneel dat er niet meer is.
+    const open = document.querySelector('[data-dropdown-toggle][aria-expanded="true"]');
+    hansuiSluitDropdowns();
+    open?.focus();
+});
+
 // Klik-om-te-kopiëren voor readonly velden (secrets, URLs, tokens).
 document.addEventListener('click', async (e) => {
     const field = e.target.closest('[data-copy]');
@@ -76,6 +138,55 @@ document.addEventListener('click', async (e) => {
     } catch (_) {
         // Clipboard niet beschikbaar: de selectie volstaat om te kopiëren.
     }
+});
+
+/*
+| Een knop die iets ANDERS kopieert dan zichzelf.
+|
+| data-copy zet de haak op het veld zelf, en dat werkt zolang het veld een
+| invoerveld is dat je mag aanklikken. Voor een blok code werkt het niet: daar
+| hoort de knop ERNAAST te staan, want een klik in de tekst is een klik om te
+| selecteren. data-copy-target wijst met een selector aan wat er mee moet.
+|
+| De knop zegt even DAT het gelukt is, met de tekst uit data-copied -- dat woord
+| hoort uit de vertaling van de applicatie te komen en niet uit dit bestand.
+|
+| De oorspronkelijke tekst wordt maar EEN keer onthouden. Twee klikken snel na
+| elkaar zouden anders "Gekopieerd" als het origineel bewaren, en dan staat dat
+| woord er voorgoed.
+*/
+document.addEventListener('click', async (e) => {
+    const knop = e.target.closest('[data-copy-target]');
+    if (!knop) {
+        return;
+    }
+
+    const doel = document.querySelector(knop.getAttribute('data-copy-target'));
+    if (!doel) {
+        return;
+    }
+
+    try {
+        await navigator.clipboard.writeText(doel.value ?? doel.textContent ?? '');
+    } catch (_) {
+        // Clipboard geweigerd. Dan liever niets beweren: een knop die
+        // "Gekopieerd" toont terwijl het plakbord leeg is, is erger dan een
+        // knop die niets doet.
+        return;
+    }
+
+    const bevestiging = knop.getAttribute('data-copied');
+    if (!bevestiging) {
+        return;
+    }
+
+    knop.hansuiKopieerTekst ??= knop.textContent;
+    knop.textContent = bevestiging;
+
+    clearTimeout(knop.hansuiKopieerTimer);
+    knop.hansuiKopieerTimer = setTimeout(() => {
+        knop.textContent = knop.hansuiKopieerTekst;
+    }, 1500);
 });
 
 // Bevestiging vragen voor gevaarlijke acties.
@@ -270,7 +381,7 @@ document.addEventListener('click', (e) => {
     if (e.target.closest('[data-theme-toggle]')) {
         const next = currentTheme() === 'dark' ? 'light' : 'dark';
         document.documentElement.dataset.theme = next;
-        try { localStorage.setItem('growtail.theme', next); } catch (_) { /* privémodus */ }
+        try { localStorage.setItem('hansui.theme', next); } catch (_) { /* privémodus */ }
         paintThemeIcon();
     }
 
@@ -281,7 +392,15 @@ document.addEventListener('click', (e) => {
         } else {
             document.documentElement.dataset.density = 'compact';
         }
-        try { localStorage.setItem('growtail.density', compact ? 'ruim' : 'compact'); } catch (_) { /* privémodus */ }
+        /*
+        | Bij "ruim" de sleutel WISSEN en niet op 'ruim' zetten: dat is
+        | symmetrisch met het attribuut, dat ook verdwijnt in plaats van een
+        | tegenwaarde te krijgen, en het script in de <head> kijkt toch alleen
+        | of er 'compact' staat.
+        */
+        try {
+            compact ? localStorage.removeItem('hansui.density') : localStorage.setItem('hansui.density', 'compact');
+        } catch (_) { /* privémodus */ }
     }
 });
 
@@ -301,4 +420,120 @@ document.addEventListener('click', (e) => {
     if (e.target.closest('[data-palette-open]')) {
         window.dispatchEvent(new CustomEvent('open-palette'));
     }
+});
+
+/*
+| Herhaalbare formulierregels: data-regels.
+|
+| Een [data-regels]-blok bevat een [data-regel-lijst], een <template
+| data-regel-sjabloon> met een lege regel, en knoppen om toe te voegen of te
+| verwijderen. In het sjabloon staat __INDEX__ waar de rijindex hoort.
+|
+| De teller telt door en hergebruikt geen vrijgekomen nummers: gaten in de
+| nummering geven niets voor een PHP-array, en hergebruik zou twee velden
+| dezelfde naam geven zodra er middenin iets verwijderd is.
+*/
+document.addEventListener('click', (e) => {
+    const toevoegen = e.target.closest('[data-regel-toevoegen]');
+    if (toevoegen) {
+        e.preventDefault();
+        const blok = toevoegen.closest('[data-regels]');
+        const lijst = blok?.querySelector('[data-regel-lijst]');
+        const sjabloon = blok?.querySelector('[data-regel-sjabloon]');
+        if (!lijst || !sjabloon) {
+            return;
+        }
+
+        const index = Number(blok.dataset.regelsTeller ?? lijst.children.length);
+        blok.dataset.regelsTeller = index + 1;
+        lijst.insertAdjacentHTML('beforeend', sjabloon.innerHTML.replaceAll('__INDEX__', index));
+
+        return;
+    }
+
+    const verwijderen = e.target.closest('[data-regel-verwijderen]');
+    if (verwijderen) {
+        e.preventDefault();
+        const rij = verwijderen.closest('[data-regel]');
+        const lijst = rij?.parentElement;
+        // De laatste regel blijft staan en wordt leeggemaakt: een formulier
+        // zonder enkele regel heeft geen zin en laat de gebruiker klemzitten.
+        if (lijst && lijst.children.length > 1) {
+            rij.remove();
+        } else {
+            rij?.querySelectorAll('input').forEach((veld) => {
+                veld.value = '';
+            });
+        }
+    }
+});
+
+/*
+| Sleepbaar herordenen: data-sortable.
+|
+| Een [data-sortable] met kinderen [data-id]. Bij het loslaten gaat de nieuwe
+| volgorde als {volgorde: [id, ...]} met PUT naar data-sortable-url, met het
+| CSRF-token uit data-sortable-token.
+|
+| `draggable` wordt bij het aanwijzen gezet en niet bij het laden. Alles hier
+| luistert op `document` omdat Livewire halve schermen hertekent; een lijst die
+| ná het laden verschijnt zou anders niet sleepbaar zijn, en een MutationObserver
+| voor één attribuut is duurder dan dit.
+*/
+let hansuiGesleept = null;
+
+document.addEventListener('pointerdown', (e) => {
+    const item = e.target.closest('[data-sortable] [data-id]');
+    if (item) {
+        item.setAttribute('draggable', 'true');
+    }
+});
+
+document.addEventListener('dragstart', (e) => {
+    const item = e.target.closest('[data-sortable] [data-id]');
+    if (item) {
+        hansuiGesleept = item;
+        item.classList.add('opacity-40');
+    }
+});
+
+document.addEventListener('dragover', (e) => {
+    const doel = e.target.closest('[data-sortable] [data-id]');
+    if (!hansuiGesleept || !doel || doel === hansuiGesleept) {
+        return;
+    }
+
+    const houder = doel.closest('[data-sortable]');
+    if (houder !== hansuiGesleept.closest('[data-sortable]')) {
+        return; // Nooit tussen twee lijsten door slepen.
+    }
+
+    e.preventDefault();
+    const vak = doel.getBoundingClientRect();
+    // Zowel verticaal als horizontaal, zodat een rij én een raster werken.
+    const voorbij = e.clientY - vak.top > vak.height / 2 || e.clientX - vak.left > vak.width / 2;
+    houder.insertBefore(hansuiGesleept, voorbij ? doel.nextSibling : doel);
+});
+
+document.addEventListener('dragend', (e) => {
+    const item = e.target.closest('[data-sortable] [data-id]');
+    if (!item) {
+        return;
+    }
+
+    item.classList.remove('opacity-40');
+    hansuiGesleept = null;
+
+    const houder = item.closest('[data-sortable]');
+    const volgorde = [...houder.querySelectorAll('[data-id]')].map((el) => Number(el.dataset.id));
+
+    fetch(houder.dataset.sortableUrl, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            'X-CSRF-TOKEN': houder.dataset.sortableToken ?? '',
+        },
+        body: JSON.stringify({ volgorde }),
+    });
 });
