@@ -45,10 +45,13 @@ rangen, dispatch -- bleef daar.
   kantelt daar mee met het thema en verdwijnt dus in de lichte stand.
 - **Een slot op `<x-footer>`**, zodat een applicatie haar eigen regel kwijt kan
   zonder de component over te slaan.
-- **Zevenendertig iconen erbij** in `<x-icon>`, van `briefcase` tot `pin`. De
-  namen zijn generiek en niet die van een applicatie: `bank` en niet `sbc`,
-  `flame` en niet `brandweer` -- anders wordt dezelfde tekening in de tweede
-  applicatie onder een tweede naam opnieuw toegevoegd.
+- **Zevenendertig iconen erbij** in `<x-icon>`, plus een `size`-prop voor een
+  andere maat. Via `class` ging dat mis: die wordt bij de standaard gemerged, en
+  Tailwind sorteert oplopend -- `class="h-3.5 w-3.5"` verloor dus stil van de
+  `h-4` die de component zelf meebrengt. De namen zijn generiek -- van
+  `briefcase` tot `pin`, `bank` en niet `sbc`: een naam die naar het domein van
+  een applicatie verwijst, wordt in de tweede applicatie niet meer gevonden, en
+  dan komt dezelfde tekening er onder een tweede naam bij.
 
 ### Gewijzigd
 

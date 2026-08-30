@@ -44,7 +44,7 @@ final class ComponentsTest extends TestCase
             'filter-bar' => ['<x-filter-bar :labels="[\'q\' => \'Zoekterm\']"><input name="q"></x-filter-bar>'],
             'empty' => ['<x-empty title="Niets gevonden" :filtered="true"/>'],
             'result' => ['<x-result :result="$resultaat"/>'],
-            'icon' => ['<x-icon name="leaf"/>'],
+            'icon' => ['<x-icon name="leaf"/><x-icon name="leaf" size="h-3.5 w-3.5" class="text-gray-500"/>'],
             'field' => ['<x-field name="email" label="E-mail" help="Werkadres." :required="true"><input id="email"></x-field>'],
             'money' => ['<x-money :cents="123456"/><x-money/>'],
             'detail-list' => ['<x-detail-list :stacked="true"><x-detail-row label="Naam">Nina</x-detail-row></x-detail-list>'],

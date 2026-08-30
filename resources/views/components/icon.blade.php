@@ -1,4 +1,4 @@
-@props(['name'])
+@props(['name', 'size' => 'h-4 w-4'])
 
 {{--
     De pictogrammen van de applicatie, op een plaats.
@@ -15,9 +15,15 @@
     `flame` en niet `brandweer`. Een icoon dat naar het domein van een
     applicatie vernoemd is, wordt in de tweede applicatie niet meer gevonden --
     en dan komt dezelfde tekening er onder een tweede naam bij.
+
+    Een ANDERE MAAT gaat via `size` en niet via `class`. Dat is geen smaak: een
+    klasse wordt bij de standaard GEMERGED, en dan staan er twee maten in het
+    attribuut. Welke wint, beslist de volgorde in het stijlblad -- en Tailwind
+    sorteert oplopend, dus `class="h-3.5 w-3.5"` verliest stil van de h-4 die
+    hier al stond. Met `size` staat er precies een maat.
 --}}
 
-<svg {{ $attributes->merge(['class' => 'h-4 w-4', 'aria-hidden' => 'true']) }}
+<svg {{ $attributes->merge(['aria-hidden' => 'true'])->class([$size]) }}
      viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
      stroke-linecap="round" stroke-linejoin="round">
     @switch($name)
