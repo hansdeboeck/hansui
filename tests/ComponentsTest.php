@@ -50,7 +50,7 @@ final class ComponentsTest extends TestCase
             'detail-list' => ['<x-detail-list :stacked="true"><x-detail-row label="Naam">Nina</x-detail-row></x-detail-list>'],
             'detail-row' => ['<dl><x-detail-row label="Naam">Nina</x-detail-row></dl>'],
             'nav-link' => ['<x-nav-link href="/x" :active="true">Overzicht</x-nav-link>'],
-            'footer' => ['<x-footer/><x-footer :dark="true"/>'],
+            'footer' => ['<x-footer/><x-footer :dark="true"/><x-footer>Eigen regel</x-footer>'],
             'nav-dropdown' => ['<x-nav-dropdown label="Beheer" :wide="true" align="right">links</x-nav-dropdown>'],
             'nav-mega-group' => ['<x-nav-mega-group label="Voorraad">links</x-nav-mega-group>'],
             'nav-mega-link' => ['<x-nav-mega-link href="/x" label="Zendingen" desc="Alles onderweg" :active="true"/>'],

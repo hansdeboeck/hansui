@@ -146,6 +146,14 @@
 
         /* Regelhoogte van tabellen. Zie [data-density]. */
         --row-y: 0.75rem;
+
+        /*
+        | Wat de BROWSER zelf tekent, moet mee omklappen: een vinkje, de
+        | uitklaplijst van een <select>, een scrollbalk, een datumkiezer. Zonder
+        | color-scheme blijven die wit op een donkere pagina -- de enige plek
+        | waar tokens niet bij kunnen.
+        */
+        color-scheme: light;
     }
 
     /*
@@ -200,6 +208,8 @@
             --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
             --shadow-md: 0 4px 16px -4px rgb(0 0 0 / 0.5), 0 1px 3px rgb(0 0 0 / 0.4);
             --shadow-lg: 0 24px 60px -20px rgb(0 0 0 / 0.7);
+
+            color-scheme: dark;
         }
     }
 
@@ -240,6 +250,8 @@
         --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
         --shadow-md: 0 4px 16px -4px rgb(0 0 0 / 0.5), 0 1px 3px rgb(0 0 0 / 0.4);
         --shadow-lg: 0 24px 60px -20px rgb(0 0 0 / 0.7);
+
+        color-scheme: dark;
     }
 
     /*
@@ -499,6 +511,20 @@
     .help {
         @apply mt-1 text-xs;
         color: var(--ink-faint);
+    }
+
+    /*
+    | Een vinkje of een radioknop.
+    |
+    | Bewust GEEN nagebouwd vierkantje met een SVG erin: het native besturings-
+    | element werkt met het toetsenbord, met een schermlezer en met de
+    | zoekfunctie van de browser, en accent-color is precies genoeg om het in
+    | de merkkleur te zetten. Het formaat staat erbij omdat het standaardvinkje
+    | naast een .input van 14 pixels te klein oogt.
+    */
+    .check {
+        @apply h-4 w-4 flex-none;
+        accent-color: var(--brand);
     }
 
     /*
@@ -952,6 +978,12 @@
     }
     .surface-dark-tint {
         background: rgb(255 255 255 / 0.1);
+    }
+    /* En de scheidingslijn op datzelfde vlak. `border-white/10` zou hier
+       meekantelen -- --color-white ligt op de ladder -- en dan verdwijnt de
+       lijn in de lichte stand. */
+    .line-dark {
+        border-color: rgb(255 255 255 / 0.12);
     }
 
     /* Het accent van de organisatie, voor wie er bewust om vraagt. */

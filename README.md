@@ -70,7 +70,8 @@ zodat `bg-gray-900 text-white` op een knop vanzelf omdraait.
 
 Een vlak dat **altijd** donker is — navigatie, aanmeldpagina, foutpagina — mag
 dus geen `bg-gray-900 text-white` gebruiken, maar `surface-dark` en `on-dark`,
-of `surface-dark-tint` en `on-dark-soft` voor de gedempte varianten.
+of `surface-dark-tint` en `on-dark-soft` voor de gedempte varianten -- en
+`line-dark` voor een scheidingslijn erop.
 
 Hetzelfde geldt voor de statuskleuren: `red`, `emerald`, `amber` en `blue`
 liggen op `--danger`, `--ok`, `--warn` en `--info`. **Zonder gaten** — stap 50
@@ -78,7 +79,7 @@ tot 200 is de zachte variant, 300 tot 950 de volle. Elke stap die een view kan
 typen bestaat, en kantelt mee.
 
 **Componentklassen.** `.btn` + varianten, `.card`, `.panel`, `.label`, `.input`,
-`.help`, `.badge` + varianten, `.alert` + varianten, `.tone-` + rol, `.th`,
+`.help`, `.check`, `.badge` + varianten, `.alert` + varianten, `.tone-` + rol, `.th`,
 `.td`, `.chip`, `.choice`, `.nav-item`, `.nav-group`, `.nav-light`,
 `.dropdown-panel`, `.tab`, `.modal` + `.modal-head`, `.modal-body` en
 `.modal-foot`, `.link-muted`, `.empty`, `.sidebar`.

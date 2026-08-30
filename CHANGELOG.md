@@ -36,6 +36,15 @@ rangen, dispatch -- bleef daar.
   `aria-current` net als `.nav-item`.
 - **`<x-alert>`**: dezelfde balk als de flash-partial, maar voor waar een scherm
   zelf iets te zeggen heeft.
+- **`.check`** voor vinkjes en radioknoppen: het native element in de merkkleur,
+  via `accent-color`. En **`color-scheme`** in alle drie de themablokken, zodat
+  wat de browser zelf tekent -- een vinkje, de uitklaplijst van een `<select>`,
+  een scrollbalk, een datumkiezer -- meekantelt. Dat is de enige plek waar
+  tokens niet bij kunnen, en ze bleven wit op een donkere pagina.
+- **`.line-dark`**, de scheidingslijn op een altijd-donker vlak. `border-white/10`
+  kantelt daar mee met het thema en verdwijnt dus in de lichte stand.
+- **Een slot op `<x-footer>`**, zodat een applicatie haar eigen regel kwijt kan
+  zonder de component over te slaan.
 - **Zevenendertig iconen erbij** in `<x-icon>`, van `briefcase` tot `pin`. De
   namen zijn generiek en niet die van een applicatie: `bank` en niet `sbc`,
   `flame` en niet `brandweer` -- anders wordt dezelfde tekening in de tweede
