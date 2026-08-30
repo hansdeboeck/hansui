@@ -53,7 +53,7 @@ class HansUiServiceProvider extends ServiceProvider
      * geen stilzwijgende botsing meer op, maar een rode test.
      *
      * Per component registreren zou de lijst afdwingen zonder test, maar dan
-     * moet elk van deze eenentwintig een klasse krijgen in plaats van een
+     * moet elk van deze achtentwintig een klasse krijgen in plaats van een
      * Blade-bestand. Dat is de omhaal niet waard voor dezelfde bewaking.
      *
      * @var array<int, string>
@@ -80,6 +80,13 @@ class HansUiServiceProvider extends ServiceProvider
         'nav-dropdown',
         'nav-mega-group',
         'nav-mega-link',
+        'section',
+        'stat',
+        'modal',
+        'avatar',
+        'tabs',
+        'choice',
+        'alert',
     ];
 
     public function boot(): void

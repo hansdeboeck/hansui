@@ -54,6 +54,13 @@ final class ComponentsTest extends TestCase
             'nav-dropdown' => ['<x-nav-dropdown label="Beheer" :wide="true" align="right">links</x-nav-dropdown>'],
             'nav-mega-group' => ['<x-nav-mega-group label="Voorraad">links</x-nav-mega-group>'],
             'nav-mega-link' => ['<x-nav-mega-link href="/x" label="Zendingen" desc="Alles onderweg" :active="true"/>'],
+            'section' => ['<x-section title="Verdeling" subtitle="Per afdeling" :padding="false"><x-slot:actions>knop</x-slot:actions> Inhoud <x-slot:footer>voet</x-slot:footer></x-section>'],
+            'stat' => ['<x-stat label="Leden" value="128" icon="people" tone="brand" hint="deze week" href="/leden"/><x-stat label="Saldo"><x-money :cents="1250"/></x-stat>'],
+            'modal' => ['<x-modal id="rang" title="Nieuwe rang" size="lg" :open="true"><div class="modal-body">veld</div></x-modal>'],
+            'avatar' => ['<x-avatar name="Nina Bodart" size="lg"/><x-avatar name="Nina" src="/n.jpg"/>'],
+            'tabs' => ['<x-tabs :items="[[\'label\' => \'Jobs\', \'href\' => \'/jobs\', \'active\' => true, \'count\' => 4]]">terug</x-tabs>'],
+            'choice' => ['<x-choice name="job" value="politie" label="Politie" icon="shield" hint="Rang 3" :checked="true"/>'],
+            'alert' => ['<x-alert variant="warning" title="Let op" :dismissible="true">Dit kan niet terug.</x-alert>'],
         ];
     }
 

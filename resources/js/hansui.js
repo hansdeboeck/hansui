@@ -15,6 +15,7 @@
 |   data-dismiss / data-flash    een melding wegklikken
 |   data-menu-toggle             een uitklapmenu open- en dichtklappen
 |   data-dropdown*               een uitklappaneel in de navigatiebalk
+|   data-modal*                  een venster openen en sluiten
 |   data-copy                    klik om te kopieren
 |   data-confirm                 bevestiging voor een gevaarlijke actie
 |   data-autosubmit              een filter dat zijn formulier meteen indient
@@ -122,6 +123,54 @@ document.addEventListener('keydown', (e) => {
     hansuiSluitDropdowns();
     open?.focus();
 });
+
+/*
+| Het venster van <x-modal>.
+|
+| De <dialog> doet het werk -- showModal() legt de focus vast, verbergt de rest
+| van de pagina voor een schermlezer, sluit op Escape en tekent zijn eigen waas.
+| Wat hier staat is alleen WANNEER: welke knop opent, welke sluit.
+|
+| Een klik OP de dialog zelf is een klik op het waas: de kinderen vullen hem
+| helemaal (padding: 0), dus alles wat binnenin gebeurt heeft een ander doelwit.
+| Vandaar dat die ene vorm sluit en een klik in het venster niet.
+*/
+document.addEventListener('click', (e) => {
+    const opener = e.target.closest('[data-modal-open]');
+    if (opener) {
+        document.querySelector(opener.getAttribute('data-modal-open'))?.showModal?.();
+        return;
+    }
+
+    if (e.target.closest('[data-modal-close]')) {
+        e.target.closest('dialog')?.close();
+        return;
+    }
+
+    if (e.target.matches?.('dialog[data-modal]')) {
+        e.target.close();
+    }
+});
+
+/*
+| Een venster dat meteen open moet: data-modal="open".
+|
+| Dit is de terugweg van een formulier IN een venster. De invoer komt met een
+| validatiefout terug op een verse pagina, en die pagina tekent het venster
+| dicht -- de gebruiker ziet dan een lijst met fouten die nergens naar wijst.
+|
+| Niet blind op DOMContentLoaded: als dit bestand als module geladen wordt
+| (Vite doet dat) is de DOM er al en komt die gebeurtenis nooit meer.
+*/
+function hansuiOpenVensters() {
+    document.querySelectorAll('dialog[data-modal="open"]').forEach((d) => d.showModal?.());
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', hansuiOpenVensters);
+} else {
+    hansuiOpenVensters();
+}
 
 // Klik-om-te-kopiëren voor readonly velden (secrets, URLs, tokens).
 document.addEventListener('click', async (e) => {

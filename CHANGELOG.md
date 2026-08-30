@@ -3,6 +3,50 @@
 Dit package zit straks in zes applicaties op een gepinde versie. Wat hier staat
 is wat je moet weten voor je die pin verzet.
 
+## 0.2.0
+
+Het paneel van `streek` stapte over van Metronic naar dit package, en dat is de
+tweede soort consument die dit package tot nu toe niet had: geen applicatie die
+haar eigen componentlaag verving, maar een die uit een gekocht thema kwam. Wat
+daar generiek aan bleek, staat hier nu; wat het domein van streek kent -- jobs,
+rangen, dispatch -- bleef daar.
+
+### Toegevoegd
+
+- **`<x-section>`**: de kaart met een kopregel erboven. Dat was het gat tussen
+  `<x-card>` (kaal vlak) en `<x-table>` (tekent zijn eigen kop): in het paneel
+  van streek stond die vorm drieentachtig keer met de hand, en de helft ervan
+  had de ondertitel of de knop net ergens anders staan.
+- **`<x-stat>`**: het kerncijfer van een dashboard, met `.tone-`-klassen voor
+  het vlak achter de icoon. Vijfentwintig keer nagebouwd, in vier maten -- en
+  twee cijfers naast elkaar in verschillende maten zien er even belangrijk uit
+  terwijl ze het niet zijn.
+- **`<x-modal>`**, als echte `<dialog>` met `data-modal`, `data-modal-open` en
+  `data-modal-close` in `hansui.js`. Nagebouwde vensters moeten zelf de focus
+  vasthouden, `Escape` afvangen, de pagina eronder verbergen en het waas
+  tekenen; `showModal()` doet die vier. `:open` zet het venster meteen open,
+  want een formulier in een venster komt met zijn validatiefouten terug op een
+  verse pagina -- en die tekende het venster dicht.
+- **`<x-avatar>`**: een foto, of de eerste letter als er geen is. De terugval is
+  het punt: waar ze ontbrak stond er een gebroken plaatje.
+- **`<x-choice>`** en `.choice`: een radioknop als tegel. De aangevinkte staat
+  komt uit `:has(:checked)` en niet uit JavaScript dat een klasse bijhoudt --
+  dat laatste klopt niet meer zodra een formulier met oude invoer terugkomt.
+- **`<x-tabs>`** en `.tab`: de pillenrij tussen samenhangende schermen, op
+  `aria-current` net als `.nav-item`.
+- **`<x-alert>`**: dezelfde balk als de flash-partial, maar voor waar een scherm
+  zelf iets te zeggen heeft.
+- **Zevenendertig iconen erbij** in `<x-icon>`, van `briefcase` tot `pin`. De
+  namen zijn generiek en niet die van een applicatie: `bank` en niet `sbc`,
+  `flame` en niet `brandweer` -- anders wordt dezelfde tekening in de tweede
+  applicatie onder een tweede naam opnieuw toegevoegd.
+
+### Gewijzigd
+
+- **`<x-money :decimals="0">`** voor bedragen zonder centen. Een spelsaldo of
+  een begroting in duizenden toont er geen, en "€ 1.284.000,00" is vier tekens
+  ruis in een kolom die toch al breed is. De standaard blijft twee.
+
 ## 0.1.0
 
 De eerste uitgebrachte versie, en meteen de eerste die ergens onder ligt:

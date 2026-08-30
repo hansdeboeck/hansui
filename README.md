@@ -78,22 +78,29 @@ tot 200 is de zachte variant, 300 tot 950 de volle. Elke stap die een view kan
 typen bestaat, en kantelt mee.
 
 **Componentklassen.** `.btn` + varianten, `.card`, `.panel`, `.label`, `.input`,
-`.help`, `.badge` + varianten, `.alert` + varianten, `.th`, `.td`, `.chip`,
-`.nav-item`, `.nav-group`, `.nav-light`, `.dropdown-panel`, `.link-muted`,
-`.empty`, `.sidebar`.
+`.help`, `.badge` + varianten, `.alert` + varianten, `.tone-` + rol, `.th`,
+`.td`, `.chip`, `.choice`, `.nav-item`, `.nav-group`, `.nav-light`,
+`.dropdown-panel`, `.tab`, `.modal` + `.modal-head`, `.modal-body` en
+`.modal-foot`, `.link-muted`, `.empty`, `.sidebar`.
 
 `.nav-light` op de omhulling zet dezelfde `.nav-item` op een licht vlak. Geen
 tweede klassenset maar andere tokens -- `--nav`, `--nav-ink`, `--nav-high`,
 `--nav-hover`, `--nav-active` -- want een navigatie die twee keer geschreven
 staat, loopt uit elkaar zodra er iets aan verandert.
 
-**Blade-componenten**, zonder prefix: `<x-page>`, `<x-card>`, `<x-table>`,
-`<x-th-sort>`, `<x-filter-bar>`, `<x-empty>`, `<x-result>`, `<x-icon>`,
-`<x-button>`, `<x-badge>`, `<x-field>`, `<x-money>`, `<x-code-block>`,
-`<x-key-value>`, `<x-detail-list>`, `<x-detail-row>`, `<x-nav-link>`,
-`<x-footer>`, `<x-nav-dropdown>`, `<x-nav-mega-group>`, `<x-nav-mega-link>`.
-Ook bereikbaar als `<x-hansui::page>` wanneer een applicatie de korte naam zelf
-al gebruikt.
+**Blade-componenten**, zonder prefix: `<x-page>`, `<x-card>`, `<x-section>`,
+`<x-table>`, `<x-th-sort>`, `<x-filter-bar>`, `<x-empty>`, `<x-result>`,
+`<x-icon>`, `<x-button>`, `<x-badge>`, `<x-alert>`, `<x-stat>`, `<x-avatar>`,
+`<x-field>`, `<x-choice>`, `<x-money>`, `<x-modal>`, `<x-code-block>`,
+`<x-key-value>`, `<x-detail-list>`, `<x-detail-row>`, `<x-tabs>`,
+`<x-nav-link>`, `<x-footer>`, `<x-nav-dropdown>`, `<x-nav-mega-group>`,
+`<x-nav-mega-link>`. Ook bereikbaar als `<x-hansui::page>` wanneer een
+applicatie de korte naam zelf al gebruikt.
+
+`<x-card>` is een kaal vlak, `<x-section>` diezelfde kaart met een kopregel
+erboven, en `<x-table>` de vorm met een tabel erin. `<x-stat>` is het
+kerncijfer van een dashboard, `<x-choice>` een radioknop die eruitziet als een
+tegel, en `<x-tabs>` de pillenrij tussen samenhangende schermen.
 
 **De flash-partial** is een view en geen component, want ze leest de sessie:
 
@@ -115,6 +122,9 @@ ophoudt te werken.
 | `data-dropdown` | de omhulling | markeert een uitklapmenu |
 | `data-dropdown-toggle` | de knop erin | opent en sluit; `aria-expanded` volgt |
 | `data-dropdown-panel` | het paneel erin | wat er open- en dichtgaat |
+| `data-modal` | de `<dialog>` van `<x-modal>` | markeert een venster; met de waarde `open` staat het er meteen |
+| `data-modal-open` | een knop | opent het venster dat de selector aanwijst |
+| `data-modal-close` | een knop erin | sluit het venster; klikken op het waas ook |
 | `data-copy` | een veld of een span | klikken kopieert de waarde |
 | `data-copy-target` | een knop | klikken kopieert wat de selector aanwijst |
 | `data-copied` | diezelfde knop | wat hij anderhalve seconde toont als het gelukt is |

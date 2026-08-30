@@ -47,6 +47,34 @@ paneel laat het staan.</p>
     </div>
 </div>
 
+<h2>Venster — data-modal</h2>
+
+<p>Verwacht: de knop opent; het kruisje sluit; een klik op het waas sluit; een
+klik <em>in</em> het venster niet; Escape sluit (dat doet de browser zelf), en
+de focus staat daarna weer op de knop die opende. Het tweede venster staat er
+al open bij het laden, want het draagt <code>data-modal="open"</code>.</p>
+
+<button type="button" data-modal-open="#venster-a">Nieuwe rang</button>
+
+<dialog data-modal id="venster-a">
+    <div class="modal-head">
+        <h3>Nieuwe rang</h3>
+        <button type="button" data-modal-close aria-label="Sluiten">&times;</button>
+    </div>
+    <form method="dialog">
+        <div class="modal-body"><input name="naam" placeholder="Rangnaam"></div>
+        <div class="modal-foot"><button type="button" data-modal-close>Annuleren</button></div>
+    </form>
+</dialog>
+
+<dialog data-modal="open" id="venster-b">
+    <div class="modal-head">
+        <h3>Dit stond al open</h3>
+        <button type="button" data-modal-close aria-label="Sluiten">&times;</button>
+    </div>
+    <div class="modal-body">De terugweg van een formulier met een validatiefout.</div>
+</dialog>
+
 <h2>Thema en dichtheid</h2>
 
 <p>Verwacht: de knop klapt om, de sleutel verschijnt in localStorage, en na
@@ -83,6 +111,8 @@ niet op een tegenwaarde gezet.</p>
             'data-density    : ' + (el.dataset.density ?? '(niet gezet)'),
             'hansui.theme    : ' + (localStorage.getItem('hansui.theme') ?? '(niet gezet)'),
             'hansui.density  : ' + (localStorage.getItem('hansui.density') ?? '(niet gezet)'),
+            'venster A open  : ' + document.getElementById('venster-a').open,
+            'venster B open  : ' + document.getElementById('venster-b').open,
             'paneel A open   : ' + open('paneel-a'),
             'paneel B open   : ' + open('paneel-b'),
             'aria-expanded A : ' + document.getElementById('toggle-a').getAttribute('aria-expanded'),

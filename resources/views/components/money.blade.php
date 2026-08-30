@@ -4,6 +4,7 @@
     'currency' => '€',
     'signed' => false,
     'blank' => '—',
+    'decimals' => 2,
 ])
 
 @php
@@ -26,7 +27,14 @@
     $value = $cents !== null ? ((int) $cents) / 100 : (float) ($amount ?? 0);
     $missing = $cents === null && $amount === null;
 
-    $formatted = number_format(abs($value), 2, ',', '.');
+    /*
+    | CENTEN MOGEN WEG, maar alleen als je erom vraagt.
+    |
+    | Een factuur toont ze altijd; een spelsaldo of een begroting die in duizenden
+    | telt, nooit -- "€ 1.284.000,00" is vier tekens ruis in een kolom die toch al
+    | breed is. `:decimals="0"` rondt af op hele euro's.
+    */
+    $formatted = number_format(abs($value), max(0, (int) $decimals), ',', '.');
 
     // Het minteken vóór het symbool: "-€ 12,50" en niet "€ -12,50". Dat is hoe
     // een creditnota eruitziet.
