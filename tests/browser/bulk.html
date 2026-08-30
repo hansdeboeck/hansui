@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="utf-8">
+    <title>HansUI bulkselectie — harnas</title>
+</head>
+<body>
+
+<!--
+    Twee opstellingen naast elkaar, precies zoals ze in de applicaties staan.
+
+    Links: growtail. De vakjes staan AL in het formulier dat de actie uitvoert,
+    dus ze zijn zelf de invoer en er hoeft niets gespiegeld te worden.
+
+    Rechts: shippingtail. De balk bevat EIGEN formulieren, dus de aangevinkte
+    waarden moeten erin gespiegeld worden als verborgen velden.
+-->
+
+<h2>Opstelling 1 — vakjes in het actieformulier (growtail)</h2>
+<form id="form-a" method="POST" action="/doel-a">
+    <div data-bulk id="scope-a">
+        <input type="checkbox" data-bulk-all id="a-all">
+        <input type="checkbox" name="ids[]" data-bulk-item value="1" id="a-1">
+        <input type="checkbox" name="ids[]" data-bulk-item value="2" id="a-2">
+        <input type="checkbox" name="ids[]" data-bulk-item value="3" id="a-3">
+
+        <div data-bulk-bar hidden id="bar-a">
+            <span data-bulk-count id="count-a"></span>
+            <button type="submit">Doen</button>
+        </div>
+    </div>
+</form>
+
+<h2>Opstelling 2 — balk met eigen formulieren (shippingtail)</h2>
+<div data-bulk="ids[]" id="scope-b">
+    <input type="checkbox" data-bulk-all id="b-all">
+    <input type="checkbox" data-bulk-item value="10" id="b-1">
+    <input type="checkbox" data-bulk-item value="20" id="b-2">
+    <input type="checkbox" data-bulk-item value="30" id="b-3">
+
+    <div data-bulk-bar hidden id="bar-b">
+        <span data-bulk-count="zending|zendingen" id="count-b"></span>
+
+        <form method="POST" action="/doel-b1" id="form-b1"></form>
+        <form method="POST" action="/doel-b2" id="form-b2"></form>
+    </div>
+</div>
+
+<!--
+    Open dit bestand met een statische server naast het package, bijvoorbeeld:
+
+        cd hansui && php -S 127.0.0.1:8020
+        open http://127.0.0.1:8020/tests/browser/bulk.html
+
+    Er is geen geautomatiseerde test: dit is browsergedrag zonder serverkant, en
+    een testrunner ervoor optuigen kost meer dan het bewaakt. Wat het WEL doet is
+    de twee opstellingen naast elkaar zetten, zodat een wijziging aan de
+    bulkselectie in een minuut na te lopen is.
+-->
+<script type="module" src="../../resources/js/hansui.js"></script>
+</body>
+</html>

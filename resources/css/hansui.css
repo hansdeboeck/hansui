@@ -1,0 +1,533 @@
+@source '../views';
+
+/*
+|------------------------------------------------------------------------------
+| HansUI -- de gedeelde componentlaag
+|------------------------------------------------------------------------------
+|
+| Dit bestand wordt geimporteerd door de app.css van de applicatie, NA
+| `@import 'tailwindcss'`. Het levert geen entry-directives en scant alleen zijn
+| eigen views; de applicatie scant de hare.
+|
+| DE OPZET, in drie lagen:
+|
+|  1. Een NEUTRALE LADDER (--n-0 tot --n-10) en een set SEMANTISCHE tokens
+|     daarbovenop. Een scherm noemt nooit een kleur, alleen een rol.
+|  2. Diezelfde ladder wordt in @theme over Tailwinds gray-schaal gelegd. Dat is
+|     wat dit package mogelijk maakt: een applicatie met tweeduizend
+|     `text-gray-500` in haar views kantelt mee met het thema zonder dat er een
+|     view aangeraakt wordt. Zolang de kleuren als utilities in de klassen zaten,
+|     kon een project alleen afwijken door te forken.
+|  3. De componentklassen (.btn, .card, .input, .badge, .th, .td) houden de namen
+|     die ze in ota, pos, shippingtail en growtail al hadden. Overstappen is
+|     daardoor een import, geen herschrijving.
+|
+| DRIE TOESTANDEN, niet twee. Wie niets kiest, krijgt de systeemvoorkeur; wie
+| wel kiest, zet data-theme op <html> en dat wint in beide richtingen. Definieer
+| daarom NOOIT een kleur alleen binnen een media-query of een [data-theme]-blok:
+| in de niet-gestempelde toestand bestaat die kleur dan niet.
+|
+| AFWIJKEN doet een applicatie met TOKENS, na deze import:
+|
+|     :root { --brand: #8a1538; }
+|
+| en niet door een klasse over te schrijven. Wie een klasse moet forken, heeft
+| een gat in dit bestand gevonden -- meld het, dan hoort het hier thuis.
+*/
+@layer base {
+    :root {
+        /* De neutrale ladder: van de bovenste laag naar de donkerste inkt. */
+        --n-0:  #ffffff;
+        --n-1:  #f7f9fa;
+        --n-2:  #edf1f2;
+        --n-3:  #dfe5e7;
+        --n-4:  #c9d1d4;
+        --n-5:  #9aa6ab;
+        --n-6:  #78848a;
+        --n-7:  #5a666b;
+        --n-8:  #465055;
+        --n-9:  #2a3438;
+        --n-10: #101619;
+
+        /* De ondergrond staat naast de ladder: de pagina is geen kaart. */
+        --paper: #f1f4f5;
+
+        /* Rollen. Een scherm gebruikt deze, nooit --n-* rechtstreeks. */
+        --surface:       var(--n-0);
+        --surface-hover: var(--n-1);
+        --surface-sunk:  var(--n-2);
+        --line:          var(--n-3);
+        --line-strong:   var(--n-4);
+        --ink:           var(--n-10);
+        --ink-soft:      var(--n-8);
+        --ink-faint:     var(--n-6);
+
+        /* De donkere navigatie is in beide thema's donker. */
+        --nav:      #161d21;
+        --nav-ink:  #cfd8dc;
+        --nav-high: #ffffff;
+
+        /*
+        | Merk en semantiek staan LOS van elkaar. Groen is Growtail; groen is
+        | nooit een status. Daarom een eigen --ok, ook al lijkt hij erop: zo
+        | verandert een huisstijl in een andere kleur niet stilletjes de
+        | betekenis van "in orde".
+        */
+        --brand:      var(--brand-primary, #1a6a52);
+        --brand-deep: #12513e;
+        --brand-soft: #e1ede8;
+        --brand-line: #b4cfc5;
+        --on-brand:   var(--brand-on-primary, #ffffff);
+
+        --ok:        #1e7a4f;
+        --ok-soft:   #e3f0e9;
+        --danger:      #bd2b36;
+        --danger-soft: #fae6e8;
+        --warn:        #8c6708;
+        --warn-soft:   #f5eeda;
+        --info:        #1f5e96;
+        --info-soft:   #e2ebf3;
+
+        --shadow-sm: 0 1px 2px rgb(16 22 25 / 0.06);
+        --shadow-md: 0 4px 16px -4px rgb(16 22 25 / 0.10), 0 1px 3px rgb(16 22 25 / 0.06);
+        --shadow-lg: 0 24px 60px -20px rgb(16 22 25 / 0.28);
+
+        /* Regelhoogte van tabellen. Zie [data-density]. */
+        --row-y: 0.75rem;
+    }
+
+    @media (prefers-color-scheme: dark) {
+        :root:not([data-theme='light']) {
+            --n-0:  #161a1c;
+            --n-1:  #1b2124;
+            --n-2:  #1d2225;
+            --n-3:  #282f32;
+            --n-4:  #3a4246;
+            --n-5:  #5d686d;
+            --n-6:  #748086;
+            --n-7:  #8c979c;
+            --n-8:  #a3aeb3;
+            --n-9:  #c6cfd3;
+            --n-10: #e5eaec;
+
+            --paper: #0e1113;
+
+            --nav:      #0a0f12;
+            --nav-ink:  #b4bfc4;
+            --nav-high: #ffffff;
+
+            --brand:      color-mix(in srgb, var(--brand-primary, #4fb58d) 62%, #ffffff);
+            --brand-deep: #74cca6;
+            --brand-soft: #15251e;
+            --brand-line: #2c4839;
+            --on-brand:   #06120d;
+
+            --ok:          #56c093;
+            --ok-soft:     #14251d;
+            --danger:      #ec8590;
+            --danger-soft: #2b1719;
+            --warn:        #d9ac55;
+            --warn-soft:   #2a2416;
+            --info:        #6faddd;
+            --info-soft:   #15222e;
+
+            --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+            --shadow-md: 0 4px 16px -4px rgb(0 0 0 / 0.5), 0 1px 3px rgb(0 0 0 / 0.4);
+            --shadow-lg: 0 24px 60px -20px rgb(0 0 0 / 0.7);
+        }
+    }
+
+    :root[data-theme='dark'] {
+        --n-0:  #161a1c;
+        --n-1:  #1b2124;
+        --n-2:  #1d2225;
+        --n-3:  #282f32;
+        --n-4:  #3a4246;
+        --n-5:  #5d686d;
+        --n-6:  #748086;
+        --n-7:  #8c979c;
+        --n-8:  #a3aeb3;
+        --n-9:  #c6cfd3;
+        --n-10: #e5eaec;
+
+        --paper: #0e1113;
+
+        --nav:      #0a0f12;
+        --nav-ink:  #b4bfc4;
+        --nav-high: #ffffff;
+
+        --brand:      color-mix(in srgb, var(--brand-primary, #4fb58d) 62%, #ffffff);
+        --brand-deep: #74cca6;
+        --brand-soft: #15251e;
+        --brand-line: #2c4839;
+        --on-brand:   #06120d;
+
+        --ok:          #56c093;
+        --ok-soft:     #14251d;
+        --danger:      #ec8590;
+        --danger-soft: #2b1719;
+        --warn:        #d9ac55;
+        --warn-soft:   #2a2416;
+        --info:        #6faddd;
+        --info-soft:   #15222e;
+
+        --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+        --shadow-md: 0 4px 16px -4px rgb(0 0 0 / 0.5), 0 1px 3px rgb(0 0 0 / 0.4);
+        --shadow-lg: 0 24px 60px -20px rgb(0 0 0 / 0.7);
+    }
+
+    /*
+    | Compacte dichtheid. Wie 400 dossiers scant, wil er twintig tegelijk zien;
+    | wie er een invult, wil ruimte. Dat is een voorkeur van de gebruiker en geen
+    | aanname van de ontwerper, dus het staat op <html> en niet in de CSS.
+    */
+    :root[data-density='compact'] {
+        --row-y: 0.3125rem;
+    }
+
+    html {
+        background: var(--paper);
+    }
+
+    body {
+        background: var(--paper);
+        color: var(--ink);
+        /* Cijfers in kolommen horen onder elkaar te staan. Deze applicatie
+           bestaat voor de helft uit datums, aantallen en bedragen. */
+        font-variant-numeric: tabular-nums;
+    }
+
+    /* Alpine verbergt pas als hij geladen is; zonder deze regel flitst een
+       dialoog bij elke paginalading even open. */
+    [x-cloak] {
+        display: none !important;
+    }
+
+    /* Alleen een zichtbare ring bij toetsenbordfocus, niet bij een muisklik. */
+    :focus-visible {
+        outline: 2px solid var(--brand);
+        outline-offset: 2px;
+        border-radius: 4px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+            animation-duration: 0.001ms !important;
+            transition-duration: 0.001ms !important;
+        }
+    }
+}
+
+/*
+| Tailwinds eigen schaal over de ladder heen.
+|
+| Hierdoor betekent `text-gray-500` in een view voortaan "gedempte tekst" in
+| plaats van "#6b7280", en kantelt hij mee met het thema. Wit is bewust
+| meegenomen: `bg-gray-900 text-white` op een knop wordt in het donker vanzelf
+| licht-op-donker, want beide uiteinden draaien tegelijk om.
+|
+| Een oppervlak dat ALTIJD donker is (de navigatie, de foutpagina) gebruikt
+| daarom --nav en --nav-high, en niet wit.
+*/
+@theme {
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+
+    --color-white: var(--n-0);
+    --color-gray-50: var(--n-1);
+    --color-gray-100: var(--n-2);
+    --color-gray-200: var(--n-3);
+    --color-gray-300: var(--n-4);
+    --color-gray-400: var(--n-5);
+    --color-gray-500: var(--n-6);
+    --color-gray-600: var(--n-7);
+    --color-gray-700: var(--n-8);
+    --color-gray-800: var(--n-9);
+    --color-gray-900: var(--n-10);
+
+    --color-red-50: var(--danger-soft);
+    --color-red-100: var(--danger-soft);
+    --color-red-200: var(--danger-soft);
+    --color-red-500: var(--danger);
+    --color-red-600: var(--danger);
+    --color-red-700: var(--danger);
+
+    --color-emerald-50: var(--ok-soft);
+    --color-emerald-100: var(--ok-soft);
+    --color-emerald-500: var(--ok);
+    --color-emerald-600: var(--ok);
+    --color-emerald-700: var(--ok);
+
+    --color-amber-50: var(--warn-soft);
+    --color-amber-100: var(--warn-soft);
+    --color-amber-500: var(--warn);
+    --color-amber-600: var(--warn);
+    --color-amber-700: var(--warn);
+
+    --color-blue-50: var(--info-soft);
+    --color-blue-100: var(--info-soft);
+    --color-blue-500: var(--info);
+    --color-blue-600: var(--info);
+    --color-blue-700: var(--info);
+}
+
+@layer components {
+    /* ---------------------------------------------------------------- knoppen */
+    .btn {
+        @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition;
+        @apply focus-visible:outline-none disabled:cursor-default disabled:opacity-50;
+    }
+    .btn-sm {
+        @apply gap-1.5 px-3 py-1.5 text-xs;
+    }
+
+    /* De primaire actie is het merk. Dat was gray-900: elke knop in de
+       applicatie zag er even belangrijk uit als de gevaarlijkste. */
+    .btn-primary {
+        background: var(--brand);
+        color: var(--on-brand);
+    }
+    .btn-primary:hover:not(:disabled) {
+        background: var(--brand-deep);
+    }
+
+    .btn-secondary {
+        background: var(--surface);
+        color: var(--ink-soft);
+        border: 1px solid var(--line-strong);
+    }
+    .btn-secondary:hover:not(:disabled) {
+        background: var(--surface-hover);
+        color: var(--ink);
+    }
+
+    .btn-ghost {
+        color: var(--ink-faint);
+    }
+    .btn-ghost:hover:not(:disabled) {
+        background: var(--surface-sunk);
+        color: var(--ink);
+    }
+
+    .btn-success {
+        background: var(--ok);
+        color: var(--on-brand);
+    }
+    .btn-success:hover:not(:disabled) {
+        filter: brightness(1.08);
+    }
+
+    .btn-danger {
+        background: var(--danger);
+        color: var(--on-brand);
+    }
+    .btn-danger:hover:not(:disabled) {
+        filter: brightness(1.08);
+    }
+
+    .btn-danger-outline {
+        background: var(--surface);
+        color: var(--danger);
+        border: 1px solid var(--danger);
+    }
+    .btn-danger-outline:hover:not(:disabled) {
+        background: var(--danger-soft);
+    }
+
+    /* ----------------------------------------------------------------- vlakken */
+    .card {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 0.75rem;
+        box-shadow: var(--shadow-sm);
+    }
+
+    /* Een vlak zonder eigen rand, voor een kaart binnen een kaart. */
+    .panel {
+        background: var(--surface-sunk);
+        border-radius: 0.625rem;
+    }
+
+    /* ------------------------------------------------------------ formulieren */
+    .label {
+        @apply mb-1 block text-sm font-medium;
+        color: var(--ink-soft);
+    }
+    .input {
+        @apply block w-full rounded-lg px-3 py-2 text-sm transition;
+        background: var(--surface);
+        border: 1px solid var(--line-strong);
+        color: var(--ink);
+        box-shadow: var(--shadow-sm);
+    }
+    .input::placeholder {
+        color: var(--ink-faint);
+    }
+    .input:focus {
+        outline: none;
+        border-color: var(--brand);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 18%, transparent);
+    }
+    .input:disabled {
+        background: var(--surface-sunk);
+        color: var(--ink-faint);
+    }
+    .help {
+        @apply mt-1 text-xs;
+        color: var(--ink-faint);
+    }
+
+    /* ------------------------------------------------------------------ status */
+    .badge {
+        @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium;
+    }
+    /* Een status draagt ook een VORM: het puntje maakt het onderscheid leesbaar
+       voor wie de kleuren niet uit elkaar houdt. */
+    .badge::before {
+        content: '';
+        width: 0.3125rem;
+        height: 0.3125rem;
+        border-radius: 9999px;
+        background: currentColor;
+        flex: none;
+    }
+    .badge-plain::before {
+        display: none;
+    }
+    .badge-success {
+        background: var(--ok-soft);
+        color: var(--ok);
+    }
+    .badge-neutral {
+        background: var(--surface-sunk);
+        color: var(--ink-faint);
+    }
+    .badge-danger {
+        background: var(--danger-soft);
+        color: var(--danger);
+    }
+    .badge-warning {
+        background: var(--warn-soft);
+        color: var(--warn);
+    }
+    .badge-info {
+        background: var(--info-soft);
+        color: var(--info);
+    }
+    .badge-brand {
+        background: var(--brand-soft);
+        color: var(--brand);
+    }
+
+    /* ----------------------------------------------------------------- tabellen */
+    .th {
+        @apply px-3 text-left text-xs font-semibold uppercase tracking-wide;
+        padding-top: 0.625rem;
+        padding-bottom: 0.625rem;
+        color: var(--ink-faint);
+        white-space: nowrap;
+    }
+    .td {
+        @apply px-3 text-sm;
+        padding-top: var(--row-y);
+        padding-bottom: var(--row-y);
+        color: var(--ink-soft);
+        vertical-align: middle;
+    }
+    /* Een getalkolom leest van rechts. */
+    .td-num,
+    .th-num {
+        text-align: right;
+    }
+
+    /* --------------------------------------------------------------------- chip */
+    .chip {
+        @apply inline-flex items-center gap-1.5 rounded-full py-0.5 pl-2.5 pr-1.5 text-xs;
+        background: var(--surface);
+        border: 1px solid var(--line-strong);
+        color: var(--ink-soft);
+    }
+    .chip b {
+        color: var(--ink);
+        font-weight: 600;
+    }
+    .chip-add {
+        border-style: dashed;
+        color: var(--ink-faint);
+        padding-right: 0.625rem;
+    }
+
+    /* -------------------------------------------------------------- navigatie */
+
+    /*
+    | De zijbalk schuift onder lg van links in en staat daarboven vast.
+    |
+    | Met de hand en niet met `-translate-x-full lg:translate-x-0`: in Tailwind v4
+    | schrijft de eerste de SHORTHAND `translate: -100% ...` en de tweede alleen
+    | de variabele --tw-translate-x. De variabele werd netjes 0, de shorthand
+    | bleef -100%, en de balk stond op een breed scherm gewoon buiten beeld met
+    | een lege kolom van 240 pixels ernaast.
+    */
+    .sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.2s ease;
+    }
+    .sidebar[data-open='true'] {
+        transform: translateX(0);
+    }
+    @media (min-width: 1024px) {
+        .sidebar {
+            transform: none;
+        }
+    }
+    .nav-item {
+        @apply flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm transition;
+        color: var(--nav-ink);
+    }
+    .nav-item:hover {
+        background: rgb(255 255 255 / 0.07);
+        color: var(--nav-high);
+    }
+    .nav-item[aria-current='page'] {
+        background: rgb(255 255 255 / 0.1);
+        color: var(--nav-high);
+        font-weight: 600;
+    }
+    .nav-item[aria-current='page'] svg {
+        color: var(--brand-deep);
+    }
+    .nav-group {
+        @apply px-2.5 pb-1 pt-4 text-[0.625rem] font-bold uppercase tracking-widest;
+        color: rgb(255 255 255 / 0.34);
+    }
+
+    /* ------------------------------------------------------------- lege staat */
+    .empty {
+        @apply flex flex-col items-center gap-2 px-6 py-14 text-center;
+        color: var(--ink-faint);
+    }
+    .empty-title {
+        @apply text-sm font-medium;
+        color: var(--ink);
+    }
+}
+
+@layer utilities {
+    /* Op een altijd-donker vlak (navigatie, foutpagina) is wit gewoon wit en
+       geen token dat omklapt. */
+    .on-dark {
+        color: var(--nav-high);
+    }
+    .surface-dark {
+        background: var(--nav);
+    }
+}
+
+@layer utilities {
+    /* Het accent van de organisatie, voor wie er bewust om vraagt. */
+    .text-accent {
+        color: var(--brand-accent, var(--brand));
+    }
+}

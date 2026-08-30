@@ -1,0 +1,9 @@
+# Wat er NIET in het dist-archief hoort dat composer downloadt.
+#
+# resources/ staat er bewust niet bij: dat IS het package. De CSS, de JS en de
+# Blade-componenten worden door de applicaties rechtstreeks uit vendor/ geladen,
+# dus wie ze hier weglaat, levert een leeg package.
+/.gitattributes  export-ignore
+/.gitignore      export-ignore
+/pint.json       export-ignore
+/tests           export-ignore

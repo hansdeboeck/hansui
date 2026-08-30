@@ -1,0 +1,43 @@
+{
+    "name": "hansdeboeck/hansui",
+    "description": "HansUI: de gedeelde interface van de Laravel-applicaties van deboeck.dev. Semantische tokens, een componentlaag, Blade-componenten en de data-attribuuthelpers.",
+    "type": "library",
+    "license": "proprietary",
+    "keywords": [
+        "laravel",
+        "blade",
+        "tailwind",
+        "design-system"
+    ],
+    "authors": [
+        {
+            "name": "Hans De Boeck",
+            "email": "hans@deboeck.dev"
+        }
+    ],
+    "require": {
+        "php": "^8.3",
+        "illuminate/support": "^11.0 || ^12.0 || ^13.0",
+        "illuminate/view": "^11.0 || ^12.0 || ^13.0"
+    },
+    "require-dev": {
+        "laravel/pint": "^1.18"
+    },
+    "autoload": {
+        "psr-4": {
+            "HansDeBoeck\\HansUi\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "HansDeBoeck\\HansUi\\HansUiServiceProvider"
+            ]
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
