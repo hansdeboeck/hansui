@@ -26,7 +26,10 @@ rangen, dispatch -- bleef daar.
   vasthouden, `Escape` afvangen, de pagina eronder verbergen en het waas
   tekenen; `showModal()` doet die vier. `:open` zet het venster meteen open,
   want een formulier in een venster komt met zijn validatiefouten terug op een
-  verse pagina -- en die tekende het venster dicht.
+  verse pagina -- en die tekende het venster dicht. `.modal` zet zelf
+  `margin: auto` terug: de browser centreert een open dialog daarmee, maar
+  Preflight zet `margin: 0` op alles en wint van de useragent -- zonder die
+  regel plakt elk venster in de linkerbovenhoek.
 - **`<x-avatar>`**: een foto, of de eerste letter als er geen is. De terugval is
   het punt: waar ze ontbrak stond er een gebroken plaatje.
 - **`<x-choice>`** en `.choice`: een radioknop als tegel. De aangevinkte staat

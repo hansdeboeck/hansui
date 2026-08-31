@@ -153,6 +153,22 @@ final class StylesheetTest extends TestCase
     }
 
     #[Test]
+    public function een_venster_staat_in_het_midden(): void
+    {
+        /*
+        | Een open <dialog> wordt door de browser gecentreerd met `margin: auto`.
+        | Preflight zet `margin: 0` op * en wint daarvan, dus .modal moet het
+        | terugzetten -- anders plakt elk venster in de linkerbovenhoek. Precies
+        | de soort regel die bij een opruimbeurt sneuvelt omdat ze overbodig lijkt.
+        */
+        $this->assertMatchesRegularExpression(
+            '/margin:\s*auto/',
+            $this->blok($this->css(), '.modal'),
+            'Zonder margin:auto staat het venster niet in het midden.',
+        );
+    }
+
+    #[Test]
     public function een_knop_toont_waar_de_focus_staat(): void
     {
         /*

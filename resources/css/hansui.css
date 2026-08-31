@@ -907,6 +907,15 @@
     | daarom plakken in plaats van te blijven staan.
     */
     .modal {
+        /*
+        | MIDDEN OP HET SCHERM, en dat moet hier staan.
+        |
+        | De browser centreert een open <dialog> zelf met `margin: auto` -- maar
+        | Preflight zet `margin: 0` op *, en dat wint van de useragent. Zonder
+        | deze regel plakt elk venster in de linkerbovenhoek, en dat valt pas op
+        | in een applicatie die Tailwind gebruikt. Dat zijn ze hier allemaal.
+        */
+        margin: auto;
         width: calc(100vw - 2rem);
         max-height: calc(100dvh - 4rem);
         padding: 0;
