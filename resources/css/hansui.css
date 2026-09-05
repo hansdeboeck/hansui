@@ -148,6 +148,36 @@
         --row-y: 0.75rem;
 
         /*
+        | DE BEWEGING, als tokens.
+        |
+        | Dit stond nergens. Elke overgang in dit bestand nam Tailwinds
+        | standaard mee -- 150ms op cubic-bezier(0.4, 0, 0.2, 1) -- en dat is
+        | een IN-OUT curve: ze begint traag, precies op het moment dat iemand
+        | na een klik het hardst kijkt. Bij gelijke duur voelt ease-out sneller,
+        | want de eerste beweging is er meteen.
+        |
+        | --ease-out en --ease-in-out dragen Tailwinds EIGEN namen, en dat is
+        | dezelfde ingreep als bij de grijsschaal hierboven: @layer base wint
+        | van de theme-laag, dus `ease-out` in een view levert voortaan de
+        | sterke variant. De ingebouwde curves zijn te slap om een beweging
+        | bedoeld te laten lijken.
+        |
+        | --press en --scale-in zijn GETALLEN en geen duren, omdat de
+        | reduced-motion-regel onderaan ze allebei op 1 zet. Dan verdwijnt de
+        | verplaatsing en blijft de vervaging staan -- minder beweging is
+        | zachter, niet niets. --press-soft is de zachte variant voor een breed
+        | vlak: drie procent op een tegel van 200 pixels is een schok, op een
+        | knop van 80 is het een bevestiging.
+        */
+        --ease-out:    cubic-bezier(0.23, 1, 0.32, 1);
+        --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+        --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+        --press:      0.97;
+        --press-soft: 0.985;
+        --scale-in:   0.96;
+
+        /*
         | Wat de BROWSER zelf tekent, moet mee omklappen: een vinkje, de
         | uitklaplijst van een <select>, een scrollbalk, een datumkiezer. Zonder
         | color-scheme blijven die wit op een donkere pagina -- de enige plek
@@ -288,12 +318,43 @@
         border-radius: 4px;
     }
 
+    /*
+    | MINDER BEWEGING, EN NIET GEEN BEWEGING.
+    |
+    | Hier stond `animation-duration: 0.001ms` op alles, zonder
+    | animation-iteration-count erbij. Een animatie met `infinite` -- en
+    | animate-spin staat in elke applicatie -- werd daardoor geen stilstaand
+    | beeld maar een animatie die duizenden keren per seconde opnieuw begint:
+    | een flikkering, uitgerekend voor de lezer die om minder beweging vroeg.
+    |
+    | En het sloeg te breed. Wie hier terechtkomt is gevoelig voor
+    | VERPLAATSING; een vervaging van 150ms maakt niemand misselijk en legt wel
+    | uit dat er iets kwam of ging. Vandaar twee getallen op 1 in plaats van
+    | alle duren op nul: het indeuken en het binnenkomen verdwijnen, de
+    | overgang zelf blijft.
+    |
+    | !important in @layer base wint van @layer components: bij belangrijke
+    | declaraties draait de volgorde van de lagen om.
+    */
     @media (prefers-reduced-motion: reduce) {
+        :root {
+            --press:      1;
+            --press-soft: 1;
+            --scale-in:   1;
+        }
+
         *,
         *::before,
         *::after {
-            animation-duration: 0.001ms !important;
-            transition-duration: 0.001ms !important;
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            animation-delay: 0ms !important;
+            scroll-behavior: auto !important;
+        }
+
+        /* De lade schuift niet meer, ze staat er gewoon. */
+        .sidebar {
+            transition-duration: 0.01ms !important;
         }
     }
 }
@@ -393,8 +454,37 @@
 @layer components {
     /* ---------------------------------------------------------------- knoppen */
     .btn {
-        @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition;
+        @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium;
         @apply disabled:cursor-default disabled:opacity-50;
+
+        /*
+        | Benoemde eigenschappen, geen `transition`-kortschrift.
+        |
+        | Dat kortschrift zet er twintig tegelijk aan -- box-shadow, display,
+        | filter, alles -- en laat de curve en de duur impliciet. Twee
+        | snelheden in een regel: kleur mag 150ms op `ease`, want een hover
+        | hoort niet te snellen, en het indeuken 120ms op ease-out, want dat is
+        | het antwoord op een klik en moet er meteen zijn.
+        */
+        transition:
+            background-color 150ms ease,
+            border-color 150ms ease,
+            color 150ms ease,
+            filter 150ms ease,
+            box-shadow 150ms ease,
+            transform 120ms var(--ease-out);
+    }
+
+    /*
+    | INDEUKEN BIJ HET INDRUKKEN.
+    |
+    | Geen enkel aanklikbaar element in dit bestand had dit, en het is het
+    | goedkoopste dat een schil kan doen: de knop bevestigt de klik voor de
+    | server iets teruggestuurd heeft. Op een formulier dat een seconde
+    | nadenkt, is dat het verschil tussen "hij doet het" en nog een keer duwen.
+    */
+    .btn:active:not(:disabled) {
+        transform: scale(var(--press));
     }
 
     /*
@@ -423,8 +513,10 @@
         background: var(--brand);
         color: var(--on-brand);
     }
-    .btn-primary:hover:not(:disabled) {
-        background: var(--brand-deep);
+    @media (hover: hover) {
+        .btn-primary:hover:not(:disabled) {
+            background: var(--brand-deep);
+        }
     }
 
     .btn-secondary {
@@ -432,33 +524,41 @@
         color: var(--ink-soft);
         border: 1px solid var(--line-strong);
     }
-    .btn-secondary:hover:not(:disabled) {
-        background: var(--surface-hover);
-        color: var(--ink);
+    @media (hover: hover) {
+        .btn-secondary:hover:not(:disabled) {
+            background: var(--surface-hover);
+            color: var(--ink);
+        }
     }
 
     .btn-ghost {
         color: var(--ink-faint);
     }
-    .btn-ghost:hover:not(:disabled) {
-        background: var(--surface-sunk);
-        color: var(--ink);
+    @media (hover: hover) {
+        .btn-ghost:hover:not(:disabled) {
+            background: var(--surface-sunk);
+            color: var(--ink);
+        }
     }
 
     .btn-success {
         background: var(--ok);
         color: var(--on-brand);
     }
-    .btn-success:hover:not(:disabled) {
-        filter: brightness(1.08);
+    @media (hover: hover) {
+        .btn-success:hover:not(:disabled) {
+            filter: brightness(1.08);
+        }
     }
 
     .btn-danger {
         background: var(--danger);
         color: var(--on-brand);
     }
-    .btn-danger:hover:not(:disabled) {
-        filter: brightness(1.08);
+    @media (hover: hover) {
+        .btn-danger:hover:not(:disabled) {
+            filter: brightness(1.08);
+        }
     }
 
     .btn-danger-outline {
@@ -466,8 +566,10 @@
         color: var(--danger);
         border: 1px solid var(--danger);
     }
-    .btn-danger-outline:hover:not(:disabled) {
-        background: var(--danger-soft);
+    @media (hover: hover) {
+        .btn-danger-outline:hover:not(:disabled) {
+            background: var(--danger-soft);
+        }
     }
 
     /* ----------------------------------------------------------------- vlakken */
@@ -490,7 +592,11 @@
         color: var(--ink-soft);
     }
     .input {
-        @apply block w-full rounded-lg px-3 py-2 text-sm transition;
+        @apply block w-full rounded-lg px-3 py-2 text-sm;
+        transition:
+            background-color 150ms ease,
+            border-color 150ms ease,
+            box-shadow 150ms ease;
         background: var(--surface);
         border: 1px solid var(--line-strong);
         color: var(--ink);
@@ -540,13 +646,36 @@
     | ook zonder kleur te zien.
     */
     .choice {
-        @apply flex cursor-pointer flex-col items-center gap-1 rounded-xl p-4 text-center transition;
+        @apply flex cursor-pointer flex-col items-center gap-1 rounded-xl p-4 text-center;
+        transition:
+            background-color 150ms ease,
+            border-color 150ms ease,
+            color 150ms ease,
+            transform 120ms var(--ease-out);
         background: var(--surface);
         border: 1px dashed var(--line-strong);
         color: var(--ink-faint);
     }
-    .choice:hover {
-        background: var(--surface-hover);
+    /*
+    | De hover achter een media-query, hier en bij .nav-item, .tab, .btn-* en
+    | .link-muted.
+    |
+    | Op een aanraakscherm blijft :hover na een tik HANGEN, en bij een tegel
+    | leest dat als "deze is gekozen" terwijl er niets gekozen is -- twee
+    | tegels die er aangevinkt uitzien.
+    |
+    | En het is dezelfde voorwaarde die Tailwind v4 zelf aan zijn hover-variant
+    | hangt. Zonder deze query gedraagt een `.choice` zich anders dan een
+    | `hover:bg-gray-50` drie regels verderop in dezelfde view.
+    */
+    @media (hover: hover) {
+        .choice:hover {
+            background: var(--surface-hover);
+        }
+    }
+
+    .choice:active {
+        transform: scale(var(--press-soft));
     }
     .choice:has(:checked) {
         border-style: solid;
@@ -688,6 +817,9 @@
         background: var(--surface);
         border-color: var(--line);
         color: var(--ink);
+        transition:
+            opacity 150ms var(--ease-out),
+            transform 150ms var(--ease-out);
     }
     .alert::before {
         content: '';
@@ -698,15 +830,41 @@
         background: var(--ink-faint);
         flex: none;
     }
+    /*
+    | HET WEGKLIKKEN VAN EEN MELDING.
+    |
+    | hansui.js haalde hem met .remove() weg: van staan naar weg, zonder
+    | tussenstap. Dat is precies het geval waarvoor een overgang bestaat --
+    | niet om het mooi te maken, maar omdat iets dat zonder overgang verdwijnt
+    | leest als een fout in de pagina in plaats van als iets dat je zelf deed.
+    |
+    | Alleen bij het WEGGAAN. Bij het binnenkomen staat de melding er al op de
+    | verse pagina, en een banner die na het laden nog eens komt aanschuiven,
+    | trekt aandacht die de tekst zelf hoort te krijgen.
+    */
+    .alert[data-uit] {
+        opacity: 0;
+        transform: translateY(-4px);
+        pointer-events: none;
+    }
+
     .alert-body {
         @apply min-w-0 flex-1;
     }
     .alert-dismiss {
-        @apply -my-1 flex-none cursor-pointer rounded p-1 text-lg leading-none transition;
+        @apply -my-1 flex-none cursor-pointer rounded p-1 text-lg leading-none;
+        transition:
+            color 150ms ease,
+            transform 120ms var(--ease-out);
         color: var(--ink-faint);
     }
-    .alert-dismiss:hover {
-        color: var(--ink);
+    @media (hover: hover) {
+        .alert-dismiss:hover {
+            color: var(--ink);
+        }
+    }
+    .alert-dismiss:active {
+        transform: scale(var(--press));
     }
 
     .alert-success {
@@ -806,7 +964,15 @@
     */
     .sidebar {
         transform: translateX(-100%);
-        transition: transform 0.2s ease;
+        /*
+        | De curve van een lade, en niet `ease`.
+        |
+        | 0.2s op `ease` was te kort en te slap voor een paneel dat de volle
+        | hoogte van het scherm aflegt: hij schoot erin. Deze curve komt uit
+        | Ionic en is wat iOS zijn laden geeft -- vertrekt meteen, komt lang
+        | uit. Over deze afstand mag dat 320ms duren.
+        */
+        transition: transform 320ms var(--ease-drawer);
     }
     .sidebar[data-open='true'] {
         transform: translateX(0);
@@ -816,13 +982,50 @@
             transform: none;
         }
     }
+    /*
+    | DE WAAS ONDER DE ZIJBALK.
+    |
+    | Op de haak en niet op een klasse: die markup staat al in vier applicaties
+    | en hoeft er niet voor te veranderen.
+    |
+    | Hij knalde erin terwijl de balk ernaast gleed -- hansui.js haalt `hidden`
+    | weg en dat is meteen. Twee dingen die samen open horen te gaan, in twee
+    | verschillende bewegingen: dat merk je zonder te weten wat je merkt.
+    | Zelfde duur, zelfde curve.
+    */
+    [data-sidebar-scrim] {
+        opacity: 1;
+        transition:
+            opacity 320ms var(--ease-drawer),
+            display 320ms allow-discrete;
+    }
+    [data-sidebar-scrim].hidden {
+        opacity: 0;
+    }
+    @starting-style {
+        [data-sidebar-scrim] {
+            opacity: 0;
+        }
+    }
+
     .nav-item {
-        @apply flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm transition;
+        @apply flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm;
+        transition:
+            background-color 150ms ease,
+            color 150ms ease,
+            transform 120ms var(--ease-out);
         color: var(--nav-ink);
     }
-    .nav-item:hover {
-        background: var(--nav-hover);
-        color: var(--nav-high);
+    @media (hover: hover) {
+        .nav-item:hover {
+            background: var(--nav-hover);
+            color: var(--nav-high);
+        }
+    }
+    /* De zachte variant: een regel over de volle breedte van de balk die drie
+       procent krimpt, schuift zichtbaar naar links weg. */
+    .nav-item:active {
+        transform: scale(var(--press-soft));
     }
     .nav-item[aria-current='page'] {
         background: var(--nav-active);
@@ -867,6 +1070,44 @@
         background: var(--surface);
         border: 1px solid var(--line);
         box-shadow: var(--shadow-lg);
+
+        /*
+        | HET PANEEL GROEIT UIT ZIJN KNOP.
+        |
+        | Het klapte open door `hidden` weg te halen: van er niet zijn naar er
+        | staan, zonder tussenstap. Dat leest als een pagina die verspringt in
+        | plaats van een paneel dat opengaat, en het verbergt WAAR het vandaan
+        | komt.
+        |
+        | De oorsprong volgt de uitlijning die de component al zet -- x-nav-
+        | dropdown hangt `right-0` of `left-0` op ditzelfde element. Vandaar
+        | twee regels en geen JavaScript dat de knop opmeet.
+        |
+        | `display` moet mee in de overgang, met allow-discrete: anders is
+        | display:none er meteen en valt er bij het sluiten niets te zien.
+        | @starting-style levert de begintoestand voor het element dat nog
+        | helemaal niet getekend was.
+        */
+        transform-origin: top left;
+        opacity: 1;
+        transform: scale(1);
+        transition:
+            opacity 160ms var(--ease-out),
+            transform 160ms var(--ease-out),
+            display 160ms allow-discrete;
+    }
+    .dropdown-panel.right-0 {
+        transform-origin: top right;
+    }
+    .dropdown-panel.hidden {
+        opacity: 0;
+        transform: scale(var(--scale-in));
+    }
+    @starting-style {
+        .dropdown-panel {
+            opacity: 0;
+            transform: scale(var(--scale-in));
+        }
     }
 
     /*
@@ -876,14 +1117,24 @@
     | scherm bestaan waar de pil gekleurd is maar een schermlezer niets zegt.
     */
     .tab {
-        @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition;
+        @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium;
+        transition:
+            background-color 150ms ease,
+            border-color 150ms ease,
+            color 150ms ease,
+            transform 120ms var(--ease-out);
         background: var(--surface);
         border: 1px solid var(--line);
         color: var(--ink-soft);
     }
-    .tab:hover {
-        background: var(--surface-hover);
-        color: var(--ink);
+    @media (hover: hover) {
+        .tab:hover {
+            background: var(--surface-hover);
+            color: var(--ink);
+        }
+    }
+    .tab:active {
+        transform: scale(var(--press));
     }
     .tab[aria-current='page'] {
         background: var(--brand);
@@ -925,9 +1176,58 @@
         border: 1px solid var(--line);
         border-radius: 0.75rem;
         box-shadow: var(--shadow-lg);
+
+        /*
+        | HET VENSTER KOMT OP EN GAAT WEG, en dat mag te zien zijn.
+        |
+        | showModal() zet het er instant neer; een venster dat zo verschijnt is
+        | niet te onderscheiden van een pagina die versprong. 200ms is genoeg:
+        | een venster is zeldzaam, maar het blijft UI en niet een filmpje.
+        |
+        | `overlay` moet mee in de overgang, naast `display`. Zonder dat haalt
+        | de browser het venster bij close() meteen uit de bovenste laag en is
+        | er van het weggaan niets over.
+        |
+        | De oorsprong blijft het MIDDEN, in tegenstelling tot een uitklappaneel:
+        | een venster hangt aan geen enkele knop, dus er is niets om uit te
+        | groeien.
+        */
+        opacity: 1;
+        transform: scale(1);
+        transition:
+            opacity 200ms var(--ease-out),
+            transform 200ms var(--ease-out),
+            overlay 200ms allow-discrete,
+            display 200ms allow-discrete;
     }
+    .modal:not([open]) {
+        opacity: 0;
+        transform: scale(var(--scale-in));
+    }
+    @starting-style {
+        .modal[open] {
+            opacity: 0;
+            transform: scale(var(--scale-in));
+        }
+    }
+
+    /* De waas vervaagt mee met het venster. Twee dingen die samen horen en
+       apart bewegen, lezen als twee dingen. */
     .modal::backdrop {
         background: rgb(0 0 0 / 0.55);
+        opacity: 1;
+        transition:
+            opacity 200ms var(--ease-out),
+            overlay 200ms allow-discrete,
+            display 200ms allow-discrete;
+    }
+    .modal:not([open])::backdrop {
+        opacity: 0;
+    }
+    @starting-style {
+        .modal[open]::backdrop {
+            opacity: 0;
+        }
     }
     .modal-head {
         @apply sticky top-0 z-10 flex items-start justify-between gap-3 px-4 py-3;
@@ -948,11 +1248,50 @@
        <x-page>. Stond daar als onmouseover/onmouseout in het HTML, wat de
        eigen regel van dit package overtrad en onder een strikte CSP sneuvelt. */
     .link-muted {
-        @apply inline-flex items-center gap-1 transition;
+        @apply inline-flex items-center gap-1;
+        transition: color 150ms ease;
         color: var(--ink-faint);
     }
-    .link-muted:hover {
-        color: var(--ink);
+    @media (hover: hover) {
+        .link-muted:hover {
+            color: var(--ink);
+        }
+    }
+
+    /* ------------------------------------------------------------ haken */
+
+    /*
+    | DE BEVESTIGING VAN data-copy-target.
+    |
+    | De knop wisselde hard van woord EN van breedte: "Gekopieerd" is langer
+    | dan "Kopieren", dus het ding versprong onder de muis van wie er net op
+    | geklikt had. De breedte zet hansui.js vast; hier staat de overgang.
+    |
+    | De BLUR is wat een kruisvervaging van tekst redt. Zonder blur zie je twee
+    | losse woorden over elkaar liggen en leest het als een omwisseling; met
+    | blur lopen ze in elkaar over en leest het als een verandering. Twee
+    | pixels is genoeg -- onder de twintig blijven, zwaardere blur is duur, en
+    | in Safari het duurst.
+    */
+    [data-copy-target] {
+        transition:
+            filter 160ms ease,
+            opacity 160ms ease;
+    }
+    [data-copy-target][data-wissel] {
+        filter: blur(2px);
+        opacity: 0.55;
+    }
+
+    /*
+    | Een regel die gesleept wordt.
+    |
+    | hansui.js zet er `opacity-40` op bij het oppakken. Zonder overgang valt
+    | de regel weg in plaats van te vervagen, en dat leest als "hij is stuk" in
+    | plaats van "deze heb ik vast".
+    */
+    [data-sortable] [data-id] {
+        transition: opacity 150ms var(--ease-out);
     }
 
     /* ------------------------------------------------------------- lege staat */

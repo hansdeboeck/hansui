@@ -3,6 +3,73 @@
 Dit package zit straks in zes applicaties op een gepinde versie. Wat hier staat
 is wat je moet weten voor je die pin verzet.
 
+## 0.3.0
+
+Beweging. Dit bestand zette alles op tokens behalve die, en de uitzondering
+kostte hier het meest: elke overgang nam Tailwinds standaard mee (150ms op
+`cubic-bezier(0.4, 0, 0.2, 1)`, een in-out curve die traag begint), geen enkel
+aanklikbaar element gaf terugkoppeling bij het indrukken, en de dingen die het
+vaakst open- en dichtgaan hadden helemaal geen overgang.
+
+LET OP BIJ HET VERZETTEN VAN DE PIN. `--ease-out` en `--ease-in-out` liggen nu
+op Tailwinds eigen namen, net als de grijsschaal: een `ease-out` die al in een
+view van jouw applicatie staat, krijgt de sterke variant. Dat is de bedoeling,
+maar het is wel een zichtbare wijziging die je nergens hebt aangevraagd.
+
+### Gewijzigd
+
+- **Drie curves als token.** `--ease-out`, `--ease-in-out` en `--ease-drawer`.
+  De eerste twee liggen op Tailwinds eigen namen, net als de grijsschaal: wie
+  `ease-out` in een view typt, krijgt voortaan de sterke variant. `@layer base`
+  wint van de theme-laag, dus daar is verder niets voor nodig.
+- **Elk aanklikbaar element deukt in.** `.btn`, `.tab`, `.choice`, `.nav-item`
+  en `.alert-dismiss` krijgen `scale()` op `:active`, uit `--press` of
+  `--press-soft` -- de zachte variant voor een breed vlak, waar drie procent
+  een schok is in plaats van een bevestiging. Op een formulier dat een seconde
+  nadenkt is dit het verschil tussen "hij doet het" en nog een keer duwen.
+- **Vier dingen kwamen uit het niets.** Het uitklappaneel van
+  `<x-nav-dropdown>`, het venster van `<x-modal>` met zijn waas, en de melding
+  die je wegklikt: alle vier gingen ze van er niet zijn naar er staan zonder
+  tussenstap. Nu met `@starting-style` en `transition-behavior: allow-discrete`,
+  dus zonder JavaScript dat klassen bijhoudt. Het paneel groeit uit zijn knop
+  (`transform-origin` volgt de `left-0`/`right-0` die de component al zet); het
+  venster blijft uit het midden komen, want dat hangt aan geen enkele knop.
+- **De zijbalk op de curve van een lade.** 0.2s op `ease` was te kort en te
+  slap voor een paneel dat de volle hoogte aflegt: hij schoot erin. Nu 320ms op
+  de curve die iOS zijn laden geeft. De waas eronder vervaagt in dezelfde duur
+  en dezelfde curve mee, in plaats van er hard in te knallen terwijl de balk
+  ernaast gleed.
+- **De hover achter `@media (hover: hover)`.** Op een aanraakscherm bleef hij
+  na een tik hangen, en bij `.choice` en `.nav-item` leest dat als "deze is
+  gekozen". Het is dezelfde voorwaarde die Tailwind v4 zelf aan zijn
+  hover-variant hangt, dus een `.choice` gedraagt zich nu als een
+  `hover:bg-gray-50` drie regels verderop in dezelfde view.
+- **Benoemde eigenschappen in plaats van `transition`.** Dat kortschrift zet er
+  twintig tegelijk aan en laat de curve en de duur impliciet.
+
+### Gerepareerd
+
+- **`prefers-reduced-motion` maakte van een spinner een flikkering.** De regel
+  zette `animation-duration: 0.001ms` op alles, zonder
+  `animation-iteration-count`. Een animatie met `infinite` -- `animate-spin`
+  staat in elke applicatie -- werd daardoor geen stilstaand beeld maar een
+  animatie die duizenden keren per seconde opnieuw begint, uitgerekend voor de
+  lezer die om minder beweging vroeg. En het sloeg te breed: nu gaan
+  `--press`, `--press-soft` en `--scale-in` naar 1 en staat de lade meteen op
+  haar plaats, terwijl de vervagingen blijven. Minder beweging is zachter, niet
+  niets.
+- **De kopieerknop versprong van breedte.** "Gekopieerd" is breder dan
+  "Kopieer", dus de knop groeide en alles ernaast schoof op -- onder de muis
+  van wie er net op geklikt had. `hansui.js` meet nu bij het laden (na
+  `document.fonts.ready`, anders meet je een ander lettertype) beide woorden en
+  houdt de breedste ruimte vrij. De wissel zelf loopt via een lichte blur:
+  zonder blur zie je twee losse woorden over elkaar en leest het als een
+  omwisseling, met blur als een verandering.
+- **Een weggeklikte melding verdween met `.remove()`**, van staan naar weg
+  zonder tussenstap. Dat leest als een fout in de pagina in plaats van als iets
+  dat je zelf deed. `data-uit` zet nu de overgang in gang; het opruimen gebeurt
+  daarna, op `transitionend` en op een timer -- want die eerste komt niet altijd.
+
 ## 0.2.0
 
 Het paneel van `streek` stapte over van Metronic naar dit package, en dat is de

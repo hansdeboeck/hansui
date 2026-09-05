@@ -30,12 +30,36 @@
 | De applicatie importeert dit in haar eigen app.js en voegt daar haar eigen
 | helpers aan toe.
 */
-// Flash-meldingen sluiten.
+/*
+| Flash-meldingen sluiten.
+|
+| NIET meteen .remove(). Dat haalde de melding van staan naar weg zonder
+| tussenstap, en iets dat zonder overgang verdwijnt leest als een fout in de
+| pagina in plaats van als iets dat de gebruiker zelf deed. `data-uit` zet de
+| overgang in gang -- die staat bij .alert in hansui.css -- en pas daarna gaat
+| het element eruit.
+|
+| Opruimen op transitionend EN op een timer, want de eerste komt niet altijd:
+| wie om minder beweging vroeg krijgt een overgang van 0,01ms die al voorbij
+| kan zijn voor de listener erop staat, en een melding die geen .alert is
+| (een applicatie mag data-flash overal op zetten) heeft helemaal geen
+| overgang. Een melding die na het wegklikken blijft staan, is erger dan een
+| die er hard uit springt.
+*/
 document.addEventListener('click', (e) => {
     const dismiss = e.target.closest('[data-dismiss]');
-    if (dismiss) {
-        dismiss.closest('[data-flash]')?.remove();
+    if (!dismiss) {
+        return;
     }
+
+    const melding = dismiss.closest('[data-flash]');
+    if (!melding) {
+        return;
+    }
+
+    melding.setAttribute('data-uit', '');
+    melding.addEventListener('transitionend', () => melding.remove(), { once: true });
+    setTimeout(() => melding.remove(), 300);
 });
 
 /*
@@ -230,13 +254,84 @@ document.addEventListener('click', async (e) => {
     }
 
     knop.hansuiKopieerTekst ??= knop.textContent;
-    knop.textContent = bevestiging;
+    hansuiReserveerBreedte(knop);
 
     clearTimeout(knop.hansuiKopieerTimer);
+    hansuiWisselTekst(knop, bevestiging);
+
     knop.hansuiKopieerTimer = setTimeout(() => {
-        knop.textContent = knop.hansuiKopieerTekst;
+        hansuiWisselTekst(knop, knop.hansuiKopieerTekst);
     }, 1500);
 });
+
+/*
+| De ruimte voor het langste woord vrijhouden.
+|
+| "Gekopieerd" is breder dan "Kopieer", dus de knop werd breder en alles
+| ernaast schoof op -- onder de muis van wie er net op geklikt had. Beide
+| woorden opmeten en de breedste nemen: min-width op alleen de oorspronkelijke
+| breedte lost niets op, want dat houdt een knop tegen bij het KRIMPEN en de
+| sprong hier is er een naar boven.
+|
+| Het meten is synchroon: tussen het zetten en het terugzetten van de tekst
+| tekent de browser niet, dus er flitst niets.
+|
+| Een knop die nog verborgen is -- in een dicht uitklappaneel -- meet 0 breed.
+| Die slaan we over, anders staat er een breedte van nul vast en wordt er nooit
+| meer gemeten.
+*/
+function hansuiReserveerBreedte(knop) {
+    const bevestiging = knop.getAttribute('data-copied');
+    if (!bevestiging || knop.style.minWidth) {
+        return;
+    }
+
+    knop.hansuiKopieerTekst ??= knop.textContent;
+
+    const smal = knop.offsetWidth;
+    knop.textContent = bevestiging;
+    const breed = knop.offsetWidth;
+    knop.textContent = knop.hansuiKopieerTekst;
+
+    if (Math.max(smal, breed) > 0) {
+        knop.style.minWidth = Math.max(smal, breed) + 'px';
+    }
+}
+
+/*
+| En dat AL BIJ HET LADEN, niet pas bij de eerste klik.
+|
+| Bij de eerste klik is het te laat: dat is de klik die iemand echt ziet
+| gebeuren, en precies daar sprong de knop dan alsnog.
+|
+| Na document.fonts.ready, want een breedte gemeten in het terugvallettertype
+| is de breedte van een ander lettertype. En bij elke klik nog eens, want
+| Livewire tekent knoppen bij die er bij het laden niet waren.
+*/
+document.fonts?.ready.then(() => {
+    document.querySelectorAll('[data-copy-target][data-copied]').forEach(hansuiReserveerBreedte);
+});
+
+/*
+| Van het ene woord naar het andere, met een vervaging ertussen.
+|
+| De tekst wisselde hard. Zonder blur zie je bij zo'n wissel twee losse
+| woorden en leest het als een omwisseling; met blur lopen ze in elkaar over
+| en leest het als een verandering -- hetzelfde woord dat iets anders zegt.
+| De opmaak staat op [data-wissel] in hansui.css; hier staat alleen wanneer.
+|
+| Halverwege wisselen en niet aan het eind: dan valt de wissel zelf in het
+| onscherpste moment.
+*/
+function hansuiWisselTekst(knop, tekst) {
+    knop.setAttribute('data-wissel', '');
+    clearTimeout(knop.hansuiWisselTimer);
+
+    knop.hansuiWisselTimer = setTimeout(() => {
+        knop.textContent = tekst;
+        knop.removeAttribute('data-wissel');
+    }, 80);
+}
 
 // Bevestiging vragen voor gevaarlijke acties.
 document.addEventListener('submit', (e) => {

@@ -139,6 +139,13 @@ ophoudt te werken.
 | `data-density-toggle` | een knop | compacte of ruime regels, in `hansui.density` |
 | `data-palette-open` | een knop | stuurt het venster-event `open-palette` |
 
+Twee attributen zet `hansui.js` ZELF, en die schrijf je dus niet in een view:
+`data-uit` op een melding die weggeklikt is, en `data-wissel` op een
+kopieerknop terwijl zijn tekst omslaat. Allebei duren ze een fractie van een
+seconde en allebei staan ze in `hansui.css` -- ze staan hier omdat een
+applicatie die haar eigen meldingen of kopieerknoppen opmaakt, anders op een
+selector botst die ze nergens beschreven ziet.
+
 Ook `Ctrl`/`Cmd` + `K` stuurt `open-palette`, en `Escape` sluit een open
 dropdown of de zijbalk.
 

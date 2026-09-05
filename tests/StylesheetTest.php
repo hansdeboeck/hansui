@@ -99,11 +99,18 @@ final class StylesheetTest extends TestCase
         | alles van gebruikt -- --shadow-md is daar het voorbeeld van. Wat deze
         | test vangt is het andere geval: een token dat er terloops bij kwam,
         | in geen van beide ladders past, en dat niemand aanroept.
+        |
+        | De drie curves horen daar ook bij. --ease-out en --ease-drawer worden
+        | hier wel gebruikt, --ease-in-out nog niet -- maar ze liggen op
+        | Tailwinds eigen namen, dus een applicatie die `ease-in-out` typt
+        | krijgt hem. Een familie van drie waarvan er een ontbreekt, is precies
+        | het gat waar de grijsschaal hierboven ook door misging.
         */
         $publiek = '/^--(n-\d+|paper|surface|surface-hover|surface-sunk|line|line-strong'
             .'|ink|ink-soft|ink-faint|nav|nav-ink|nav-high|brand|brand-primary|brand-primary-dark'
             .'|brand-deep|brand-soft|brand-line|on-brand|ok|ok-soft|danger|danger-soft'
-            .'|warn|warn-soft|info|info-soft|row-y|font-sans|shadow-(sm|md|lg)|color-.*)$/';
+            .'|warn|warn-soft|info|info-soft|row-y|font-sans|shadow-(sm|md|lg)'
+            .'|ease-(out|in-out|drawer)|color-.*)$/';
 
         $css = $this->css();
 
