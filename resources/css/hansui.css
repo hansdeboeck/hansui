@@ -973,6 +973,14 @@
         | uit. Over deze afstand mag dat 320ms duren.
         */
         transition: transform 320ms var(--ease-drawer);
+
+        /*
+        | Verticaal scrollen laat de browser doen, horizontaal houden wij.
+        |
+        | Zonder deze regel begint de browser bij een schuine veeg zelf te
+        | scrollen en krijgt de veeg-om-te-sluiten geen pointermove meer.
+        */
+        touch-action: pan-y;
     }
     .sidebar[data-open='true'] {
         transform: translateX(0);
@@ -1284,14 +1292,40 @@
     }
 
     /*
-    | Een regel die gesleept wordt.
+    | EEN RIJ DIE VERSLEEPT WORDT.
     |
-    | hansui.js zet er `opacity-40` op bij het oppakken. Zonder overgang valt
-    | de regel weg in plaats van te vervagen, en dat leest als "hij is stuk" in
-    | plaats van "deze heb ik vast".
+    | Twee soorten rijen, en ze horen zich niet hetzelfde te gedragen.
+    |
+    | De rij ONDER de vinger krijgt `data-sleept` en heeft dan GEEN overgang:
+    | die volgt een-op-een, en een overgang legt daar precies de vertraging in
+    | die een gebaar dood maakt. Wat hij wel krijgt is een schaduw en een plaats
+    | boven de rest -- hij ligt niet meer in de lijst, hij ligt erboven.
+    |
+    | De rijen die opzij schuiven hebben die overgang juist wel. Die bewegen
+    | niet met de hand mee, ze REAGEREN op wat de hand doet, en dan hoort er
+    | tijd tussen te zitten.
+    |
+    | En `touch-action` op de greep. Zonder die regel besluit de browser bij de
+    | eerste beweging van een vinger dat er gescrold wordt, en komt er bij ons
+    | nooit een tweede pointermove meer aan. Een rij zonder greep lost dat
+    | anders op -- daar wacht hansui.js op een lange druk.
     */
     [data-sortable] [data-id] {
-        transition: opacity 150ms var(--ease-out);
+        transition: transform 200ms var(--ease-out);
+    }
+    [data-sortable] [data-id][data-sleept] {
+        transition: none;
+        position: relative;
+        z-index: 20;
+        box-shadow: var(--shadow-lg);
+        cursor: grabbing;
+    }
+    [data-sortable]:has([data-sleept]) {
+        user-select: none;
+    }
+    [data-sortable-handle] {
+        cursor: grab;
+        touch-action: none;
     }
 
     /* ------------------------------------------------------------- lege staat */

@@ -25,7 +25,11 @@
 |   data-density-toggle          compacte of ruime regels
 |   data-palette-open            een venster-event voor een zoekpalet
 |   data-regel*                  herhaalbare formulierregels
-|   data-sortable                slepen om te herordenen, met PUT naar de server
+|   data-sortable*               slepen om te herordenen, met PUT naar de server
+|
+| De vier helpers onder "Gebaren" -- spoor, veer, projectie en rubberband --
+| zijn wat de zijbalk en het herordenen delen. Wie hier een gebaar bij bouwt,
+| hoort ze te gebruiken en geen vijfde manier te verzinnen.
 |
 | De applicatie importeert dit in haar eigen app.js en voegt daar haar eigen
 | helpers aan toe.
@@ -456,6 +460,180 @@ document.addEventListener('change', (e) => {
 | eerste verf. Hier staat alleen wat er bij een klik verandert.
 */
 
+/*
+|------------------------------------------------------------------------------
+| Gebaren
+|------------------------------------------------------------------------------
+|
+| Vier stukjes gereedschap, en ze horen bij elkaar. Een gebaar dat goed aanvoelt
+| doet altijd dezelfde vier dingen: het volgt de vinger een-op-een, het onthoudt
+| hoe SNEL die vinger ging, het geeft die snelheid door aan wat er na het
+| loslaten gebeurt, en het weigert hard te stoppen aan een rand.
+|
+| Die derde is degene die je ziet als hij ontbreekt. Een CSS-overgang begint
+| altijd bij snelheid nul, dus hoe hard je ook geveegd hebt, op het moment dat je
+| loslaat staat het ding even stil. Dat is de naad tussen slepen en animeren, en
+| een veer is het enige dat hem dichtnaait.
+*/
+
+/*
+| Waar de vinger was, en hoe snel.
+|
+| Zes punten en niet twee: de laatste twee punten van een gebaar zijn vaak een
+| paar pixels uit elkaar en dat maakt de snelheid een loterij. Over een venster
+| van 100ms meten is stabiel en nog steeds actueel.
+*/
+/*
+| De aanwijzer vastpakken, en niet omvallen als dat niet kan.
+|
+| setPointerCapture gooit als het element niet meer in het document staat, en in
+| dit package is dat geen theorie: Livewire hertekent halve schermen, en bij een
+| lange druk zitten er 300ms tussen het aanraken en het beginnen. Zonder vangnet
+| sneuvelt het hele gebaar met een halve toestand achter.
+|
+| Zonder vastpakken werkt het gebaar nog steeds -- alleen buiten het element om
+| raken we de aanwijzer kwijt. Dat is beter dan niets kunnen slepen.
+*/
+function hansuiGrijp(el, pointerId) {
+    try {
+        el.setPointerCapture(pointerId);
+    } catch (_) {
+        // Zie hierboven.
+    }
+}
+
+function hansuiSpoor() {
+    const punten = [];
+
+    return {
+        voeg(x, y) {
+            punten.push({ x, y, t: performance.now() });
+
+            if (punten.length > 6) {
+                punten.shift();
+            }
+        },
+        snelheid() {
+            const laatste = punten[punten.length - 1];
+
+            /*
+            | Een vinger die 100ms stil lag, heeft geen snelheid meer -- ook al
+            | ging hij daarvoor hard. Wie eerst veegt, dan stilhoudt en dan pas
+            | loslaat, bedoelt niet te werpen.
+            */
+            if (!laatste || performance.now() - laatste.t > 100) {
+                return { x: 0, y: 0 };
+            }
+
+            /*
+            | Het venster loopt vanaf het LAATSTE punt terug en niet vanaf nu, en
+            | het laatste punt telt zelf niet mee als oudste.
+            |
+            | Hier stond `punten.find((punt) => nu - punt.t < 100)`, en dat vindt
+            | bij trage bewegingen het laatste punt zelf: oudste en laatste zijn
+            | dan hetzelfde punt en de snelheid komt op nul uit. Een veeg van
+            | een halve seconde had daardoor geen vaart, hoe hard hij ook ging.
+            */
+            const eerder = punten.slice(0, -1);
+            const oudste = eerder.find((punt) => laatste.t - punt.t < 100) ?? eerder[eerder.length - 1];
+
+            if (!oudste || laatste.t === oudste.t) {
+                return { x: 0, y: 0 };
+            }
+
+            const dt = (laatste.t - oudste.t) / 1000;
+
+            return { x: (laatste.x - oudste.x) / dt, y: (laatste.y - oudste.y) / dt };
+        },
+    };
+}
+
+/*
+| Een veer, met de twee knoppen van Apple in plaats van de drie uit de
+| natuurkunde.
+|
+| `demping` 1 is kritisch gedempt: hij komt aan en schiet niet door. Onder 1
+| veert hij na, en dat hoort alleen bij een gebaar dat zelf vaart had -- een
+| menu dat kwam opdagen mag niet nadeinen, iets dat je weggeworpen hebt wel.
+|
+| `respons` is hoe snel hij bij het doel is, in seconden. Dat is GEEN duur: een
+| veer heeft er geen. Wanneer hij stil ligt volgt uit die twee getallen en uit de
+| snelheid waarmee hij vertrok.
+|
+| Vaste substappen van 1/240 seconde: bij een frame dat verspringt -- een tab die
+| op de achtergrond stond -- loopt een enkele grote integratiestap uit de hand en
+| schiet de veer het scherm af.
+*/
+function hansuiVeer({ van, naar, snelheid = 0, demping = 1, respons = 0.4, stap, klaar }) {
+    const w = (2 * Math.PI) / respons;
+    let x = van;
+    let v = snelheid;
+    let vorige = performance.now();
+    let bezig = true;
+
+    const frame = (nu) => {
+        if (!bezig) {
+            return;
+        }
+
+        let dt = Math.min((nu - vorige) / 1000, 0.064);
+        vorige = nu;
+
+        while (dt > 0) {
+            const h = Math.min(dt, 1 / 240);
+            v += (-2 * demping * w * v - w * w * (x - naar)) * h;
+            x += v * h;
+            dt -= h;
+        }
+
+        // Stil genoeg: een halve pixel is onder wat iemand ziet, en zonder deze
+        // drempel loopt een veer nog seconden door op onzichtbare rest.
+        if (Math.abs(x - naar) < 0.4 && Math.abs(v) < 4) {
+            bezig = false;
+            stap(naar);
+            klaar?.();
+
+            return;
+        }
+
+        stap(x);
+        requestAnimationFrame(frame);
+    };
+
+    requestAnimationFrame(frame);
+
+    return {
+        stop() {
+            bezig = false;
+        },
+    };
+}
+
+/*
+| Waar dit heen zou rollen als je losliet.
+|
+| Dezelfde formule waarmee een scrollende pagina uitloopt. Niet de v^2/2a uit het
+| leerboek: die beschrijft een wrijving die constant is, en scrollen remt
+| exponentieel af. Het verschil is groot genoeg om te voelen.
+|
+| Hiermee kiest een veeg zijn doel op waar hij HEEN ging en niet op waar hij
+| toevallig eindigde. Een korte, snelle veeg hoort te werken.
+*/
+function hansuiProjecteer(snelheid, vertraging = 0.998) {
+    return ((snelheid / 1000) * vertraging) / (1 - vertraging);
+}
+
+/*
+| Weerstand voorbij een rand.
+|
+| Hoe verder eroverheen, hoe minder het meegeeft. Hard stoppen leest als
+| vastgelopen; toenemende weerstand leest als "hij luistert nog, maar hier is
+| niets meer".
+*/
+function hansuiRubberband(voorbij, maat, constante = 0.55) {
+    return (voorbij * maat * constante) / (maat + constante * Math.abs(voorbij));
+}
+
 // De zijbalk op smalle schermen.
 document.addEventListener('click', (e) => {
     const scrim = document.querySelector('[data-sidebar-scrim]');
@@ -503,6 +681,193 @@ document.addEventListener('keydown', (e) => {
         document.querySelector('[data-sidebar-toggle]')?.setAttribute('aria-expanded', 'false');
     }
 });
+
+/*
+| DE ZIJBALK MET EEN VEEG DICHT.
+|
+| Er zat een knop op en verder niets. Op een telefoon is wegvegen wat iemand
+| probeert bij een paneel dat van links kwam -- en als dat niets doet, is de
+| balk iets dat de pagina overneemt in plaats van iets dat je vasthebt.
+|
+| Alleen DICHT en niet open. Openen met een veeg vanaf de linkerrand vecht met
+| het terug-gebaar van de browser, en dat gevecht win je niet: de gebruiker
+| krijgt dan de vorige pagina waar hij een menu verwachtte.
+|
+| De beslissing hangt aan de SNELHEID en niet aan de afstand. Een korte, snelle
+| veeg hoort te sluiten, ook al is de balk dan nog bijna helemaal open -- dat is
+| wat de hand bedoelde. Vandaar dat er geprojecteerd wordt waar dit heen zou
+| rollen, en pas daarna gekeken welk van de twee einden het dichtst bij ligt.
+*/
+let hansuiVeeg = null;
+let hansuiVeegVeer = null;
+let hansuiVeegX = 0;
+
+document.addEventListener('pointerdown', (e) => {
+    const bar = e.target.closest('[data-sidebar]');
+
+    if (!bar || hansuiSleep || hansuiVeeg || bar.dataset.open !== 'true' || window.innerWidth >= 1024) {
+        return;
+    }
+
+    /*
+    | Een balk die nog aan het bewegen was, mag je zo weer vastpakken.
+    |
+    | Dit is het punt waar een gebaar levend of dood aanvoelt. Wie zijn balk
+    | wegveegt en zich halverwege bedenkt, hoort hem terug te kunnen trekken
+    | vanaf WAAR HIJ NU STAAT -- niet te moeten wachten tot hij dicht is en dan
+    | opnieuw te beginnen. Vandaar dat de veer gestopt wordt en niet afgemaakt,
+    | en dat de nieuwe greep verder telt vanaf de huidige stand.
+    */
+    const onderbroken = hansuiVeegVeer !== null;
+    hansuiVeegVeer?.stop();
+    hansuiVeegVeer = null;
+
+    hansuiVeeg = {
+        bar,
+        scrim: document.querySelector('[data-sidebar-scrim]'),
+        breedte: bar.offsetWidth,
+        basis: onderbroken ? hansuiVeegX : 0,
+        startX: e.clientX,
+        startY: e.clientY,
+        x: onderbroken ? hansuiVeegX : 0,
+        spoor: hansuiSpoor(),
+        pointerId: e.pointerId,
+        // Wie iets pakt dat al beweegt, heeft zijn bedoeling al bewezen: daar
+        // hoort geen drempel meer overheen.
+        bezig: onderbroken,
+    };
+
+    hansuiVeeg.spoor.voeg(e.clientX, e.clientY);
+
+    if (onderbroken) {
+        hansuiGrijp(bar, e.pointerId);
+        bar.style.transition = 'none';
+    }
+});
+
+function hansuiVeegTeken(g, x) {
+    hansuiVeegX = x;
+    g.bar.style.transform = `translateX(${x}px)`;
+
+    if (g.scrim) {
+        g.scrim.style.opacity = String(Math.max(0, 1 + Math.min(x, 0) / g.breedte));
+    }
+}
+
+document.addEventListener('pointermove', (e) => {
+    const g = hansuiVeeg;
+    if (!g || e.pointerId !== g.pointerId) {
+        return;
+    }
+
+    const dx = e.clientX - g.startX;
+    const dy = e.clientY - g.startY;
+    g.spoor.voeg(e.clientX, e.clientY);
+
+    if (!g.bezig) {
+        // Meer horizontaal dan verticaal, anders is dit scrollen in de balk.
+        if (Math.abs(dx) < 10 || Math.abs(dx) <= Math.abs(dy)) {
+            if (Math.abs(dy) > 10) {
+                hansuiVeeg = null;
+            }
+
+            return;
+        }
+
+        g.bezig = true;
+        hansuiGrijp(g.bar, e.pointerId);
+        g.bar.style.transition = 'none';
+
+        if (g.scrim) {
+            g.scrim.style.transition = 'none';
+        }
+    }
+
+    // Naar links volgt hij een-op-een; naar rechts is er niets meer, dus daar
+    // geeft hij steeds minder mee in plaats van tegen een muur te lopen.
+    const rauw = g.basis + dx;
+    g.x = rauw <= 0 ? rauw : hansuiRubberband(rauw, g.breedte);
+
+    hansuiVeegTeken(g, g.x);
+});
+
+/*
+| De klik die na een veeg toch nog komt, tegenhouden.
+|
+| Wie de balk wegveegt met zijn duim op een menu-item, stuurt daarna een `click`
+| naar dat item -- en dan staat er een andere pagina waar iemand alleen het menu
+| wilde wegdoen. In de capture-fase, want het gaat erom dat hij niemand bereikt.
+|
+| En met een timeout eromheen. Die klik komt in dezelfde beurt of hij komt niet;
+| een luisteraar die blijft staan tot er ooit geklikt wordt, slikt een half uur
+| later de eerste echte klik van de gebruiker op.
+*/
+function hansuiSlikDeKlik() {
+    const slik = (klik) => {
+        klik.preventDefault();
+        klik.stopPropagation();
+    };
+
+    document.addEventListener('click', slik, { capture: true, once: true });
+    setTimeout(() => document.removeEventListener('click', slik, { capture: true }), 0);
+}
+
+function hansuiVeegLos() {
+    const g = hansuiVeeg;
+    if (!g) {
+        return;
+    }
+
+    hansuiVeeg = null;
+
+    if (!g.bezig) {
+        return;
+    }
+
+    const v = g.spoor.snelheid().x;
+    const eind = g.x + hansuiProjecteer(v);
+    const dicht = eind < -g.breedte / 2;
+    const doel = dicht ? -g.breedte : 0;
+
+    /*
+    | Een tikje nadeinen bij het terugvallen, en niet bij het sluiten.
+    |
+    | Wie losliet zonder ver genoeg te zijn, krijgt de balk terug en die mag
+    | laten merken dat hij vaart had. Wie hem wegduwt, ziet hem verdwijnen --
+    | daar is nadeinen alleen maar wachten op iets dat toch al weg is.
+    */
+    hansuiVeegVeer = hansuiVeer({
+        van: g.x,
+        naar: doel,
+        snelheid: v,
+        demping: dicht ? 1 : 0.8,
+        respons: 0.3,
+        stap: (x) => hansuiVeegTeken(g, x),
+        klaar: () => {
+            hansuiVeegVeer = null;
+            hansuiVeegX = 0;
+
+            g.bar.style.transition = '';
+            g.bar.style.transform = '';
+
+            if (g.scrim) {
+                g.scrim.style.transition = '';
+                g.scrim.style.opacity = '';
+            }
+
+            if (dicht) {
+                delete g.bar.dataset.open;
+                g.scrim?.classList.add('hidden');
+                document.querySelector('[data-sidebar-toggle]')?.setAttribute('aria-expanded', 'false');
+            }
+        },
+    });
+
+    hansuiSlikDeKlik();
+}
+
+document.addEventListener('pointerup', hansuiVeegLos);
+document.addEventListener('pointercancel', hansuiVeegLos);
 
 // Licht of donker. Drie standen: niets gekozen volgt het systeem; kiezen legt
 // het vast in beide richtingen.
@@ -613,71 +978,339 @@ document.addEventListener('click', (e) => {
 });
 
 /*
-| Sleepbaar herordenen: data-sortable.
+|------------------------------------------------------------------------------
+| Sleepbaar herordenen: data-sortable
+|------------------------------------------------------------------------------
 |
-| Een [data-sortable] met kinderen [data-id]. Bij het loslaten gaat de nieuwe
+| Een [data-sortable] met kinderen [data-id]. Bij het neerleggen gaat de nieuwe
 | volgorde als {volgorde: [id, ...]} met PUT naar data-sortable-url, met het
-| CSRF-token uit data-sortable-token.
+| CSRF-token uit data-sortable-token. Dat contract is niet veranderd.
 |
-| `draggable` wordt bij het aanwijzen gezet en niet bij het laden. Alles hier
-| luistert op `document` omdat Livewire halve schermen hertekent; een lijst die
-| ná het laden verschijnt zou anders niet sleepbaar zijn, en een MutationObserver
-| voor één attribuut is duurder dan dit.
+| WAT WEL VERANDERDE: hier stond HTML5 drag-and-drop -- `draggable="true"` met
+| dragstart, dragover en dragend. Dat is een API die de browser laat beslissen
+| wat er beweegt, en het levert drie problemen op die geen van drieen opgelost
+| kunnen worden zolang hij er staat.
+|
+| Het ERGSTE is dat hij op een aanraakscherm niet aangaat. Android Chrome vuurt
+| geen dragstart vanuit een aanraking en iOS Safari doet het alleen via zijn
+| eigen sleepmechanisme. Herordenen werkte dus niet op een telefoon, terwijl de
+| README het wel beloofde.
+|
+| Verder tekent de browser een spookafbeelding die je niet kunt opmaken, en komt
+| er tijdens het slepen geen snelheid vrij -- dus kan wat na het loslaten gebeurt
+| nooit aansluiten op wat de hand deed.
+|
+| Nu op Pointer Events. De rij volgt de vinger een-op-een, de andere rijen
+| schuiven opzij, en bij het loslaten brengen twee veren hem naar zijn vak met de
+| snelheid waarmee hij losgelaten werd.
+|
+| WAT ER NOG NIET IS: herordenen met het toetsenbord. Dat is geen detail -- wie
+| niet sleept kan deze lijst niet ordenen -- maar het is een eigen ontwerp
+| (oppakken, verplaatsen, neerleggen, en een schermlezer die zegt wat er gebeurt)
+| en geen regel of tien aan het onderstaande. Het staat in de README als wat het
+| is: een gat.
 */
-let hansuiGesleept = null;
+let hansuiSleep = null;
+let hansuiSleepRust = null;
 
+/*
+| Het gebaar begint pas als de bedoeling duidelijk is.
+|
+| Met een muis na acht pixels, genoeg om een klik van een sleep te scheiden.
+|
+| Met een vinger na een lange druk van 300ms, en dat verschil is geen smaak: op
+| een aanraakscherm is verticaal slepen ook de manier om te SCROLLEN. Wie meteen
+| grijpt, maakt de lijst onscrollbaar. Wie eerst indrukt, zegt dat hij deze rij
+| bedoelt en niet de pagina.
+|
+| Een rij met een [data-sortable-handle] slaat dat wachten over: daar blijkt de
+| bedoeling al uit WAAR er geduwd wordt. Die greep krijgt in de CSS
+| `touch-action: none`, zodat de browser er zelf niet mee scrolt.
+*/
 document.addEventListener('pointerdown', (e) => {
-    const item = e.target.closest('[data-sortable] [data-id]');
-    if (item) {
-        item.setAttribute('draggable', 'true');
-    }
-});
-
-document.addEventListener('dragstart', (e) => {
-    const item = e.target.closest('[data-sortable] [data-id]');
-    if (item) {
-        hansuiGesleept = item;
-        item.classList.add('opacity-40');
-    }
-});
-
-document.addEventListener('dragover', (e) => {
-    const doel = e.target.closest('[data-sortable] [data-id]');
-    if (!hansuiGesleept || !doel || doel === hansuiGesleept) {
+    if (hansuiSleep || (e.pointerType === 'mouse' && e.button !== 0)) {
         return;
     }
 
-    const houder = doel.closest('[data-sortable]');
-    if (houder !== hansuiGesleept.closest('[data-sortable]')) {
-        return; // Nooit tussen twee lijsten door slepen.
-    }
-
-    e.preventDefault();
-    const vak = doel.getBoundingClientRect();
-    // Zowel verticaal als horizontaal, zodat een rij én een raster werken.
-    const voorbij = e.clientY - vak.top > vak.height / 2 || e.clientX - vak.left > vak.width / 2;
-    houder.insertBefore(hansuiGesleept, voorbij ? doel.nextSibling : doel);
-});
-
-document.addEventListener('dragend', (e) => {
     const item = e.target.closest('[data-sortable] [data-id]');
     if (!item) {
         return;
     }
 
-    item.classList.remove('opacity-40');
-    hansuiGesleept = null;
+    /*
+    | Een rij die nog naar zijn vak veerde, eerst neerleggen.
+    |
+    | Anders wordt er opgemeten terwijl er nog een transform op staat -- en
+    | getBoundingClientRect telt die mee, dus elk vak in de lijst zou een stukje
+    | verschoven zijn. Neerleggen is hier goedkoop: de veer was toch al bijna
+    | thuis, dus er valt nauwelijks iets te zien.
+    */
+    if (hansuiSleepRust) {
+        const rust = hansuiSleepRust;
+        hansuiSleepRust = null;
+        rust.veren.forEach((veer) => veer.stop());
+        hansuiSleepLeg(rust.s);
+    }
+
+    // Niet vanaf iets dat zelf al een taak heeft.
+    if (e.target.closest('a, button, input, select, textarea')) {
+        return;
+    }
+
+    const greep = item.querySelector('[data-sortable-handle]');
+    if (greep && !greep.contains(e.target)) {
+        return;
+    }
 
     const houder = item.closest('[data-sortable]');
-    const volgorde = [...houder.querySelectorAll('[data-id]')].map((el) => Number(el.dataset.id));
+    const items = [...houder.querySelectorAll('[data-id]')];
+    const van = items.indexOf(item);
 
-    fetch(houder.dataset.sortableUrl, {
+    hansuiSleep = {
+        item,
+        houder,
+        items,
+        van,
+        naar: van,
+        // De vakken worden EEN keer opgemeten. Alles wat daarna beweegt, beweegt
+        // met transform, dus deze blijven kloppen -- en toetsen tegen een vak
+        // dat zelf opzij geschoven is, laat de lijst tussen twee volgordes
+        // flikkeren.
+        vakken: items.map((el) => el.getBoundingClientRect()),
+        startX: e.clientX,
+        startY: e.clientY,
+        dx: 0,
+        dy: 0,
+        spoor: hansuiSpoor(),
+        pointerId: e.pointerId,
+        bezig: false,
+        drempel: greep || e.pointerType === 'mouse' ? 8 : Infinity,
+        wacht: null,
+    };
+
+    hansuiSleep.spoor.voeg(e.clientX, e.clientY);
+
+    if (hansuiSleep.drempel === Infinity) {
+        hansuiSleep.wacht = setTimeout(hansuiSleepBegin, 300);
+    }
+});
+
+function hansuiSleepBegin() {
+    const s = hansuiSleep;
+    if (!s || s.bezig) {
+        return;
+    }
+
+    s.bezig = true;
+    s.item.setAttribute('data-sleept', '');
+    hansuiGrijp(s.item, s.pointerId);
+}
+
+/*
+| Waar de rij nu hoort, en waar de andere dan heen moeten.
+|
+| Elke andere rij schuift een vak op richting het gat: die uit vak i gaat naar
+| vak i-1 of i+1. Omdat dat met de OPGEMETEN vakken gebeurt en niet met een
+| aangenomen rijhoogte, werkt dit ook als de rijen niet even hoog zijn -- en
+| werkt het ook voor een raster, waar opschuiven ook naar links of rechts is.
+*/
+function hansuiSleepSchik() {
+    const s = hansuiSleep;
+    const vak = s.vakken[s.van];
+    const midX = vak.left + vak.width / 2 + s.dx;
+    const midY = vak.top + vak.height / 2 + s.dy;
+
+    const boven = s.vakken.findIndex(
+        (v) => midX >= v.left && midX <= v.right && midY >= v.top && midY <= v.bottom,
+    );
+
+    if (boven !== -1) {
+        s.naar = boven;
+    }
+
+    s.items.forEach((el, i) => {
+        if (i === s.van) {
+            return;
+        }
+
+        let vakje = i;
+        if (s.naar > s.van && i > s.van && i <= s.naar) {
+            vakje = i - 1;
+        }
+        if (s.naar < s.van && i >= s.naar && i < s.van) {
+            vakje = i + 1;
+        }
+
+        el.style.transform =
+            vakje === i
+                ? ''
+                : `translate(${s.vakken[vakje].left - s.vakken[i].left}px, ${s.vakken[vakje].top - s.vakken[i].top}px)`;
+    });
+}
+
+document.addEventListener('pointermove', (e) => {
+    const s = hansuiSleep;
+    if (!s || e.pointerId !== s.pointerId) {
+        return;
+    }
+
+    s.dx = e.clientX - s.startX;
+    s.dy = e.clientY - s.startY;
+    s.spoor.voeg(e.clientX, e.clientY);
+
+    if (!s.bezig) {
+        const weg = Math.hypot(s.dx, s.dy);
+
+        // Bewegen terwijl de lange druk nog loopt, is scrollen en geen sleep.
+        if (s.wacht && weg > 10) {
+            clearTimeout(s.wacht);
+            hansuiSleep = null;
+
+            return;
+        }
+
+        if (weg < s.drempel) {
+            return;
+        }
+
+        hansuiSleepBegin();
+    }
+
+    s.item.style.transform = `translate(${s.dx}px, ${s.dy}px)`;
+    hansuiSleepSchik();
+});
+
+/*
+| Loslaten: twee veren, een voor x en een voor y.
+|
+| En niet een veer op de afstand. Als de vinger horizontaal sneller ging dan
+| verticaal, en beide assen hangen aan dezelfde veer, dan komt de trage as te
+| vroeg aan en de snelle te laat: de rij loopt schuin naar zijn vak in plaats van
+| de boog te maken die de hand beschreef.
+|
+| Kritisch gedempt, want dit is neerleggen en geen worp. Een rij die nadeint in
+| een lijst met vijftig regels ziet eruit alsof hij niet zeker weet waar hij
+| hoort.
+*/
+function hansuiSleepLos() {
+    const s = hansuiSleep;
+    if (!s) {
+        return;
+    }
+
+    clearTimeout(s.wacht);
+    hansuiSleep = null;
+
+    if (!s.bezig) {
+        return;
+    }
+
+    const v = s.spoor.snelheid();
+    const rustX = s.vakken[s.naar].left - s.vakken[s.van].left;
+    const rustY = s.vakken[s.naar].top - s.vakken[s.van].top;
+
+    let x = s.dx;
+    let y = s.dy;
+    let af = 0;
+
+    const teken = () => {
+        s.item.style.transform = `translate(${x}px, ${y}px)`;
+    };
+    const klaar = () => {
+        if (++af === 2) {
+            hansuiSleepRust = null;
+            hansuiSleepLeg(s);
+        }
+    };
+
+    const veren = [
+        hansuiVeer({
+            van: s.dx,
+            naar: rustX,
+            snelheid: v.x,
+            respons: 0.35,
+            stap: (w) => {
+                x = w;
+                teken();
+            },
+            klaar,
+        }),
+        hansuiVeer({
+            van: s.dy,
+            naar: rustY,
+            snelheid: v.y,
+            respons: 0.35,
+            stap: (w) => {
+                y = w;
+                teken();
+            },
+            klaar,
+        }),
+    ];
+
+    hansuiSleepRust = { s, veren };
+
+    // Een rij die ook een link is, hoort na het verslepen niet te navigeren.
+    hansuiSlikDeKlik();
+}
+
+document.addEventListener('pointerup', hansuiSleepLos);
+document.addEventListener('pointercancel', hansuiSleepLos);
+
+// Escape legt hem terug waar hij lag. Wie halverwege van gedachten verandert,
+// hoort niet eerst te moeten mikken.
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && hansuiSleep) {
+        hansuiSleep.naar = hansuiSleep.van;
+        hansuiSleepSchik();
+        hansuiSleepLos();
+    }
+});
+
+/*
+| Neerleggen: de DOM verzetten en alle transforms weghalen, in EEN beurt.
+|
+| Op dat moment staat alles op het scherm al precies waar de nieuwe opmaak het
+| ook zou zetten, dus er valt niets te zien. Maar de overgang op transform moet
+| er wel even uit: zonder die onderbreking animeert elke rij van "oude transform
+| op nieuwe plek" naar "geen transform", en dat is de sprong die je juist wilde
+| vermijden.
+*/
+function hansuiSleepLeg(s) {
+    s.items.forEach((el) => {
+        el.style.transition = 'none';
+    });
+
+    if (s.naar !== s.van) {
+        const anker = s.items[s.naar];
+        anker.parentNode.insertBefore(s.item, s.naar > s.van ? anker.nextSibling : anker);
+    }
+
+    s.items.forEach((el) => {
+        el.style.transform = '';
+    });
+    s.item.removeAttribute('data-sleept');
+
+    // De herberekening afdwingen voor de overgangen terugkomen.
+    void s.houder.offsetHeight;
+
+    s.items.forEach((el) => {
+        el.style.transition = '';
+    });
+
+    if (s.naar === s.van) {
+        return;
+    }
+
+    const volgorde = [...s.houder.querySelectorAll('[data-id]')].map((el) => Number(el.dataset.id));
+
+    fetch(s.houder.dataset.sortableUrl, {
         method: 'PUT',
         headers: {
             'Content-Type': 'application/json',
             Accept: 'application/json',
-            'X-CSRF-TOKEN': houder.dataset.sortableToken ?? '',
+            'X-CSRF-TOKEN': s.houder.dataset.sortableToken ?? '',
         },
         body: JSON.stringify({ volgorde }),
     });
-});
+}

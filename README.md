@@ -131,7 +131,7 @@ ophoudt te werken.
 | `data-copied` | diezelfde knop | wat hij anderhalve seconde toont als het gelukt is |
 | `data-confirm` | een `<form>` | vraagt met de waarde als vraag bevestiging voor het indienen |
 | `data-autosubmit` | een select of input | dient zijn formulier in bij wijziging |
-| `data-sidebar` | de zijbalk | wat er in- en uitschuift onder `lg` |
+| `data-sidebar` | de zijbalk | wat er in- en uitschuift onder `lg`; wegvegen sluit hem |
 | `data-sidebar-toggle` | een knop | opent en sluit de zijbalk |
 | `data-sidebar-scrim` | het waas erachter | klikken sluit |
 | `data-theme-toggle` | een knop | licht of donker, onthouden in `hansui.theme` |
@@ -139,12 +139,12 @@ ophoudt te werken.
 | `data-density-toggle` | een knop | compacte of ruime regels, in `hansui.density` |
 | `data-palette-open` | een knop | stuurt het venster-event `open-palette` |
 
-Twee attributen zet `hansui.js` ZELF, en die schrijf je dus niet in een view:
-`data-uit` op een melding die weggeklikt is, en `data-wissel` op een
-kopieerknop terwijl zijn tekst omslaat. Allebei duren ze een fractie van een
-seconde en allebei staan ze in `hansui.css` -- ze staan hier omdat een
-applicatie die haar eigen meldingen of kopieerknoppen opmaakt, anders op een
-selector botst die ze nergens beschreven ziet.
+Drie attributen zet `hansui.js` ZELF, en die schrijf je dus niet in een view:
+`data-uit` op een melding die weggeklikt is, `data-wissel` op een kopieerknop
+terwijl zijn tekst omslaat, en `data-sleept` op de rij die op dat moment aan de
+vinger hangt. Alle drie staan ze in `hansui.css` -- ze staan hier omdat een
+applicatie die haar eigen meldingen, kopieerknoppen of lijsten opmaakt, anders
+op een selector botst die ze nergens beschreven ziet.
 
 Ook `Ctrl`/`Cmd` + `K` stuurt `open-palette`, en `Escape` sluit een open
 dropdown of de zijbalk.
@@ -193,10 +193,22 @@ leeggemaakt — een formulier zonder enkele regel laat de gebruiker klemzitten.
 | `data-id` | op elk kind; dit is wat er naar de server gaat |
 | `data-sortable-url` | waar de nieuwe volgorde met `PUT` naartoe gaat |
 | `data-sortable-token` | het CSRF-token voor die aanvraag |
+| `data-sortable-handle` | optioneel, ergens IN een kind: dan sleep je alleen daaraan |
 
 Bij het loslaten gaat de volgorde als `{volgorde: [id, ...]}` naar de server.
 Slepen werkt zowel verticaal als horizontaal, en nooit van de ene lijst naar de
 andere.
+
+**Zet er een greep in als de rij zelf iets anders doet.** Zonder greep pakt een
+vinger de hele rij, en omdat verticaal slepen op een aanraakscherm ook scrollen
+is, moet hij dan eerst 300ms lang drukken. Met een greep vervalt dat wachten:
+uit waar er geduwd wordt, blijkt de bedoeling al. Een lijst waarin je vaak
+ordent, hoort er een te hebben.
+
+**Herordenen met het toetsenbord bestaat nog niet.** Dat is een gat en geen
+keuze: wie niet kan slepen, kan deze lijst niet ordenen. Zorg er tot die tijd
+voor dat de volgorde ook ergens anders te wijzigen is -- een veld met een
+nummer in het bewerkformulier is genoeg -- als de volgorde er echt toe doet.
 
 ## Afwijken
 

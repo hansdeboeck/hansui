@@ -3,6 +3,56 @@
 Dit package zit straks in zes applicaties op een gepinde versie. Wat hier staat
 is wat je moet weten voor je die pin verzet.
 
+## 0.4.0
+
+Gebaren. De vorige versie ging over overgangen: dingen die vanzelf bewegen als
+er iets verandert. Deze gaat over wat er gebeurt terwijl een vinger op het
+scherm ligt, en dat was in dit package precies een ding -- herordenen -- dat het
+op een telefoon niet deed.
+
+### Gerepareerd
+
+- **`data-sortable` werkte niet op een aanraakscherm.** Hier stond HTML5
+  drag-and-drop, en Android Chrome vuurt daar geen `dragstart` voor vanuit een
+  aanraking terwijl iOS Safari het alleen via zijn eigen sleepmechanisme doet.
+  De README beloofde herordenen; op de helft van de apparaten gebeurde er niets.
+  Nu op Pointer Events, en dus overal.
+- **Een trage veeg had geen snelheid.** Het venster waarover gemeten wordt liep
+  vanaf `nu` terug in plaats van vanaf het laatste punt, en vond bij trage
+  bewegingen dat laatste punt zelf: oudste en laatste waren dan hetzelfde en de
+  uitkomst werd nul. Dit kwam pas boven bij het meten, niet bij het lezen.
+
+### Toegevoegd
+
+- **Vier helpers voor gebaren** in `hansui.js`, onder "Gebaren": een spoor dat
+  de snelheid bijhoudt, een veer met de twee knoppen van Apple (`demping` en
+  `respons`) in plaats van de drie uit de natuurkunde, de projectie waarmee een
+  scrollende pagina uitloopt, en weerstand voorbij een rand. Wie hier een gebaar
+  bij bouwt, hoort deze te gebruiken en geen vijfde manier te verzinnen.
+
+  De veer is er om een reden die je pas ziet als hij ontbreekt: een CSS-overgang
+  begint altijd bij snelheid nul. Hoe hard je ook geveegd hebt, op het moment
+  van loslaten staat het ding even stil. Dat is de naad tussen slepen en
+  animeren.
+- **`data-sortable-handle`**, optioneel, ergens in een kind. Dan sleep je alleen
+  daaraan. Zonder greep pakt een vinger de hele rij, en omdat verticaal slepen
+  ook scrollen is, moet die dan eerst 300ms lang drukken. Met een greep vervalt
+  dat wachten.
+- **De zijbalk sluit met een veeg.** De beslissing hangt aan de SNELHEID en niet
+  aan de afstand: een korte, snelle veeg sluit, ook al is de balk dan nog bijna
+  helemaal open. Wie halverwege van gedachten verandert, kan hem tijdens het
+  wegglijden weer vastpakken en terugtrekken -- vanaf waar hij op dat moment
+  staat, zonder sprong. Alleen sluiten en niet openen: openen met een veeg
+  vanaf de linkerrand vecht met het terug-gebaar van de browser.
+
+### Wat er niet in zit
+
+**Herordenen met het toetsenbord.** Dat is een gat en geen keuze: wie niet kan
+slepen, kan een `data-sortable` niet ordenen. Het is een eigen ontwerp --
+oppakken, verplaatsen, neerleggen, en een schermlezer die zegt wat er gebeurt --
+en geen regel of tien bij het bovenstaande. Tot dat er is: zorg dat de volgorde
+ook ergens anders te wijzigen is als ze er echt toe doet.
+
 ## 0.3.0
 
 Beweging. Dit bestand zette alles op tokens behalve die, en de uitzondering
