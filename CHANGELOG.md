@@ -3,6 +3,25 @@
 Dit package zit straks in zes applicaties op een gepinde versie. Wat hier staat
 is wat je moet weten voor je die pin verzet.
 
+## 0.4.1
+
+### Toegevoegd
+
+- **`plain` op `<x-alert>`**, en de klasse `.alert-plain`. Haalt de bol links
+  weg.
+
+  Dat mag hier, anders dan bij `<x-badge>`, en het verschil is de hele afweging.
+  Het puntje van een badge draagt VORM waar de kleur alleen niet volstaat: een
+  badge staat tussen gewone tekst in een tabel, en het puntje is wat hem als
+  status leest. Op een melding is dat er al -- de achtergrond, de rand en de
+  plaats op het scherm zeggen samen wat het is -- en de bol is in alle vier de
+  varianten dezelfde cirkel in de kleur die ook al in de rand zit. Hij herhaalt
+  dus wat er staat.
+
+  Standaard blijft hij staan, want er is één plaats waar hij wel iets doet: een
+  rij korte meldingen onder elkaar, waar hij het begin van elke regel markeert.
+  Zet hem af op een losse melding die als zin moet lezen.
+
 ## 0.4.0
 
 Gebaren. De vorige versie ging over overgangen: dingen die vanzelf bewegen als

@@ -831,6 +831,27 @@
         flex: none;
     }
     /*
+    | De bol eraf.
+    |
+    | Anders dan bij .badge-plain kost dit hier GEEN toegankelijkheid, en dat
+    | verschil is de reden dat het twee aparte afwegingen zijn.
+    |
+    | Het puntje van een badge draagt vorm waar de kleur alleen niet volstaat:
+    | een badge staat tussen gewone tekst in een tabel, en het puntje is wat hem
+    | als status leest. Bij een melding is dat er al: de achtergrond, de rand en
+    | de plaats op het scherm zeggen samen wat dit is, en de bol is in alle vier
+    | de varianten dezelfde cirkel -- alleen zijn kleur verschilt, en die staat
+    | ook al in de rand. Hij herhaalt dus wat er staat in plaats van iets toe te
+    | voegen.
+    |
+    | Waar hij WEL helpt is een rij korte meldingen onder elkaar: dan is het het
+    | enige wat het begin van elke regel markeert. Vandaar dat hij standaard
+    | blijft en dit een knop is en geen nieuwe standaard.
+    */
+    .alert-plain::before {
+        display: none;
+    }
+    /*
     | HET WEGKLIKKEN VAN EEN MELDING.
     |
     | hansui.js haalde hem met .remove() weg: van staan naar weg, zonder
