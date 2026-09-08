@@ -3,7 +3,7 @@
 Dit package zit straks in zes applicaties op een gepinde versie. Wat hier staat
 is wat je moet weten voor je die pin verzet.
 
-## 0.4.1
+## 0.5.0
 
 ### Toegevoegd
 
