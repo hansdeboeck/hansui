@@ -194,36 +194,4 @@ final class StylesheetTest extends TestCase
             'De .btn mist een zichtbare focusring.',
         );
     }
-
-    #[Test]
-    public function elke_plain_schakelaar_haalt_het_puntje_ook_echt_weg(): void
-    {
-        /*
-        | `plain` is een prop in een view en een regel in dit bestand, en die
-        | twee kennen elkaar enkel via de naam van de klasse. Typ er een van de
-        | twee verkeerd en er gebeurt niets zichtbaars: de component tekent, de
-        | rendertest ziet een niet-lege string, en het puntje blijft staan.
-        |
-        | Daarom haalt dit de klassenamen UIT de views in plaats van ze hier te
-        | herhalen -- een schakelaar die er later bij komt, komt vanzelf mee.
-        */
-        $css = $this->css();
-        $klassen = [];
-
-        foreach ($this->bladeBestanden() as $view) {
-            preg_match_all("/'([a-z]+-plain)'\\s*=>/", (string) file_get_contents($view), $m);
-            $klassen = array_merge($klassen, $m[1]);
-        }
-
-        $klassen = array_unique($klassen);
-        $this->assertNotEmpty($klassen, 'Geen enkele plain-schakelaar gevonden; dan kijkt deze test naar niets.');
-
-        foreach ($klassen as $klasse) {
-            $this->assertMatchesRegularExpression(
-                '/display:\\s*none/',
-                $this->blok($css, ".{$klasse}::before"),
-                "De klasse .{$klasse} staat in een view maar haalt het puntje niet weg.",
-            );
-        }
-    }
 }

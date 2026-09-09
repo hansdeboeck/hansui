@@ -695,19 +695,6 @@
     .badge {
         @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium;
     }
-    /* Een status draagt ook een VORM: het puntje maakt het onderscheid leesbaar
-       voor wie de kleuren niet uit elkaar houdt. */
-    .badge::before {
-        content: '';
-        width: 0.3125rem;
-        height: 0.3125rem;
-        border-radius: 9999px;
-        background: currentColor;
-        flex: none;
-    }
-    .badge-plain::before {
-        display: none;
-    }
     .badge-success {
         background: var(--ok-soft);
         color: var(--ok);
@@ -805,9 +792,13 @@
     | dekte. Nu een klasse, zoals .btn, .badge, .card en .chip.
     |
     | De TEKST is gewoon --ink en niet de statuskleur. Een melding moet in de
-    | eerste plaats leesbaar zijn; welke soort het is, leest af van de tint en
-    | van het puntje -- dezelfde vorm-naast-kleur als bij .badge, om dezelfde
-    | reden.
+    | eerste plaats leesbaar zijn; welke soort het is, leest af van de tint, de
+    | rand en de titel.
+    |
+    | Er stond een bol vooraan. Die is eruit: hij was in alle vier de varianten
+    | dezelfde cirkel in de kleur die ook al in de rand zit, dus hij herhaalde
+    | wat er stond in plaats van er iets aan toe te voegen. Hetzelfde geldt voor
+    | het puntje dat .badge had.
     |
     | Inline en geen toast: een melding die vanzelf verdwijnt is een melding die
     | iemand mist.
@@ -820,36 +811,6 @@
         transition:
             opacity 150ms var(--ease-out),
             transform 150ms var(--ease-out);
-    }
-    .alert::before {
-        content: '';
-        width: 0.5rem;
-        height: 0.5rem;
-        margin-top: 0.375rem;
-        border-radius: 9999px;
-        background: var(--ink-faint);
-        flex: none;
-    }
-    /*
-    | De bol eraf.
-    |
-    | Anders dan bij .badge-plain kost dit hier GEEN toegankelijkheid, en dat
-    | verschil is de reden dat het twee aparte afwegingen zijn.
-    |
-    | Het puntje van een badge draagt vorm waar de kleur alleen niet volstaat:
-    | een badge staat tussen gewone tekst in een tabel, en het puntje is wat hem
-    | als status leest. Bij een melding is dat er al: de achtergrond, de rand en
-    | de plaats op het scherm zeggen samen wat dit is, en de bol is in alle vier
-    | de varianten dezelfde cirkel -- alleen zijn kleur verschilt, en die staat
-    | ook al in de rand. Hij herhaalt dus wat er staat in plaats van iets toe te
-    | voegen.
-    |
-    | Waar hij WEL helpt is een rij korte meldingen onder elkaar: dan is het het
-    | enige wat het begin van elke regel markeert. Vandaar dat hij standaard
-    | blijft en dit een knop is en geen nieuwe standaard.
-    */
-    .alert-plain::before {
-        display: none;
     }
     /*
     | HET WEGKLIKKEN VAN EEN MELDING.
