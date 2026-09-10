@@ -853,29 +853,17 @@
         background: var(--ok-soft);
         border-color: color-mix(in oklab, var(--ok) 30%, transparent);
     }
-    .alert-success::before {
-        background: var(--ok);
-    }
     .alert-danger {
         background: var(--danger-soft);
         border-color: color-mix(in oklab, var(--danger) 30%, transparent);
-    }
-    .alert-danger::before {
-        background: var(--danger);
     }
     .alert-warning {
         background: var(--warn-soft);
         border-color: color-mix(in oklab, var(--warn) 30%, transparent);
     }
-    .alert-warning::before {
-        background: var(--warn);
-    }
     .alert-info {
         background: var(--info-soft);
         border-color: color-mix(in oklab, var(--info) 30%, transparent);
-    }
-    .alert-info::before {
-        background: var(--info);
     }
 
     /* ----------------------------------------------------------------- tabellen */
