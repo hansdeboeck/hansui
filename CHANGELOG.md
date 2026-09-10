@@ -3,6 +3,38 @@
 Dit package zit straks in zes applicaties op een gepinde versie. Wat hier staat
 is wat je moet weten voor je die pin verzet.
 
+## 0.6.0
+
+### Verwijderd
+
+- **Het puntje van `.badge` en de bol van `.alert`**, samen met `plain` op
+  allebei de componenten en de klassen `.badge-plain` en `.alert-plain`.
+
+  Bij de melding was de afweging vorige versie al gemaakt en stond ze in dit
+  bestand: de bol is in alle vier de varianten dezelfde cirkel in de kleur die
+  ook al in de rand zit, dus hij herhaalt wat er staat. Wat toen als knop
+  binnenkwam, is nu de standaard.
+
+  Bij de badge lag het anders. Daar was het argument niet "groen van rood
+  onderscheiden" maar "dit als status laten lezen tussen gewone tekst in een
+  tabel". Dat is een echt argument, alleen doet de pilvorm met een
+  achtergrondkleur dat al; het puntje voegde er geen kanaal aan toe dat er niet
+  was. En een schakelaar die je op de helft van de badges omzet, is een
+  schakelaar die zegt dat de standaard niet klopt.
+
+  **Wat je moet doen.** Zoek in je views naar `plain` op `<x-badge>` en
+  `<x-alert>` en haal het weg. Blijft het staan, dan belandt het als los
+  attribuut in de uitvoer -- lelijk, maar niet stuk.
+
+  De melding schuift links iets in: waar de bol stond, begint nu de tekst.
+
+### Weg uit de tests
+
+- `StylesheetTest::elke_plain_schakelaar_haalt_het_puntje_ook_echt_weg()`. Die
+  schraapte de `*-plain`-klassen uit de views en had een `assertNotEmpty` als
+  vangnet voor het geval hij niets vond. Er is nu niets meer te vinden, en een
+  test die een verdwenen schakelaar bewaakt, bewaakt niets.
+
 ## 0.5.0
 
 ### Toegevoegd

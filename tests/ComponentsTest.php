@@ -36,7 +36,7 @@ final class ComponentsTest extends TestCase
             'page' => ['<x-page title="Medewerkers" subtitle="Alle actieve" back="/terug"/>'],
             'card' => ['<x-card class="p-4">Inhoud</x-card>'],
             'button' => ['<x-button variant="danger" :small="true">Verwijderen</x-button><x-button as="a" href="/x">Terug</x-button>'],
-            'badge' => ['<x-badge variant="danger" :solid="true">Fataal</x-badge><x-badge :plain="true">sentry</x-badge>'],
+            'badge' => ['<x-badge variant="danger" :solid="true">Fataal</x-badge><x-badge>sentry</x-badge>'],
             'code-block' => ['<x-code-block code="npm install voorbeeld"/>'],
             'key-value' => ['<x-key-value title="Kopregels" :data="[1, [2, 3], null, true]"/>'],
             'table' => ['<x-table><x-slot:head><th class="th">Naam</th></x-slot:head><tr><td class="td">Nina</td></tr></x-table>'],
@@ -60,7 +60,7 @@ final class ComponentsTest extends TestCase
             'avatar' => ['<x-avatar name="Nina Bodart" size="lg"/><x-avatar name="Nina" src="/n.jpg"/>'],
             'tabs' => ['<x-tabs :items="[[\'label\' => \'Jobs\', \'href\' => \'/jobs\', \'active\' => true, \'count\' => 4]]">terug</x-tabs>'],
             'choice' => ['<x-choice name="job" value="politie" label="Politie" icon="shield" hint="Rang 3" :checked="true"/>'],
-            'alert' => ['<x-alert variant="warning" title="Let op" :dismissible="true">Dit kan niet terug.</x-alert><x-alert :plain="true">Zonder bol.</x-alert>'],
+            'alert' => ['<x-alert variant="warning" title="Let op" :dismissible="true">Dit kan niet terug.</x-alert><x-alert>Los.</x-alert>'],
         ];
     }
 
