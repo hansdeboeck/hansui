@@ -82,6 +82,22 @@
         --nav-group-ink: rgb(255 255 255 / 0.34);
 
         /*
+        | Het ACCENT van het gekozen item, en het staat hier om precies dezelfde
+        | reden als de drie hierboven.
+        |
+        | Het icoontje van het gekozen item stond op --brand-deep. Dat is de
+        | merkkleur zoals ze op een LICHT vlak hoort: in de lichte stand 80%
+        | naar zwart gemengd, want daar moet ze het van een witte achtergrond
+        | winnen. Deze balk is daar niet licht. Ze is in beide standen donker,
+        | en die verdiepte inkt haalde er 1,03:1 op de gekozen rij: het
+        | icoontje stond er wel, en je zag alleen dat er iets paars stond.
+        |
+        | Dus de donkere merkvariant, die hiernaast toch al bijgehouden wordt.
+        | In beide standen dezelfde, want de ondergrond kantelt ook niet mee.
+        */
+        --nav-accent:    var(--brand-primary-dark);
+
+        /*
         | Merk en semantiek staan LOS van elkaar. Groen is Growtail; groen is
         | nooit een status. Daarom een eigen --ok, ook al lijkt hij erop: zo
         | verandert een huisstijl in een andere kleur niet stilletjes de
@@ -1011,7 +1027,7 @@
         font-weight: 600;
     }
     .nav-item[aria-current='page'] svg {
-        color: var(--brand-deep);
+        color: var(--nav-accent);
     }
     .nav-group {
         @apply px-2.5 pb-1 pt-4 text-[0.625rem] font-bold uppercase tracking-widest;
@@ -1036,6 +1052,7 @@
         --nav-hover:     var(--surface-sunk);
         --nav-active:    var(--brand-soft);
         --nav-group-ink: var(--ink-faint);
+        --nav-accent:    var(--brand-deep);
         background: var(--nav);
     }
 
