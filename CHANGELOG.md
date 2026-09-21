@@ -35,6 +35,28 @@ is wat je moet weten voor je die pin verzet.
 - **`Aanmelden` in `lang/en.json`**, want de kop en de tabtitel vallen daarop
   terug wanneer de applicatie ze niet zet.
 
+### Opgelost
+
+- **Het icoontje van het gekozen item in de donkere zijbalk was in de lichte
+  stand niet te lezen.** Het stond op `--brand-deep`, en dat is de merkkleur
+  voor een LICHT vlak: in de lichte stand 80% naar zwart gemengd. De zijbalk is
+  daar niet licht -- `--nav` is in beide standen donker -- dus die verdiepte
+  inkt kwam op de gekozen rij uit op 1,03:1. Het icoontje stond er wel, en je
+  zag alleen dat er iets paars stond.
+
+  Nieuw token **`--nav-accent`**, bij `--nav-hover`, `--nav-active` en
+  `--nav-group-ink` in het blok dat niet meekantelt, met
+  `var(--brand-primary-dark)` erin. `.nav-light` zet hem terug naar
+  `--brand-deep`, want die navigatie staat wel op een vlak dat meekantelt.
+
+  Met de merkkleur van signagetail gaat de gekozen rij van 1,03:1 naar 4,93:1
+  in de lichte stand; in de donkere zakt ze van 7,91:1 naar 5,88:1, omdat de
+  kleur nu in beide standen dezelfde is.
+
+  **Wat je moet doen.** Niets, tenzij je het accent anders wil: zet dan
+  `--nav-accent` op je zijbalk. Wie geen `--brand-primary-dark` opgeeft, houdt
+  de afgeleide variant en dus ook het oude gedrag in de donkere stand.
+
 ## 0.6.0
 
 ### Verwijderd
