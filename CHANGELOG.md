@@ -3,6 +3,38 @@
 Dit package zit straks in zes applicaties op een gepinde versie. Wat hier staat
 is wat je moet weten voor je die pin verzet.
 
+## 0.7.0
+
+### Toegevoegd
+
+- **De aanmeldpagina**, als layout: `@extends('hansui::layouts.auth')`. Het
+  formulier links in een kaart, een foto rechts, en op een smal scherm alleen
+  het formulier.
+
+  Een layout en geen component, want een aanmeldscherm extend je; wat de
+  applicatie invult, gaat dus langs secties. Alleen `form` moet er staan.
+  Daarnaast zijn er `title`, `heading`, `intro`, `logo`, `image`, `image-alt`,
+  `footer` en `assets`.
+
+  **De foto zit er niet bij, ze wordt gevraagd.** Een beeld is van de
+  applicatie, en een bestand dat hier binnenkomt gaat via composer naar alle
+  zes de projecten, ook naar wie een ander beeld kiest. Zet dus
+  `@section('image', asset('images/aanmelden.webp'))` met je eigen webp erin.
+  Zonder die sectie valt de kolom rechts weg en staat het formulier in het
+  midden, zoals de foutpagina.
+
+  De foto komt er pas bij vanaf `lg`. Daaronder haalt de browser haar ook niet
+  op: ze staat op `loading="lazy"`, en een element zonder vlak kruist nooit het
+  venster. Zonder dat attribuut betaalt een telefoon voor een beeld dat ze
+  nooit te zien krijgt.
+
+  De flash-balk staat in de layout. "De inloggegevens kloppen niet" is de
+  melding die dit scherm het vaakst te tonen heeft, en die hoort niet in elk
+  aanmeldscherm apart geplakt te worden.
+
+- **`Aanmelden` in `lang/en.json`**, want de kop en de tabtitel vallen daarop
+  terug wanneer de applicatie ze niet zet.
+
 ## 0.6.0
 
 ### Verwijderd

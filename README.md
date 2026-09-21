@@ -109,6 +109,10 @@ tegel, en `<x-tabs>` de pillenrij tussen samenhangende schermen.
 @include('hansui::partials.flash')
 ```
 
+**De aanmeldpagina** is een layout: `@extends('hansui::layouts.auth')`, met het
+formulier links en een foto rechts. Wat ze vraagt staat
+[verderop](#de-aanmeldpagina).
+
 ## Gedrag
 
 `hansui.js` hangt elk stuk gedrag aan een data-attribuut en luistert op
@@ -253,6 +257,50 @@ Het label wijst met `for=` naar het id gelijk aan `name`, dus dat id moet er
 staan. De ids met achtervoegsel `-help` en `-error` bestaan alleen wanneer er
 een hulptekst of een fout is; een `aria-describedby` die naar niets wijst is
 onschadelijk, dus beide mogen er altijd in.
+
+## De aanmeldpagina
+
+Geen component maar een layout, want een aanmeldscherm extend je:
+
+```blade
+@extends('hansui::layouts.auth')
+
+@section('title', __('Aanmelden'))
+@section('intro', __('Meld u aan met uw werkadres.'))
+@section('image', asset('images/aanmelden.webp'))
+
+@section('form')
+    <form method="POST" action="{{ route('login') }}" class="space-y-4">
+        @csrf
+        <x-field name="email" :label="__('E-mail')" :required="true">
+            <input id="email" name="email" type="email" class="input" autofocus>
+        </x-field>
+        ...
+    </form>
+@endsection
+```
+
+Het formulier staat links in een kaart, de foto rechts. **De foto zit niet in
+dit package, ze wordt gevraagd.** Een beeld is van de applicatie, en wat hier
+binnenkomt, gaat via composer naar alle zes de projecten, ook naar wie een
+ander beeld kiest. Zet er dus je eigen webp neer, breed genoeg voor een halve
+pagina.
+
+Zonder sectie `image` valt de kolom rechts weg en staat het formulier in het
+midden, zoals de foutpagina. Dat is de tweede vorm en geen noodstand: een
+halfleeg scherm zou erger zijn dan geen foto. De foto komt er pas bij vanaf
+`lg`; daaronder is een halve kolom foto een halve kolom minder formulier, en
+een telefoon haalt het bestand dan ook niet op.
+
+Alle secties zijn optioneel behalve `form`: `title` (de tabtitel), `heading` en
+`intro` (de kop in de kaart), `logo`, `image` en `image-alt`, `footer`, en
+`assets` voor wie andere Vite-ingangen heeft dan `resources/css/app.css` en
+`resources/js/app.js`. De flash-balk staat er al in, dus "de inloggegevens
+kloppen niet" hoef je zelf niet te plaatsen.
+
+Wat opmaak draagt, zet je als blok en niet als waarde: Blade ontsnapt de inhoud
+van `@section('naam', 'waarde')` en die van een blok niet. Op een pad of een
+titel merk je dat nooit, op `logo`, `form` en `assets` des te meer.
 
 ## Publiceren
 
