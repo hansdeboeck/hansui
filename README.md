@@ -83,9 +83,13 @@ typen bestaat, en kantelt mee.
 `.td`, `.chip`, `.choice`, `.nav-item`, `.nav-group`, `.nav-light`,
 `.dropdown-panel`, `.tab`, `.modal` + `.modal-head`, `.modal-body` en
 `.modal-foot`, `.link-muted`, `.empty`, `.sidebar`. Voor een bibliotheek:
-`.tree-item`, `.media-tile` + `.media-check` en `.media-badge`, `.dropzone`,
+`.tree-item`, `.media-tile` + `.media-check`, `.media-badge`, `.media-thumb`,
+`.media-icon`, `.media-meta`, `.media-open` en `.media-more`, `.dropzone`,
 `.meter` + `.meter-fill`, `.locked` voor wat het abonnement niet heeft, en de
-utilities `.grid-tiles`, `.grid-tiles-lg` en `.no-select`. Voor codes
+utilities `.grid-tiles-sm`, `.grid-tiles`, `.grid-tiles-lg` en `.no-select`.
+Voor menu's en meldingen `.context-menu` met `.context-sep`, `.context-label`,
+`.context-kbd` en `.context-danger`, en `.toast`; voor het voorbeeldvenster
+`.lightbox` en zijn onderdelen. Voor codes
 `.code-input` en `.code-display`. Voor grafieken
 `.chart` en zijn onderdelen.
 
@@ -103,7 +107,7 @@ staat, loopt uit elkaar zodra er iets aan verandert.
 `<x-key-value>`, `<x-detail-list>`, `<x-detail-row>`, `<x-tabs>`,
 `<x-nav-link>`, `<x-footer>`, `<x-nav-dropdown>`, `<x-nav-mega-group>`,
 `<x-nav-mega-link>`, `<x-delta>`, `<x-chart.line>`, `<x-chart.columns>`,
-`<x-chart.bars>`, `<x-chart.heatmap>` en `<x-cropper>`. Ook bereikbaar als
+`<x-chart.bars>`, `<x-chart.heatmap>`, `<x-cropper>` en `<x-lightbox>`. Ook bereikbaar als
 `<x-hansui::page>` wanneer een applicatie de korte naam zelf al gebruikt.
 
 `<x-card>` is een kaal vlak, `<x-section>` diezelfde kaart met een kopregel
@@ -158,7 +162,7 @@ ophoudt te werken.
 | `data-modal-close` | een knop erin | sluit het venster; klikken op het waas ook |
 | `data-copy` | een veld of een span | klikken kopieert de waarde |
 | `data-copy-target` | een knop | klikken kopieert wat de selector aanwijst |
-| `data-copied` | diezelfde knop | wat hij anderhalve seconde toont als het gelukt is |
+| `data-copied` | diezelfde knop, of een element met `data-copy` | wat hij anderhalve seconde toont als het gelukt is; bij `data-copy` onderaan het scherm |
 | `data-confirm` | een `<form>` | vraagt met de waarde als vraag bevestiging voor het indienen |
 | `data-autosubmit` | een select of input | dient zijn formulier in bij wijziging |
 | `data-sidebar` | de zijbalk | wat er in- en uitschuift onder `lg`; wegvegen sluit hem |
@@ -209,6 +213,15 @@ balk per bestand. Na de laatste herlaadt de pagina.
 | `data-upload-panel` | wat rond die lijst staat; verliest `hidden` bij de eerste regel |
 | `data-no-browse` | op een knop in het vak die het bestandsvenster niet moet openen |
 | `data-state` | zet je niet zelf: de status van een regel |
+| `data-upload-hint` | op het `data-upload-surface`: een tekst die over de hele pagina verschijnt zolang er een bestand boven hangt |
+
+Er mogen meer vakken op een pagina staan (een groot vak in een lege lijst en
+hetzelfde in een uploadvenster): elk opent zijn eigen bestandskeuze, slepen op
+de pagina en plakken gaan naar het eerste. Staat de lijst in een dicht
+`<dialog>`, dan gaat dat open zodra er een
+bestand binnenkomt: wie op de pagina loslaat, ziet anders niets gebeuren. Een
+element dat binnen de pagina versleept wordt (`data-drag-item`) is nooit een
+upload.
 
 Het bestand gaat als `file` naar `data-action`, met `folder_id`. Van een video
 gaan er ook `duration_ms`, `width`, `height` en een `poster` als data-URL mee:
@@ -258,6 +271,16 @@ mensen" iets anders is dan "de hele pagina".
 | `data-bulk-bar` | de balk; krijgt en verliest `hidden` |
 | `data-bulk-count` | de teller; met enkelvoud en meervoud als waarde, gescheiden door een verticale streep, schrijft hij het woord erbij |
 | `data-bulk-field` | zet je niet zelf: dit markeert de verborgen velden die het package in de balk spiegelt, zodat het ze bij de volgende wijziging weer kan opruimen |
+| `data-bulk-row` | een rij of tegel met een vakje erin: `Ctrl`/`Cmd` + klik zet het vakje om, `Shift` + klik kiest een bereik, zonder de link erin te volgen |
+| `data-bulk-name` | een formulier in de balk dat de waarden onder een andere veldnaam wil dan die van `data-bulk` |
+| `data-bulk-clear` | een knop in de omhulling die alles uitvinkt |
+| `data-bulk-form` | een formulier buiten de balk, met de selector van de omhulling (die dan een id nodig heeft) als waarde: het krijgt dezelfde verborgen velden |
+
+Zoals in een verkenner: `Shift` + klik op een vakje kiest alles tussen het
+vorige vakje en dit, `Ctrl`/`Cmd` + `A` met de focus in de lijst kiest alles,
+`Escape` wist de selectie, en `Ctrl` + spatie op een `data-bulk-row` met de
+focus zet haar vakje om. Elke wijziging stuurt `bulk:change` op de omhulling,
+met `count` en `values` in `detail`.
 
 Twee opstellingen, en ze werken allebei zonder dat je iets hoeft te zeggen:
 staan de vakjes al ín het formulier dat de actie uitvoert, dan zijn ze zelf de
@@ -340,6 +363,134 @@ in het midden. Een nieuw `src` begint opnieuw; stuur `crop:reset` op de
 omhulling om opnieuw te beginnen met hetzelfde beeld (maak de velden dan eerst
 leeg). De hoogte van het beeld begrens je met `--crop-max-height` (standaard
 `60vh`). Het snijden zelf doet de server: de browser meldt alleen waar.
+
+**Een contextmenu.** Rechtsklikken, de knop met drie puntjes, de
+ContextMenu-toets of `Shift` + `F10`: alle vier openen hetzelfde menu, want
+niet iedereen heeft een rechtermuisknop. Het menu staat een keer op de pagina
+als gewone HTML; de waarden van het element waarop het opengaat, worden erin
+ingevuld.
+
+```blade
+<div data-context-menu="#bestand" data-context-item='{"id": 12, "name": "Etalage"}'>
+    <button type="button" data-context-trigger aria-label="Acties">…</button>
+</div>
+
+<div id="bestand" role="menu" class="context-menu" hidden>
+    <p class="context-label" data-context-text="name"></p>
+    <a role="menuitem" href="/bestanden/{id}">Openen</a>
+    <button type="button" role="menuitem" data-context-key="F2"
+            data-modal-open="#hernoemen" data-context-fill="#hernoemen">Hernoemen</button>
+    <hr role="separator" class="context-sep">
+    <form method="POST" action="/bestanden/{id}" data-confirm="{name} verwijderen?">
+        <button role="menuitem" class="context-danger">Verwijderen</button>
+    </form>
+</div>
+```
+
+| Attribuut | Waar het op zit | Wat het doet |
+|---|---|---|
+| `data-context-menu` | het element (of de omhulling: een lege plek) | rechtsklikken opent het menu dat de selector aanwijst; het dichtstbijzijnde wint |
+| `data-context-item` | datzelfde element of een voorouder | een JSON-object met de waarden die in het menu ingevuld worden |
+| `data-context-trigger` | een knop erin | opent het menu onder zichzelf; met een selector als waarde een ander menu |
+| `data-context-text` | iets in het menu | krijgt de waarde met die sleutel als tekst |
+| `data-context-value` | een veld | krijgt de waarde als `.value` |
+| `data-context-if` | een item, formulier of veld | staat er alleen als de uitdrukking klopt: `sleutel`, `!sleutel`, `sleutel=a,b`, `sleutel!=a`; een veld dat er niet staat, gaat ook niet mee |
+| `data-context-disabled` | een item | dezelfde uitdrukking; klopt ze, dan is het item onbruikbaar (`aria-disabled`) |
+| `data-context-ids` | een formulier in het menu | krijgt een verborgen veld per id: de selectie, of het ene element; de waarde is de veldnaam |
+| `data-context-id` | zet je niet zelf | de verborgen velden die `data-context-ids` maakt |
+| `data-context-sub` | een item | opent het `role="menu"` dat erna staat als submenu |
+| `data-context-key` | een item | een sneltoets (`F2`, `Delete`) die het item uitvoert op het element met de focus, zonder menu |
+| `data-context-click` | een item | klikt op wat de selector BINNEN het element aanwijst (een vakje, een link) |
+| `data-context-fill` | een item, of een knop buiten het menu | vult dezelfde waarden ook in het element dat de selector aanwijst: een venster dat het item opent. Buiten een menu zijn het de waarden van waar de knop staat; in een `data-bulk`-lijst zonder eigen rij is dat de selectie |
+| `data-context-open` | zet je niet zelf | op het element waarvan het menu openstaat |
+
+`{sleutel}` in om het even welk attribuut in het menu wordt de waarde: `href`,
+`action`, `value`, `data-confirm`. Het sjabloon wordt onthouden, dus het
+volgende element begint er weer van. Naast wat in `data-context-item` staat,
+zijn er altijd `ids`, `count`, `selected`, `checked` en `selection`: dat
+laatste klopt als het element in een `data-bulk`-lijst aangevinkt staat en er
+meer aanstaan, en dan gaat het menu over de hele selectie.
+
+In het menu doen de pijltjes, `Home`, `End`, `Enter`, spatie, de eerste letter
+en `Escape` wat ze in een menu van het besturingssysteem doen; rechts en links
+gaan een submenu in en uit. Het menu blijft binnen het venster, sluit bij een
+klik ernaast of bij scrollen, en zet de focus terug waar hij stond. Het stuurt
+`context:open` op het element, met `menu` en `values` in `detail`.
+`tests/browser/verkenner.html` zet het menu, de selectie, het raster en het
+voorbeeldvenster samen op een pagina.
+
+**Een raster met pijltjes.**
+
+| Attribuut | Wat het doet |
+|---|---|
+| `data-grid-nav` | de omhulling: een tabstop voor het hele raster |
+| `data-grid-item` | wat de focus krijgt; de pijltjes gaan naar links, rechts, en naar de rij erboven of eronder zoals ze op het scherm staat, `Home` en `End` naar het eerste en laatste, spatie klikt |
+
+**Slepen naar een doel.** Een tegel naar een map slepen, met de muis. Voor
+een vinger of het toetsenbord hoort er ook een andere weg te zijn: een item
+"Verplaatsen naar" in het contextmenu.
+
+| Attribuut | Wat het doet |
+|---|---|
+| `data-drag-item` | wat je vastpakt, met `draggable="true"`; de waarde is het id. Staat het aangevinkt in een `data-bulk`-lijst, dan gaat de selectie mee |
+| `data-drag-label` | op het item of de lijst: enkelvoud en meervoud, gescheiden door een verticale streep, voor het aantal naast de muis |
+| `data-drop-target` | waar je loslaat; de waarde is de url waar een POST naartoe gaat |
+| `data-drop-name` | de veldnaam van de id's; anders die van `data-bulk`, anders `ids[]` |
+| `data-drop-fields` | JSON met extra velden, zoals de map waar het heen gaat |
+| `data-drop-token` | het CSRF-token; anders dat uit `<meta name="csrf-token">` |
+| `data-drop` | zet je niet zelf: `over` terwijl er iets boven hangt, `busy` tijdens de aanvraag |
+| `data-dragging` | zet je niet zelf: wat er versleept wordt |
+
+Na een geslaagde aanvraag gaat `drop:done` op het doel; wie dat niet
+tegenhoudt (`preventDefault()`), krijgt een herladen pagina. Een fout komt
+onderaan het scherm, met de `message` uit het antwoord.
+
+**Een video die speelt bij hover.** `data-hover-play` op een `<video>` laat haar
+gedempt spelen zolang de muis boven het element staat dat de waarde aanwijst
+(een voorouder, zoals `.media-tile`), of boven de video zelf. Niet op een
+aanraakscherm en niet voor wie om minder beweging vroeg.
+
+**Het voorbeeldvenster.** Een link die een groot voorbeeld opent, met vorige en
+volgende; met `Ctrl` + klik of zonder script blijft het een gewone link.
+
+```blade
+<a href="{{ route('foto.show', $foto) }}" data-lightbox="fotos"
+   data-lightbox-src="{{ $foto->url() }}" data-lightbox-aside="{{ route('foto.paneel', $foto) }}">…</a>
+
+<x-lightbox id="voorbeeld" group="fotos" :aside="true"/>
+```
+
+| Attribuut | Wat het doet |
+|---|---|
+| `data-lightbox` | de link; de waarde is de groep waarin vorige en volgende zoeken |
+| `data-lightbox-view` | de `<dialog>` van `<x-lightbox>`, met de groep als waarde |
+| `data-lightbox-src` | wat er getoond wordt; anders de `href` |
+| `data-lightbox-type` | `image` (standaard), `video`, `audio`, `frame` (een pdf of pagina in een kader; op een aanraakscherm een link), of iets anders: dat krijgt een icoon en een link |
+| `data-lightbox-poster` | het posterbeeld van een video |
+| `data-lightbox-title` | de titel bovenaan; anders `aria-label` of de tekst |
+| `data-lightbox-alt` | de alt-tekst van het beeld |
+| `data-lightbox-aside` | op de link: een url waarvan het zijpaneel als HTML komt, een keer per url |
+| `data-lightbox-stage`, `data-lightbox-caption`, `data-lightbox-prev`, `data-lightbox-next`, `data-lightbox-count`, `data-lightbox-fallback`, `data-lightbox-open` | de onderdelen die `<x-lightbox>` al tekent |
+
+De pijltjes links en rechts bladeren, vegen ook, `Escape` sluit, en daarna
+staat de focus op de link van het laatste beeld. De waarden uit
+`data-context-item` worden in het venster ingevuld zoals in een contextmenu,
+dus een vast zijpaneel met `{id}` erin werkt ook. Het venster stuurt
+`lightbox:show` (met `index`, `total` en `opener`), het paneel `lightbox:aside`
+als het binnen is. `window.HansUI.lightboxForget(url)` vergeet een opgehaald
+paneel, voor na een wijziging.
+
+**Bewaren zonder de pagina te verlaten.** `data-async` op een formulier stuurt
+het met fetch en `Accept: application/json`; de pagina blijft staan. De waarde
+is wat er bij succes gemeld wordt, in het element met `data-async-status` in
+het formulier, anders onderaan het scherm. Een validatiefout toont de eerste
+melding daar en zet `aria-invalid` op het veld. `data-async-offline` is de
+tekst als de verbinding wegvalt. Na afloop `async:done`, met het antwoord in
+`detail`; `data-confirm` werkt er gewoon op.
+
+**Een melding onderaan.** Voor wie zelf iets wil melden:
+`window.dispatchEvent(new CustomEvent('toast', { detail: 'Bewaard' }))`, of
+`{ detail: { text: 'Mislukt', tone: 'danger' } }`.
 
 ## Afwijken
 

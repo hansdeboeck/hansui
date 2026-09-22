@@ -27,6 +27,12 @@
 |   data-regel*                  herhaalbare formulierregels
 |   data-sortable*               slepen om te herordenen, met PUT naar de server
 |   data-crop*                   een beeld bijsnijden, met muis, vinger of toetsenbord
+|   data-context-*               een contextmenu, met waarden per element ingevuld
+|   data-grid-nav                een raster doorlopen met de pijltjes
+|   data-drag-item / data-drop-target   iets naar een doel slepen, met POST
+|   data-hover-play              een video die speelt als je erover gaat
+|   data-lightbox*               een groot voorbeeld met vorige en volgende
+|   data-async                   een formulier bewaren zonder de pagina te verlaten
 |
 | De vier helpers onder "Gebaren" -- spoor, veer, projectie en rubberband --
 | zijn wat de zijbalk en het herordenen delen. Wie hier een gebaar bij bouwt,
@@ -211,8 +217,15 @@ document.addEventListener('click', async (e) => {
     field.select?.();
 
     try {
-        await navigator.clipboard.writeText(field.value ?? field.textContent ?? '');
+        await navigator.clipboard.writeText(field.value || field.textContent || '');
         field.setAttribute('title', 'Gekopieerd');
+
+        // Een knop in een contextmenu verdwijnt met het menu; zonder melding
+        // weet niemand of het gelukt is. `data-copied` zegt het dan even
+        // onderaan het scherm.
+        if (field.hasAttribute('data-copied')) {
+            hansuiToast(field.getAttribute('data-copied'));
+        }
     } catch (_) {
         // Clipboard niet beschikbaar: de selectie volstaat om te kopiëren.
     }
@@ -412,19 +425,32 @@ function hansuiBulk(scope) {
     | geen toestand die uit de pas kan lopen met de vakjes. De veldnaam komt van
     | `data-bulk="ids[]"`; zonder waarde is dat de standaard.
     */
-    if (! bar) {
+    scope.dispatchEvent(new CustomEvent('bulk:change', {
+        bubbles: true,
+        detail: { count: checked.length, values: checked.map((box) => box.value) },
+    }));
+
+    /*
+    | Een formulier BUITEN de balk dat dezelfde selectie nodig heeft -- een
+    | venster "Verplaatsen naar" bijvoorbeeld -- wijst met
+    | `data-bulk-form="#lijst"` naar de omhulling en krijgt de velden ook.
+    */
+    const naam = scope.getAttribute('data-bulk') || 'ids[]';
+    const buiten = scope.id
+        ? [...document.querySelectorAll(`form[data-bulk-form="#${CSS.escape(scope.id)}"]`)]
+        : [];
+
+    if (! bar && buiten.length === 0) {
         return;
     }
 
-    const naam = scope.getAttribute('data-bulk') || 'ids[]';
-
-    bar.querySelectorAll('form').forEach((form) => {
+    [...(bar ? bar.querySelectorAll('form') : []), ...buiten].forEach((form) => {
         form.querySelectorAll('[data-bulk-field]').forEach((veld) => veld.remove());
 
         checked.forEach((box) => {
             const veld = document.createElement('input');
             veld.type = 'hidden';
-            veld.name = naam;
+            veld.name = form.getAttribute('data-bulk-name') || naam;
             veld.value = box.value;
             veld.setAttribute('data-bulk-field', '');
             form.appendChild(veld);
@@ -446,6 +472,135 @@ document.addEventListener('change', (e) => {
 
     if (e.target.matches('[data-bulk-item], [data-bulk-all]')) {
         hansuiBulk(scope);
+    }
+});
+
+/*
+| Selecteren zoals in een verkenner.
+|
+| Een vinkje per rij volstaat voor tien rijen; voor tweehonderd foto's wil je
+| wat elke bestandsverkenner kan: `Shift` + klik kiest alles tussen het vorige
+| vinkje en dit, `Ctrl`/`Cmd` + klik op de RIJ (`data-bulk-row`) zet haar
+| vinkje om zonder de link erin te volgen, `Ctrl`/`Cmd` + `A` kiest alles en
+| `Escape` wist. `Ctrl` + spatie doet op een rij met de focus wat een klik op
+| het vinkje doet, voor wie met het toetsenbord werkt en het vinkje niet in de
+| tabvolgorde heeft staan.
+|
+| Het ANKER is het laatste vinkje dat met de hand omging; een bereik neemt
+| diens nieuwe toestand over, net zoals een verkenner dat doet.
+*/
+function hansuiBulkVakje(el) {
+    const rij = el.closest('[data-bulk-row]');
+
+    return rij ? rij.querySelector('[data-bulk-item]') : null;
+}
+
+function hansuiBulkBereik(scope, tot, aan) {
+    const items = [...scope.querySelectorAll('[data-bulk-item]')];
+    const van = items.indexOf(scope.hansuiAnker);
+    const naar = items.indexOf(tot);
+
+    if (van < 0 || naar < 0) {
+        tot.checked = aan;
+    } else {
+        items.slice(Math.min(van, naar), Math.max(van, naar) + 1).forEach((box) => {
+            box.checked = aan;
+        });
+    }
+
+    hansuiBulk(scope);
+}
+
+function hansuiBulkAlles(scope, aan) {
+    scope.querySelectorAll('[data-bulk-item]').forEach((box) => {
+        box.checked = aan;
+    });
+    hansuiBulk(scope);
+}
+
+function hansuiIsTypveld(el) {
+    return !!el?.closest?.('input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]), textarea, select, [contenteditable="true"], [contenteditable=""]');
+}
+
+document.addEventListener('click', (e) => {
+    const box = e.target.closest?.('[data-bulk-item]');
+    const scope = e.target.closest?.('[data-bulk]');
+    if (!scope) {
+        return;
+    }
+
+    if (e.target.closest('[data-bulk-clear]')) {
+        hansuiBulkAlles(scope, false);
+        return;
+    }
+
+    // Het vinkje zelf: alleen Shift doet iets extra.
+    if (box) {
+        if (e.shiftKey && scope.hansuiAnker && scope.hansuiAnker !== box) {
+            hansuiBulkBereik(scope, box, box.checked);
+        }
+        scope.hansuiAnker = box;
+
+        return;
+    }
+
+    // Ergens anders op de rij, met een toets erbij.
+    const vakje = hansuiBulkVakje(e.target);
+    if (!vakje || !(e.ctrlKey || e.metaKey || e.shiftKey) || e.target.closest('[data-context-trigger]')) {
+        return;
+    }
+
+    e.preventDefault();
+
+    if (e.shiftKey && scope.hansuiAnker) {
+        hansuiBulkBereik(scope, vakje, true);
+    } else {
+        vakje.checked = !vakje.checked;
+        hansuiBulk(scope);
+    }
+
+    scope.hansuiAnker = vakje;
+});
+
+document.addEventListener('keydown', (e) => {
+    if (e.defaultPrevented || hansuiMenu.open || hansuiIsTypveld(e.target)) {
+        return;
+    }
+
+    const scope = e.target.closest?.('[data-bulk]');
+
+    if (scope && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
+        e.preventDefault();
+        hansuiBulkAlles(scope, true);
+
+        return;
+    }
+
+    if (scope && (e.ctrlKey || e.metaKey) && e.key === ' ') {
+        const vakje = hansuiBulkVakje(e.target);
+        if (vakje && e.target !== vakje) {
+            e.preventDefault();
+            vakje.checked = !vakje.checked;
+            scope.hansuiAnker = vakje;
+            hansuiBulk(scope);
+        }
+
+        return;
+    }
+
+    /*
+    | Escape wist, maar alleen als er geen venster open staat (dat sluit
+    | eerst) en de focus in de lijst staat, of nergens: wie net op een tegel
+    | klikte en dan Escape drukt, heeft de focus vaak op <body>.
+    */
+    if (e.key === 'Escape' && !document.querySelector('dialog[open]')) {
+        const scopes = scope ? [scope] : (e.target === document.body ? [...document.querySelectorAll('[data-bulk]')] : []);
+
+        scopes.forEach((s) => {
+            if (s.querySelector('[data-bulk-item]:checked')) {
+                hansuiBulkAlles(s, false);
+            }
+        });
     }
 });
 
@@ -1491,14 +1646,40 @@ function hansuiUploadTekst(zone, sleutel, terugval, waarden = {}) {
 }
 
 function hansuiUploader() {
-    const zone = document.querySelector('[data-uploader]');
-    if (!zone || zone.dataset.uploaderKlaar) return;
-    zone.dataset.uploaderKlaar = '1';
+    /*
+    | MEER DAN EEN VAK mag: een groot vak in een lege lijst en hetzelfde vak in
+    | het uploadvenster. Elk vak opent zijn eigen bestandskeuze; slepen op de
+    | pagina en plakken gaan naar het eerste, want die twee horen bij de
+    | pagina en niet bij een vak.
+    */
+    const zones = [...document.querySelectorAll('[data-uploader]')].filter((z) => !z.dataset.uploaderKlaar);
+    if (!zones.length) return;
 
-    const invoer = zone.querySelector('input[type="file"]');
     const lijst = document.querySelector('[data-upload-list]');
+
+    zones.forEach((zone) => {
+        zone.dataset.uploaderKlaar = '1';
+        const invoer = zone.querySelector('input[type="file"]');
+
+        zone.addEventListener('click', (e) => {
+            if (e.target.closest('input, a, button[data-no-browse]')) return;
+            invoer?.click();
+        });
+
+        invoer?.addEventListener('change', () => {
+            hansuiUploadZet(invoer.files, zone, lijst);
+            invoer.value = '';
+        });
+    });
+
+    if (document.body.dataset.uploaderVlak) return;
+    document.body.dataset.uploaderVlak = '1';
+
+    const zone = zones[0];
     const vlak = document.querySelector('[data-upload-surface]') || document.body;
-    const heeftBestanden = (e) => [...(e.dataTransfer?.types || [])].includes('Files');
+    // Een tegel die BINNEN de pagina versleept wordt (data-drag-item) is geen
+    // upload, ook al hangt er in sommige browsers een beeld als bestand aan.
+    const heeftBestanden = (e) => !hansuiSleepNaar.ids && [...(e.dataTransfer?.types || [])].includes('Files');
     let diepte = 0;
 
     // dragenter en dragleave vuren ook voor elk kind: tellen in plaats van
@@ -1508,6 +1689,7 @@ function hansuiUploader() {
         e.preventDefault();
         diepte += 1;
         zone.setAttribute('data-over', 'true');
+        vlak.setAttribute('data-over', 'true');
     });
 
     vlak.addEventListener('dragover', (e) => {
@@ -1518,7 +1700,10 @@ function hansuiUploader() {
 
     vlak.addEventListener('dragleave', () => {
         diepte = Math.max(0, diepte - 1);
-        if (diepte === 0) zone.removeAttribute('data-over');
+        if (diepte === 0) {
+            zone.removeAttribute('data-over');
+            vlak.removeAttribute('data-over');
+        }
     });
 
     vlak.addEventListener('drop', (e) => {
@@ -1526,22 +1711,14 @@ function hansuiUploader() {
         e.preventDefault();
         diepte = 0;
         zone.removeAttribute('data-over');
+        vlak.removeAttribute('data-over');
         hansuiUploadZet(e.dataTransfer.files, zone, lijst);
-    });
-
-    zone.addEventListener('click', (e) => {
-        if (e.target.closest('input, a, button[data-no-browse]')) return;
-        invoer?.click();
-    });
-
-    invoer?.addEventListener('change', () => {
-        hansuiUploadZet(invoer.files, zone, lijst);
-        invoer.value = '';
     });
 
     // Plakken uit het klembord: een schermafdruk komt zo binnen zonder dat
     // iemand hem eerst moet opslaan.
     document.addEventListener('paste', (e) => {
+        if (hansuiIsTypveld(e.target)) return;
         const bestanden = [...(e.clipboardData?.files || [])];
         if (bestanden.length) hansuiUploadZet(bestanden, zone, lijst);
     });
@@ -1655,8 +1832,8 @@ function hansuiUploadRij(zone, lijst, bestand, staat, tekst) {
     el.innerHTML = `
         <span class="min-w-0 flex-1 truncate text-gray-900"></span>
         <span class="flex-none text-xs text-gray-500">${hansuiBytes(bestand.size)}</span>
-        <span class="w-28 flex-none"><span class="meter"><span class="meter-fill" style="width:0%"></span></span></span>
-        <span class="w-40 flex-none truncate text-right text-xs text-gray-500" data-state></span>
+        <span class="w-16 flex-none sm:w-28"><span class="meter"><span class="meter-fill" style="width:0%"></span></span></span>
+        <span class="w-24 flex-none truncate text-right text-xs text-gray-500 sm:w-40" data-state></span>
     `;
     el.firstElementChild.textContent = bestand.name;
     el.querySelector('[data-state]').textContent = tekst;
@@ -1669,6 +1846,12 @@ function hansuiUploadRij(zone, lijst, bestand, staat, tekst) {
     lijst.append(el);
     lijst.closest('[data-upload-panel]')?.removeAttribute('hidden');
 
+    // Wie op de pagina loslaat, ziet de lijst niet als die in een dicht
+    // venster staat -- en dan lijkt het of er niets gebeurt tot de pagina
+    // herlaadt. Het venster gaat dus open.
+    const venster = lijst.closest('dialog');
+    if (venster && !venster.open) venster.showModal?.();
+
     return el;
 }
 
@@ -1677,7 +1860,7 @@ function hansuiUploadStaat(el, staat, tekst) {
 
     const label = el.querySelector('[data-state]');
     label.textContent = tekst;
-    label.className = `w-40 flex-none truncate text-right text-xs ${staat === 'ok' ? 'text-emerald-600' : 'text-red-600'}`;
+    label.className = `w-24 flex-none truncate text-right text-xs sm:w-40 ${staat === 'ok' ? 'text-emerald-600' : 'text-red-600'}`;
 
     const balk = el.querySelector('.meter-fill');
     if (staat === 'ok') balk.style.width = '100%';
@@ -2451,4 +2634,1153 @@ document.addEventListener('paste', (e) => {
 
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelector('[data-code-group][data-code-autofocus] [data-code-cell]')?.focus();
+});
+
+/*
+|------------------------------------------------------------------------------
+| Een melding onderaan: het toast-event
+|------------------------------------------------------------------------------
+|
+| Voor wat gelukt is terwijl het element dat erom vroeg al weg is: een knop in
+| een contextmenu, een formulier in een voorbeeldvenster. Een regel, een paar
+| seconden, en role="status" zodat een schermlezer hem voorleest.
+|
+|   window.dispatchEvent(new CustomEvent('toast', { detail: 'Link gekopieerd' }))
+|
+| of `{ detail: { text: 'Mislukt', tone: 'danger' } }` voor een fout.
+*/
+let hansuiToastEl = null;
+
+function hansuiToast(tekst, toon = null) {
+    if (!tekst) return;
+
+    if (!hansuiToastEl) {
+        hansuiToastEl = document.createElement('div');
+        hansuiToastEl.className = 'toast';
+        hansuiToastEl.setAttribute('role', 'status');
+        hansuiToastEl.setAttribute('aria-live', 'polite');
+        document.body.appendChild(hansuiToastEl);
+    }
+
+    // In een open <dialog> hoort hij in dat venster: de rest van de pagina
+    // ligt dan onder het waas en is voor een schermlezer weg.
+    const venster = [...document.querySelectorAll('dialog[open]')].pop();
+    (venster || document.body).appendChild(hansuiToastEl);
+
+    hansuiToastEl.textContent = tekst;
+    hansuiToastEl.toggleAttribute('data-danger', toon === 'danger');
+    hansuiToastEl.setAttribute('data-shown', '');
+
+    clearTimeout(hansuiToastEl.hansuiTimer);
+    hansuiToastEl.hansuiTimer = setTimeout(() => hansuiToastEl.removeAttribute('data-shown'), 2600);
+}
+
+window.addEventListener('toast', (e) => {
+    const d = e.detail;
+    typeof d === 'string' ? hansuiToast(d) : hansuiToast(d?.text, d?.tone);
+});
+
+/*
+|------------------------------------------------------------------------------
+| Waarden invullen: data-context-item
+|------------------------------------------------------------------------------
+|
+| Een contextmenu staat EEN keer op de pagina, en toch hoort "Verwijderen" op
+| tegel 12 naar /media/12 te wijzen. De tegel draagt daarom haar waarden als
+| JSON in `data-context-item`, en bij het openen worden ze ingevuld:
+|
+|   - `{sleutel}` in om het even welk attribuut (href, action, value,
+|     data-confirm ...) wordt de waarde; het origineel wordt onthouden, dus
+|     de volgende tegel begint weer van het sjabloon;
+|   - `data-context-text="sleutel"` krijgt de waarde als tekst;
+|   - `data-context-value="sleutel"` krijgt de waarde als .value (een veld);
+|   - `data-context-if="sleutel"` staat er alleen als de waarde iets is, met
+|     `!sleutel` alleen als ze niets is, met `sleutel=a,b` of `sleutel!=a` op
+|     een van die waarden; een veld dat er niet staat, gaat ook niet mee;
+|   - `data-context-disabled` met dezelfde vorm maakt een item onbruikbaar
+|     (aria-disabled) in plaats van het weg te laten;
+|   - `data-context-ids` op een formulier krijgt een verborgen veld per id: de
+|     hele selectie, of dat ene element. De waarde is de veldnaam (standaard
+|     die van `data-bulk`, anders `ids[]`).
+|
+| Het voorbeeldvenster gebruikt dezelfde invulling voor zijn zijpaneel.
+*/
+function hansuiWaarden(el) {
+    const bron = el?.closest?.('[data-context-item]');
+    let waarden = {};
+
+    try {
+        waarden = JSON.parse(bron?.getAttribute('data-context-item') || '{}') || {};
+    } catch (_) { /* geen geldige JSON: dan zonder waarden */ }
+
+    /*
+    | De selectie. Rechtsklikken op een AANGEVINKTE rij terwijl er meer
+    | aanstaan, gaat over die hele selectie (`selection`, `count`, `ids`);
+    | rechtsklikken op een andere rij gaat alleen over die rij.
+    */
+    const scope = el?.closest?.('[data-bulk]');
+    const vakje = bron?.querySelector('[data-bulk-item]') ?? (el ? hansuiBulkVakje(el) : null);
+    const aan = scope ? [...scope.querySelectorAll('[data-bulk-item]:checked')] : [];
+    const eigen = waarden.id ?? vakje?.value;
+
+    // Zonder eigen rij (een knop in de balk, een lege plek) gaat het over wat
+    // er geselecteerd staat, zodra dat iets is.
+    const zonderRij = !bron && !vakje;
+
+    waarden.checked = !!vakje?.checked;
+    waarden.selected = aan.length;
+    waarden.selection = zonderRij ? aan.length > 0 : !!vakje?.checked && aan.length > 1;
+    waarden.count = waarden.selection ? aan.length : (zonderRij ? 0 : 1);
+    waarden.ids = waarden.selection ? aan.map((b) => b.value) : (eigen !== undefined ? [String(eigen)] : []);
+    waarden.hansuiNaam = scope?.getAttribute('data-bulk') || 'ids[]';
+
+    return waarden;
+}
+
+function hansuiTest(uitdrukking, waarden) {
+    const expr = (uitdrukking || '').trim();
+    if (!expr) return true;
+
+    const leeg = (v) => v === undefined || v === null || v === '' || v === false || v === 0 || v === '0'
+        || (Array.isArray(v) && v.length === 0);
+
+    const m = expr.match(/^([\w.-]+)\s*(!?=)\s*(.*)$/);
+    if (m) {
+        const lijst = m[3].split(',').map((x) => x.trim());
+        const in_ = lijst.includes(String(waarden[m[1]] ?? ''));
+
+        return m[2] === '=' ? in_ : !in_;
+    }
+
+    return expr.startsWith('!') ? leeg(waarden[expr.slice(1)]) : !leeg(waarden[expr]);
+}
+
+function hansuiVul(wortel, waarden) {
+    const alle = [wortel, ...wortel.querySelectorAll('*')];
+
+    alle.forEach((el) => {
+        // Het sjabloon een keer vastleggen, bij de eerste invulling.
+        if (!el.hansuiSjabloon) {
+            el.hansuiSjabloon = {};
+            [...el.attributes].forEach((a) => {
+                if (/\{[a-z0-9_]+\}/i.test(a.value)) el.hansuiSjabloon[a.name] = a.value;
+            });
+        }
+
+        Object.entries(el.hansuiSjabloon).forEach(([naam, sjabloon]) => {
+            el.setAttribute(naam, sjabloon.replace(/\{([a-z0-9_]+)\}/gi, (_, k) => waarden[k] ?? ''));
+        });
+    });
+
+    wortel.querySelectorAll('[data-context-text]').forEach((el) => {
+        el.textContent = waarden[el.getAttribute('data-context-text')] ?? '';
+    });
+
+    wortel.querySelectorAll('[data-context-value]').forEach((el) => {
+        el.value = waarden[el.getAttribute('data-context-value')] ?? '';
+    });
+
+    [wortel, ...wortel.querySelectorAll('[data-context-if]')].forEach((el) => {
+        if (!el.hasAttribute('data-context-if')) return;
+        const ja = hansuiTest(el.getAttribute('data-context-if'), waarden);
+        el.hidden = !ja;
+        if ('disabled' in el && el.matches('input, select, textarea, button, fieldset')) el.disabled = !ja;
+    });
+
+    wortel.querySelectorAll('[data-context-disabled]').forEach((el) => {
+        el.setAttribute('aria-disabled', String(hansuiTest(el.getAttribute('data-context-disabled'), waarden)));
+    });
+
+    wortel.querySelectorAll('form[data-context-ids]').forEach((form) => {
+        form.querySelectorAll('input[data-context-id]').forEach((v) => v.remove());
+        const naam = form.getAttribute('data-context-ids') || waarden.hansuiNaam || 'ids[]';
+
+        (waarden.ids || []).forEach((id) => {
+            const v = document.createElement('input');
+            v.type = 'hidden';
+            v.name = naam;
+            v.value = id;
+            v.setAttribute('data-context-id', '');
+            form.appendChild(v);
+        });
+    });
+}
+
+/*
+|------------------------------------------------------------------------------
+| Het contextmenu: data-context-menu
+|------------------------------------------------------------------------------
+|
+| Rechtsklikken op een element met `data-context-menu="#menu"` opent dat menu
+| waar de muis staat, met de waarden van het element ingevuld (zie hierboven).
+| Het dichtstbijzijnde element wint: een tegel met een eigen menu in een raster
+| met een menu voor "een lege plek" krijgt het hare.
+|
+| Niet iedereen heeft een rechtermuisknop. Een knop met `data-context-trigger`
+| opent hetzelfde menu onder zichzelf (een vinger, een toetsenbord), en de
+| ContextMenu-toets of `Shift` + `F10` op een element met de focus ook.
+|
+| Het menu zelf is gewone HTML met role="menu": links, knoppen en formulieren
+| met role="menuitem", een <hr role="separator"> ertussen. Een item met
+| `data-context-sub` opent het role="menu" dat erna staat als submenu. Met
+| `data-context-key="F2"` werkt een item ook als sneltoets op het element met
+| de focus, zonder dat het menu opengaat. `data-context-click=".x"` klikt op
+| wat die selector BINNEN het element aanwijst, en `data-context-fill="#x"`
+| vult dezelfde waarden ook in dat element in (een venster dat het item opent).
+|
+| Het toetsenbord doet wat het in een menu van het besturingssysteem doet:
+| pijltjes, Home en End, Enter of spatie, de eerste letter, Escape, en rechts
+| en links in en uit een submenu.
+*/
+const hansuiMenu = { open: null, doel: null, terug: null, waarden: {} };
+
+const HANSUI_ITEM = '[role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"]';
+
+function hansuiMenuItems(menu) {
+    return [...menu.querySelectorAll(HANSUI_ITEM)].filter((it) =>
+        it.closest('[role="menu"]') === menu && it.getClientRects().length > 0);
+}
+
+// Zichtbaar, ook als het een omhulling met display: contents is (een <form>).
+function hansuiZichtbaar(el) {
+    if (el.hidden) return false;
+    if (getComputedStyle(el).display === 'contents') return [...el.children].some(hansuiZichtbaar);
+
+    return el.getClientRects().length > 0;
+}
+
+// Verborgen door iets TUSSEN het element en de grens (het menu zelf telt niet).
+function hansuiVerborgenIn(el, grens) {
+    for (let x = el; x && x !== grens; x = x.parentElement) {
+        if (x.hidden) return true;
+    }
+
+    return false;
+}
+
+function hansuiMenuScheiding(menu) {
+    // Een scheidingslijn naast een weggevallen groep is een dubbele lijn.
+    let vorige = null;
+    [...menu.querySelectorAll('[role="separator"]')].forEach((sep) => { sep.hidden = false; });
+
+    const kinderen = [...menu.children].filter(hansuiZichtbaar);
+    kinderen.forEach((k, i) => {
+        if (!k.matches('[role="separator"]')) {
+            vorige = k;
+            return;
+        }
+        const erna = kinderen.slice(i + 1).find((x) => !x.matches('[role="separator"]'));
+        if (!vorige || vorige.matches('[role="separator"]') || !erna) k.hidden = true;
+        vorige = k.hidden ? vorige : k;
+    });
+}
+
+function hansuiMenuPlaats(menu, x, y, anker = null) {
+    menu.style.left = '0px';
+    menu.style.top = '0px';
+
+    const b = menu.offsetWidth;
+    const h = menu.offsetHeight;
+    const vw = document.documentElement.clientWidth;
+    const vh = window.innerHeight;
+
+    if (anker) {
+        const r = anker.getBoundingClientRect();
+        x = r.right - b > 8 && r.left + b > vw - 8 ? r.right - b : r.left;
+        y = r.bottom + 4 + h > vh - 8 && r.top - h - 4 > 8 ? r.top - h - 4 : r.bottom + 4;
+    } else {
+        if (x + b > vw - 8) x = Math.max(8, x - b);
+        if (y + h > vh - 8) y = Math.max(8, y - h);
+    }
+
+    menu.style.left = `${Math.max(8, Math.min(x, vw - b - 8))}px`;
+    menu.style.top = `${Math.max(8, Math.min(y, vh - h - 8))}px`;
+}
+
+function hansuiMenuSluitSubs(menu) {
+    menu.querySelectorAll('[data-context-sub][aria-expanded="true"]').forEach((ouder) => {
+        ouder.setAttribute('aria-expanded', 'false');
+        const sub = ouder.nextElementSibling;
+        if (sub) sub.hidden = true;
+    });
+}
+
+function hansuiMenuOpenSub(ouder, focus = false) {
+    const sub = ouder.nextElementSibling;
+    if (!sub?.matches('[role="menu"]')) return;
+
+    const menu = ouder.closest('[role="menu"]');
+    hansuiMenuSluitSubs(menu);
+
+    ouder.setAttribute('aria-expanded', 'true');
+    sub.hidden = false;
+    hansuiMenuScheiding(sub);
+
+    const r = ouder.getBoundingClientRect();
+    const m = menu.getBoundingClientRect();
+    const b = sub.offsetWidth;
+    const vw = document.documentElement.clientWidth;
+    const x = m.right + b - 4 < vw - 8 ? m.right - 4 : m.left - b + 4;
+
+    hansuiMenuPlaats(sub, Math.max(8, x), r.top - 5);
+    sub.style.left = `${Math.max(8, x)}px`;
+
+    if (focus) hansuiMenuItems(sub)[0]?.focus();
+}
+
+function hansuiMenuOpen(menu, doel, { x = 0, y = 0, anker = null, toetsenbord = false } = {}) {
+    hansuiMenuSluit(false);
+
+    const waarden = hansuiWaarden(doel);
+    hansuiVul(menu, waarden);
+
+    hansuiMenu.open = menu;
+    hansuiMenu.doel = doel;
+    hansuiMenu.waarden = waarden;
+    hansuiMenu.terug = doel.contains(document.activeElement) ? document.activeElement
+        : (anker || doel.querySelector('[data-grid-item]') || doel);
+
+    if (!menu.hasAttribute('tabindex')) menu.setAttribute('tabindex', '-1');
+    menu.hidden = false;
+    menu.setAttribute('data-open', '');
+    hansuiMenuScheiding(menu);
+    hansuiMenuPlaats(menu, x, y, anker);
+
+    const knop = anker?.matches('[data-context-trigger]') ? anker : null;
+    knop?.setAttribute('aria-expanded', 'true');
+    menu.hansuiKnop = knop;
+
+    doel.setAttribute('data-context-open', '');
+
+    // Met het toetsenbord meteen op het eerste item; met de muis op het menu
+    // zelf, zodat er niets opgelicht staat dat de muis niet aanwees.
+    toetsenbord ? hansuiMenuItems(menu)[0]?.focus() : menu.focus({ preventScroll: true });
+
+    doel.dispatchEvent(new CustomEvent('context:open', { bubbles: true, detail: { menu, values: waarden } }));
+}
+
+function hansuiMenuSluit(focusTerug = true) {
+    const menu = hansuiMenu.open;
+    if (!menu) return;
+
+    const hadFocus = menu.contains(document.activeElement);
+
+    hansuiMenuSluitSubs(menu);
+    menu.hidden = true;
+    menu.removeAttribute('data-open');
+    menu.hansuiKnop?.setAttribute('aria-expanded', 'false');
+    hansuiMenu.doel?.removeAttribute('data-context-open');
+
+    const terug = hansuiMenu.terug;
+    hansuiMenu.open = null;
+    hansuiMenu.doel = null;
+
+    if (focusTerug && hadFocus && terug?.isConnected) terug.focus({ preventScroll: true });
+}
+
+function hansuiMenuVan(doel, selector = null) {
+    return document.querySelector(selector || doel.getAttribute('data-context-menu') || '');
+}
+
+document.addEventListener('contextmenu', (e) => {
+    const doel = e.target.closest?.('[data-context-menu]');
+
+    // Een typveld houdt zijn eigen menu: knippen en plakken horen daar.
+    if (!doel || hansuiIsTypveld(e.target)) {
+        hansuiMenuSluit(false);
+        return;
+    }
+
+    // Binnen een open menu nog eens rechtsklikken doet niets.
+    if (hansuiMenu.open?.contains(e.target)) {
+        e.preventDefault();
+        return;
+    }
+
+    const menu = hansuiMenuVan(doel);
+    if (!menu) return;
+
+    e.preventDefault();
+
+    // De ContextMenu-toets geeft geen muispositie mee: dan onder het element.
+    const viaToets = e.button !== 2 && e.clientX === 0 && e.clientY === 0;
+    hansuiMenuOpen(menu, doel, viaToets
+        ? { anker: document.activeElement !== document.body ? document.activeElement : doel, toetsenbord: true }
+        : { x: e.clientX, y: e.clientY });
+});
+
+document.addEventListener('click', (e) => {
+    const knop = e.target.closest?.('[data-context-trigger]');
+
+    if (knop) {
+        e.preventDefault();
+        const doel = knop.closest('[data-context-menu]') || knop;
+        const menu = hansuiMenuVan(doel, knop.getAttribute('data-context-trigger'));
+
+        if (!menu) return;
+        if (hansuiMenu.open === menu && hansuiMenu.doel === doel) {
+            hansuiMenuSluit();
+            return;
+        }
+
+        // e.detail is 0 bij een klik via Enter of spatie.
+        hansuiMenuOpen(menu, doel, { anker: knop, toetsenbord: e.detail === 0 });
+        return;
+    }
+
+    const menu = hansuiMenu.open;
+    if (!menu) return;
+
+    if (!menu.contains(e.target)) {
+        hansuiMenuSluit(false);
+        return;
+    }
+
+    const item = e.target.closest(HANSUI_ITEM);
+    if (!item) return;
+
+    if (item.getAttribute('aria-disabled') === 'true') {
+        e.preventDefault();
+        return;
+    }
+
+    if (item.hasAttribute('data-context-sub')) {
+        e.preventDefault();
+        hansuiMenuOpenSub(item, e.detail === 0);
+        return;
+    }
+
+    hansuiMenuDoe(item, hansuiMenu.doel, hansuiMenu.waarden);
+
+    // Sluiten NA de standaardactie: een verzendknop in een formulier in het
+    // menu verzendt ook als het menu intussen verborgen is.
+    hansuiMenuSluit(!item.matches('[data-modal-open], [data-context-fill]'));
+});
+
+/*
+| `data-context-fill` werkt ook BUITEN een menu: een knop in de selectiebalk
+| die hetzelfde venster opent als het menu-item, vult het met de waarden van
+| waar hij staat -- in een `data-bulk`-lijst is dat de selectie.
+*/
+document.addEventListener('click', (e) => {
+    const knop = e.target.closest?.('[data-context-fill]');
+    if (!knop || knop.closest('[role="menu"]')) return;
+
+    hansuiMenuDoe(knop, knop, hansuiWaarden(knop));
+});
+
+function hansuiMenuDoe(item, doel, waarden) {
+    const klik = item.getAttribute('data-context-click');
+    if (klik && doel) {
+        const wat = doel.matches(klik) ? doel : doel.querySelector(klik);
+        setTimeout(() => wat?.click(), 0);
+    }
+
+    const vul = item.getAttribute('data-context-fill');
+    if (vul) {
+        const el = document.querySelector(vul);
+        if (el) {
+            hansuiVul(el, waarden);
+            // Het veld dat de focus kreeg, is het veld dat je wil overtypen.
+            setTimeout(() => {
+                const actief = el.querySelector('[autofocus]') || (el.contains(document.activeElement) ? document.activeElement : null);
+                actief?.select?.();
+            }, 0);
+        }
+    }
+}
+
+document.addEventListener('pointerover', (e) => {
+    const menu = hansuiMenu.open;
+    if (!menu || e.pointerType === 'touch') return;
+
+    const item = e.target.closest?.(HANSUI_ITEM);
+    if (!item || !menu.contains(item)) return;
+
+    const niveau = item.closest('[role="menu"]');
+    if (item.hasAttribute('data-context-sub')) {
+        if (item.getAttribute('aria-expanded') !== 'true') hansuiMenuOpenSub(item);
+    } else {
+        hansuiMenuSluitSubs(niveau);
+    }
+
+    item.focus({ preventScroll: true });
+});
+
+document.addEventListener('keydown', (e) => {
+    const menu = hansuiMenu.open;
+
+    // Het menu openen met het toetsenbord.
+    if (!menu && (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10'))) {
+        const doel = document.activeElement?.closest?.('[data-context-menu]');
+        const m = doel && !hansuiIsTypveld(document.activeElement) ? hansuiMenuVan(doel) : null;
+
+        if (m) {
+            e.preventDefault();
+            hansuiMenuOpen(m, doel, { anker: document.activeElement, toetsenbord: true });
+        }
+        return;
+    }
+
+    if (!menu) {
+        hansuiMenuSneltoets(e);
+        return;
+    }
+
+    const niveau = document.activeElement?.closest?.('[role="menu"]');
+    const huidig = niveau && menu.contains(niveau) ? niveau : menu;
+    const items = hansuiMenuItems(huidig);
+    const i = items.indexOf(document.activeElement);
+    const naar = (n) => items[(n + items.length) % items.length]?.focus();
+
+    switch (e.key) {
+        case 'ArrowDown': e.preventDefault(); naar(i + 1); break;
+        case 'ArrowUp': e.preventDefault(); naar(i < 0 ? -1 : i - 1); break;
+        case 'Home': e.preventDefault(); naar(0); break;
+        case 'End': e.preventDefault(); naar(-1); break;
+        case 'ArrowRight':
+            if (document.activeElement?.hasAttribute('data-context-sub')) {
+                e.preventDefault();
+                hansuiMenuOpenSub(document.activeElement, true);
+            }
+            break;
+        case 'ArrowLeft':
+            if (huidig !== menu) {
+                e.preventDefault();
+                const ouder = huidig.previousElementSibling;
+                hansuiMenuSluitSubs(ouder.closest('[role="menu"]'));
+                ouder.focus();
+            }
+            break;
+        case 'Escape':
+            e.preventDefault();
+            e.stopPropagation();
+            if (huidig !== menu) {
+                const ouder = huidig.previousElementSibling;
+                hansuiMenuSluitSubs(ouder.closest('[role="menu"]'));
+                ouder.focus();
+            } else {
+                hansuiMenuSluit();
+            }
+            break;
+        case 'Tab':
+            e.preventDefault();
+            hansuiMenuSluit();
+            break;
+        case 'Enter':
+        case ' ':
+            if (i >= 0) {
+                e.preventDefault();
+                items[i].click();
+            }
+            break;
+        default:
+            // De eerste letter: naar het volgende item dat ermee begint.
+            if (e.key.length === 1 && /\S/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                const letter = e.key.toLocaleLowerCase();
+                const rest = [...items.slice(i + 1), ...items.slice(0, i + 1)];
+                rest.find((it) => it.textContent.trim().toLocaleLowerCase().startsWith(letter))?.focus();
+            }
+    }
+}, true);
+
+/*
+| Een sneltoets van een menu-item, zonder het menu te openen: `F2` op een tegel
+| met de focus doet wat "Hernoemen" in haar menu doet. Alleen items die er bij
+| DEZE waarden staan en bruikbaar zijn, tellen mee.
+*/
+function hansuiMenuSneltoets(e) {
+    if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || hansuiIsTypveld(e.target)) return;
+    if (document.querySelector('dialog[open]') && !e.target.closest?.('dialog[open]')) return;
+
+    const doel = e.target.closest?.('[data-context-menu]');
+    const menu = doel ? hansuiMenuVan(doel) : null;
+    if (!menu || !menu.querySelector('[data-context-key]')) return;
+
+    const waarden = hansuiWaarden(doel);
+    hansuiVul(menu, waarden);
+
+    const item = [...menu.querySelectorAll('[data-context-key]')].find((it) =>
+        it.getAttribute('data-context-key').split(/[\s,]+/).some((k) => k.toLowerCase() === e.key.toLowerCase())
+        && !hansuiVerborgenIn(it, menu)
+        && it.getAttribute('aria-disabled') !== 'true');
+
+    if (!item) return;
+
+    e.preventDefault();
+    hansuiMenu.terug = e.target;
+    hansuiMenuDoe(item, doel, waarden);
+    item.click();
+}
+
+// Scrollen of het venster verkleinen: het menu hangt dan naast zijn plek.
+window.addEventListener('scroll', (e) => {
+    if (hansuiMenu.open && !hansuiMenu.open.contains(e.target)) hansuiMenuSluit(false);
+}, true);
+window.addEventListener('resize', () => hansuiMenuSluit(false));
+window.addEventListener('blur', () => hansuiMenuSluit(false));
+
+/*
+|------------------------------------------------------------------------------
+| Een raster met pijltjes: data-grid-nav
+|------------------------------------------------------------------------------
+|
+| Tweehonderd tegels zijn tweehonderd tabstops, en dat is geen raster maar een
+| hindernis. Met `data-grid-nav` op de omhulling en `data-grid-item` op wat de
+| focus krijgt, is het raster een stop: Tab gaat erin en eruit, de pijltjes
+| bewegen erbinnen. Omhoog en omlaag kijken naar de RIJ zoals ze op het scherm
+| staat, want hoeveel tegels er naast elkaar passen, hangt af van de breedte.
+| Home en End gaan naar het eerste en laatste item; spatie klikt, net als
+| Enter op een link.
+|
+| Het item dat het laatst de focus had, houdt tabindex="0": wie terugtabt,
+| komt terug waar hij was.
+*/
+function hansuiRasterItems(raster) {
+    return [...raster.querySelectorAll('[data-grid-item]')].filter((it) =>
+        it.closest('[data-grid-nav]') === raster && it.getClientRects().length > 0);
+}
+
+function hansuiRasterBegin(raster) {
+    const items = hansuiRasterItems(raster);
+    if (!items.length) return;
+
+    const actief = items.find((it) => it.getAttribute('tabindex') === '0') || items[0];
+    items.forEach((it) => it.setAttribute('tabindex', it === actief ? '0' : '-1'));
+}
+
+function hansuiRasterStart() {
+    document.querySelectorAll('[data-grid-nav]').forEach(hansuiRasterBegin);
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', hansuiRasterStart);
+} else {
+    hansuiRasterStart();
+}
+
+document.addEventListener('focusin', (e) => {
+    const item = e.target.closest?.('[data-grid-item]');
+    const raster = item?.closest('[data-grid-nav]');
+    if (!raster) return;
+
+    hansuiRasterItems(raster).forEach((it) => it.setAttribute('tabindex', it === item ? '0' : '-1'));
+});
+
+function hansuiRasterBuur(items, huidig, richting) {
+    const r = huidig.getBoundingClientRect();
+    const midden = r.left + r.width / 2;
+
+    const rijen = items
+        .map((it) => ({ it, r: it.getBoundingClientRect() }))
+        .filter(({ r: o }) => (richting > 0 ? o.top > r.top + r.height / 2 : o.bottom < r.bottom - r.height / 2));
+
+    if (!rijen.length) return null;
+
+    const rijTop = richting > 0 ? Math.min(...rijen.map((x) => x.r.top)) : Math.max(...rijen.map((x) => x.r.top));
+    const rij = rijen.filter((x) => Math.abs(x.r.top - rijTop) < 4);
+
+    return rij.reduce((best, x) =>
+        Math.abs(x.r.left + x.r.width / 2 - midden) < Math.abs(best.r.left + best.r.width / 2 - midden) ? x : best).it;
+}
+
+document.addEventListener('keydown', (e) => {
+    if (e.defaultPrevented || hansuiMenu.open || e.altKey || hansuiIsTypveld(e.target)) return;
+
+    const raster = e.target.closest?.('[data-grid-nav]');
+    const huidig = e.target.closest?.('[data-grid-item]');
+    if (!raster || !huidig || huidig.closest('[data-grid-nav]') !== raster) return;
+
+    const items = hansuiRasterItems(raster);
+    const i = items.indexOf(huidig);
+    let naar = null;
+
+    switch (e.key) {
+        case 'ArrowRight': naar = items[i + 1]; break;
+        case 'ArrowLeft': naar = items[i - 1]; break;
+        case 'ArrowDown': naar = hansuiRasterBuur(items, huidig, 1); break;
+        case 'ArrowUp': naar = hansuiRasterBuur(items, huidig, -1); break;
+        case 'Home': naar = items[0]; break;
+        case 'End': naar = items[items.length - 1]; break;
+        case ' ':
+            if (e.ctrlKey || e.metaKey || e.target !== huidig || huidig.matches('button, input')) return;
+            e.preventDefault();
+            huidig.click();
+            return;
+        default:
+            return;
+    }
+
+    e.preventDefault();
+
+    if (naar) {
+        naar.focus();
+        naar.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
+});
+
+/*
+|------------------------------------------------------------------------------
+| Slepen naar een doel: data-drag-item en data-drop-target
+|------------------------------------------------------------------------------
+|
+| Een tegel naar een map slepen, zoals in elke verkenner. `data-drag-item` op
+| wat je vastpakt (de waarde is het id, met draggable="true"), en
+| `data-drop-target="/url"` op waar je het loslaat. Staat de tegel aangevinkt
+| in een `data-bulk`-lijst, dan gaat de hele selectie mee.
+|
+| Bij het loslaten gaat er een POST naar de url met een veld per id (de naam
+| uit `data-drop-name`, anders die van `data-bulk`, anders `ids[]`), de velden
+| uit `data-drop-fields` (JSON) en het CSRF-token uit `data-drop-token` of de
+| <meta name="csrf-token">. Daarna `drop:done` op het doel; wie dat niet
+| tegenhoudt, krijgt een herladen pagina, want wat er nu waar staat weet de
+| server beter dan dit script.
+|
+| `data-drag-label="bestand|bestanden"` zet bij meer dan een het aantal naast
+| de muis, want een stapel die je niet ziet, sleep je niet met vertrouwen.
+|
+| Met de muis. Wie met een vinger of het toetsenbord werkt, verplaatst via het
+| contextmenu: een venster met de mappen is daar duidelijker dan slepen.
+*/
+const hansuiSleepNaar = { ids: null, bron: null, naam: 'ids[]' };
+
+document.addEventListener('dragstart', (e) => {
+    const item = e.target.closest?.('[data-drag-item]');
+    if (!item) return;
+
+    const scope = item.closest('[data-bulk]');
+    const vakje = item.querySelector('[data-bulk-item]') ?? hansuiBulkVakje(item);
+    const aan = scope ? [...scope.querySelectorAll('[data-bulk-item]:checked')] : [];
+    const ids = vakje?.checked && aan.length > 1 ? aan.map((b) => b.value) : [item.getAttribute('data-drag-item')];
+
+    hansuiSleepNaar.ids = ids;
+    hansuiSleepNaar.bron = item;
+    hansuiSleepNaar.naam = scope?.getAttribute('data-bulk') || 'ids[]';
+
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', ids.join(','));
+
+    (vakje?.checked && aan.length > 1 ? aan.map((b) => b.closest('[data-drag-item]')) : [item])
+        .forEach((el) => el?.setAttribute('data-dragging', ''));
+
+    const woorden = (item.getAttribute('data-drag-label') || scope?.getAttribute('data-drag-label') || '').split('|');
+    if (ids.length > 1 && e.dataTransfer.setDragImage) {
+        const spook = document.createElement('div');
+        spook.className = 'drag-ghost';
+        spook.textContent = woorden.length === 2 ? `${ids.length} ${woorden[1]}` : String(ids.length);
+        document.body.appendChild(spook);
+        e.dataTransfer.setDragImage(spook, -10, -10);
+        setTimeout(() => spook.remove(), 0);
+    }
+});
+
+document.addEventListener('dragend', () => {
+    document.querySelectorAll('[data-dragging]').forEach((el) => el.removeAttribute('data-dragging'));
+    document.querySelectorAll('[data-drop-target][data-drop]').forEach((el) => el.removeAttribute('data-drop'));
+    hansuiSleepNaar.ids = null;
+    hansuiSleepNaar.bron = null;
+});
+
+/*
+| Het doel onder de muis oplichten, en alleen dat. Via dragover en niet via
+| dragleave: die vuurt ook bij elk kind dat je kruist, en niet elke browser
+| zegt dan waarheen (relatedTarget is vaak leeg).
+*/
+document.addEventListener('dragover', (e) => {
+    if (!hansuiSleepNaar.ids) return;
+
+    const doel = e.target.closest?.('[data-drop-target]');
+
+    document.querySelectorAll('[data-drop-target][data-drop="over"]').forEach((el) => {
+        if (el !== doel) el.removeAttribute('data-drop');
+    });
+
+    if (!doel) return;
+
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    doel.setAttribute('data-drop', 'over');
+});
+
+document.addEventListener('dragleave', (e) => {
+    // Het venster uit: niets staat nog onder de muis.
+    if (hansuiSleepNaar.ids && !e.relatedTarget && (e.clientX <= 0 || e.clientY <= 0
+        || e.clientX >= window.innerWidth || e.clientY >= window.innerHeight)) {
+        document.querySelectorAll('[data-drop-target][data-drop="over"]').forEach((el) => el.removeAttribute('data-drop'));
+    }
+});
+
+document.addEventListener('drop', async (e) => {
+    const doel = e.target.closest?.('[data-drop-target]');
+    if (!doel || !hansuiSleepNaar.ids) return;
+
+    e.preventDefault();
+    const ids = hansuiSleepNaar.ids;
+    doel.setAttribute('data-drop', 'busy');
+
+    const form = new FormData();
+    const naam = doel.getAttribute('data-drop-name') || hansuiSleepNaar.naam;
+    ids.forEach((id) => form.append(naam, id));
+
+    try {
+        Object.entries(JSON.parse(doel.getAttribute('data-drop-fields') || '{}'))
+            .forEach(([k, v]) => form.append(k, v ?? ''));
+    } catch (_) { /* geen extra velden */ }
+
+    const token = doel.getAttribute('data-drop-token') || document.querySelector('meta[name="csrf-token"]')?.content || '';
+    form.append('_token', token);
+
+    try {
+        const antwoord = await fetch(doel.getAttribute('data-drop-target'), {
+            method: 'POST',
+            body: form,
+            headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': token },
+            credentials: 'same-origin',
+        });
+        let json = {};
+        try { json = await antwoord.json(); } catch (_) { /* geen json */ }
+
+        if (!antwoord.ok) throw new Error(json.message || String(antwoord.status));
+
+        const verder = doel.dispatchEvent(new CustomEvent('drop:done', { bubbles: true, cancelable: true, detail: { ids, response: json } }));
+        if (verder) window.location.reload();
+    } catch (fout) {
+        doel.removeAttribute('data-drop');
+        hansuiToast(fout.message, 'danger');
+    }
+});
+
+/*
+|------------------------------------------------------------------------------
+| Een video die speelt als je erover gaat: data-hover-play
+|------------------------------------------------------------------------------
+|
+| Een tegel met een stilstaand posterbeeld zegt weinig over wat er in een video
+| van dertig seconden gebeurt. Op een <video> met `data-hover-play` speelt ze
+| gedempt zolang de muis boven het element staat dat de waarde aanwijst (een
+| voorouder, zoals `.media-tile`), of boven de video zelf als de waarde leeg
+| is. Bij het weggaan staat ze weer op het begin. Wie om minder beweging vroeg,
+| krijgt niets.
+*/
+function hansuiHoverVideo(e, spelen) {
+    if (e.pointerType === 'touch' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    e.target.querySelectorAll?.('video[data-hover-play]').forEach((video) => {
+        const gebied = video.getAttribute('data-hover-play');
+        if ((gebied ? video.closest(gebied) : video) !== e.target) return;
+
+        if (spelen) {
+            video.muted = true;
+            video.play?.().catch(() => { /* nog niet geladen of geweigerd: dan de poster */ });
+        } else {
+            video.pause?.();
+            try { video.currentTime = 0; } catch (_) { /* nog geen metadata */ }
+        }
+    });
+}
+
+document.addEventListener('pointerenter', (e) => hansuiHoverVideo(e, true), true);
+document.addEventListener('pointerleave', (e) => hansuiHoverVideo(e, false), true);
+
+/*
+|------------------------------------------------------------------------------
+| Het voorbeeldvenster: data-lightbox
+|------------------------------------------------------------------------------
+|
+| Een link met `data-lightbox="groep"` opent bij een klik niet de pagina maar
+| een groot voorbeeld in de <dialog data-lightbox-view> van <x-lightbox>, met
+| de andere links van dezelfde groep als vorige en volgende. Zonder script, of
+| met `Ctrl` + klik, blijft het een gewone link naar de pagina.
+|
+| Wat er getoond wordt, staat op de link: `data-lightbox-src` (anders href),
+| `data-lightbox-type` (image, video, audio of iets anders, dat een icoon en
+| een link krijgt), `data-lightbox-poster`, `data-lightbox-title` en
+| `data-lightbox-alt`. `data-lightbox-aside="/url"` haalt het zijpaneel op als
+| HTML, eenmaal per url; de waarden uit `data-context-item` worden ook in het
+| venster ingevuld, zoals in een contextmenu.
+|
+| Pijltjes links en rechts, vegen op een aanraakscherm, Escape sluit. Na het
+| sluiten staat de focus op de link van wat je als laatste bekeek, want dat is
+| waar je in het raster gebleven bent.
+*/
+const hansuiLicht = { venster: null, items: [], index: 0, cache: new Map() };
+
+function hansuiLichtVenster(groep) {
+    return document.querySelector(`dialog[data-lightbox-view="${CSS.escape(groep)}"]`)
+        || document.querySelector('dialog[data-lightbox-view]');
+}
+
+function hansuiLichtOpen(opener) {
+    const groep = opener.getAttribute('data-lightbox') || '';
+    const venster = hansuiLichtVenster(groep);
+    if (!venster) return false;
+
+    hansuiLicht.venster = venster;
+    hansuiLicht.items = [...document.querySelectorAll('[data-lightbox]')]
+        .filter((el) => (el.getAttribute('data-lightbox') || '') === groep && el.getClientRects().length > 0);
+    hansuiLicht.index = Math.max(0, hansuiLicht.items.indexOf(opener));
+
+    if (!venster.open) venster.showModal();
+    hansuiLichtToon();
+
+    return true;
+}
+
+function hansuiLichtToon() {
+    const { venster, items, index } = hansuiLicht;
+    const el = items[index];
+    if (!venster || !el) return;
+
+    const podium = venster.querySelector('[data-lightbox-stage]');
+    const src = el.getAttribute('data-lightbox-src') || el.getAttribute('href') || '';
+    const soort = el.getAttribute('data-lightbox-type') || 'image';
+    const titel = el.getAttribute('data-lightbox-title') || el.getAttribute('aria-label') || el.textContent.trim();
+    let media;
+
+    podium.querySelectorAll('video, audio').forEach((m) => m.pause());
+    podium.replaceChildren();
+
+    if (soort === 'image') {
+        media = document.createElement('img');
+        media.alt = el.getAttribute('data-lightbox-alt') || '';
+        media.decoding = 'async';
+        media.draggable = false;
+    } else if (soort === 'frame' && !window.matchMedia('(pointer: coarse)').matches) {
+        // Een pdf of een pagina: de browser toont ze zelf, in een kader. Niet
+        // op een telefoon: daar blijft zo'n kader vaak grijs, en een link die
+        // de pdf in de eigen lezer van het toestel opent, werkt wel.
+        media = document.createElement('iframe');
+        media.title = titel;
+        media.setAttribute('loading', 'lazy');
+    } else if (soort === 'video' || soort === 'audio') {
+        media = document.createElement(soort);
+        media.controls = true;
+        media.autoplay = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        media.playsInline = true;
+        media.preload = 'metadata';
+        if (el.hasAttribute('data-lightbox-poster') && soort === 'video') media.poster = el.getAttribute('data-lightbox-poster');
+    }
+
+    if (media) {
+        podium.setAttribute('aria-busy', 'true');
+        media.addEventListener(soort === 'image' || soort === 'frame' ? 'load' : 'loadedmetadata', () => podium.removeAttribute('aria-busy'), { once: true });
+        media.addEventListener('error', () => podium.removeAttribute('aria-busy'), { once: true });
+        media.src = src;
+        podium.append(media);
+    } else {
+        const sjabloon = venster.querySelector('template[data-lightbox-fallback]');
+        const blok = sjabloon ? sjabloon.content.cloneNode(true) : document.createElement('div');
+        podium.append(blok);
+        podium.removeAttribute('aria-busy');
+        podium.querySelectorAll('a[data-lightbox-open]').forEach((a) => { a.href = src; });
+    }
+
+    venster.querySelectorAll('[data-lightbox-caption]').forEach((t) => { t.textContent = titel; });
+    venster.querySelectorAll('[data-lightbox-count]').forEach((t) => {
+        t.textContent = items.length > 1 ? `${index + 1} / ${items.length}` : '';
+    });
+    const hadFocus = document.activeElement;
+    venster.querySelectorAll('[data-lightbox-prev]').forEach((k) => { k.disabled = index === 0; });
+    venster.querySelectorAll('[data-lightbox-next]').forEach((k) => { k.disabled = index === items.length - 1; });
+
+    // Een knop die uitgeschakeld wordt terwijl hij de focus heeft (vorige op
+    // het eerste beeld), laat de focus op <body> vallen, buiten het venster.
+    if (hadFocus?.disabled && venster.contains(hadFocus)) {
+        venster.querySelector('[data-lightbox-prev]:not(:disabled), [data-lightbox-next]:not(:disabled), [data-modal-close]')?.focus();
+    }
+
+    hansuiVul(venster, hansuiWaarden(el));
+    hansuiLichtPaneel(el);
+
+    // De buren alvast ophalen: vooruit bladeren hoort niet te wachten.
+    [items[index - 1], items[index + 1]].forEach((buur) => {
+        if (buur && (buur.getAttribute('data-lightbox-type') || 'image') === 'image') {
+            new Image().src = buur.getAttribute('data-lightbox-src') || buur.getAttribute('href');
+        }
+    });
+
+    venster.dispatchEvent(new CustomEvent('lightbox:show', { bubbles: true, detail: { index, total: items.length, opener: el } }));
+}
+
+async function hansuiLichtPaneel(el) {
+    const paneel = hansuiLicht.venster.querySelector('[data-lightbox-aside]');
+    const url = el.getAttribute('data-lightbox-aside');
+    if (!paneel || !url) return;
+
+    paneel.setAttribute('aria-busy', 'true');
+
+    try {
+        if (!hansuiLicht.cache.has(url)) {
+            const antwoord = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'text/html' }, credentials: 'same-origin' });
+            if (!antwoord.ok) throw new Error(String(antwoord.status));
+            hansuiLicht.cache.set(url, await antwoord.text());
+        }
+
+        // Intussen verder gebladerd? Dan is dit paneel van een ander beeld.
+        if (hansuiLicht.items[hansuiLicht.index] !== el) return;
+
+        paneel.innerHTML = hansuiLicht.cache.get(url);
+        paneel.scrollTop = 0;
+        paneel.dispatchEvent(new CustomEvent('lightbox:aside', { bubbles: true, detail: { opener: el } }));
+    } catch (_) {
+        paneel.textContent = paneel.getAttribute('data-lightbox-aside') || '';
+    } finally {
+        if (hansuiLicht.items[hansuiLicht.index] === el) paneel.removeAttribute('aria-busy');
+    }
+}
+
+function hansuiLichtGa(stap) {
+    const n = hansuiLicht.index + stap;
+    if (n < 0 || n >= hansuiLicht.items.length) return;
+
+    hansuiLicht.index = n;
+    hansuiLichtToon();
+}
+
+/*
+| Een paneel dat na een wijziging opnieuw moet: vergeet wat er onthouden is,
+| zodat de volgende keer de nieuwe versie komt.
+*/
+function hansuiLichtVergeet(url = null) {
+    url ? hansuiLicht.cache.delete(url) : hansuiLicht.cache.clear();
+}
+
+document.addEventListener('click', (e) => {
+    const opener = e.target.closest?.('[data-lightbox]');
+
+    if (opener && !e.defaultPrevented && e.button === 0 && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) {
+        if (hansuiLichtOpen(opener)) e.preventDefault();
+        return;
+    }
+
+    if (e.target.closest?.('[data-lightbox-prev]')) hansuiLichtGa(-1);
+    if (e.target.closest?.('[data-lightbox-next]')) hansuiLichtGa(1);
+});
+
+document.addEventListener('keydown', (e) => {
+    const venster = hansuiLicht.venster;
+    if (!venster?.open || !(venster.contains(e.target) || e.target === document.body)
+        || hansuiIsTypveld(e.target) || e.target.matches?.('video, audio')) return;
+
+    if (e.key === 'ArrowLeft') { e.preventDefault(); hansuiLichtGa(-1); }
+    if (e.key === 'ArrowRight') { e.preventDefault(); hansuiLichtGa(1); }
+});
+
+let hansuiLichtVeeg = null;
+
+document.addEventListener('pointerdown', (e) => {
+    if (e.target.closest?.('[data-lightbox-stage]') && e.isPrimary) {
+        hansuiLichtVeeg = { x: e.clientX, y: e.clientY, t: performance.now() };
+    }
+});
+
+document.addEventListener('pointerup', (e) => {
+    const v = hansuiLichtVeeg;
+    hansuiLichtVeeg = null;
+    if (!v || !hansuiLicht.venster?.open) return;
+
+    const dx = e.clientX - v.x;
+    const dy = e.clientY - v.y;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5 && performance.now() - v.t < 800) {
+        hansuiLichtGa(dx < 0 ? 1 : -1);
+    }
+});
+
+document.addEventListener('close', (e) => {
+    /*
+    | Een venster dat uit een contextmenu openging, geeft de focus terug aan
+    | het menu-item dat het opende -- en dat is intussen verborgen. Dan liever
+    | naar het element waar het menu over ging.
+    */
+    setTimeout(() => {
+        const actief = document.activeElement;
+        if ((!actief || actief === document.body || actief.closest('[hidden]')) && hansuiMenu.terug?.isConnected) {
+            hansuiMenu.terug.focus({ preventScroll: true });
+        }
+    }, 0);
+
+    if (!e.target.matches?.('dialog[data-lightbox-view]')) return;
+
+    e.target.querySelectorAll('[data-lightbox-stage] video, [data-lightbox-stage] audio').forEach((m) => m.pause());
+    e.target.querySelector('[data-lightbox-stage]')?.replaceChildren();
+
+    const laatste = hansuiLicht.items[hansuiLicht.index];
+    if (laatste?.isConnected) {
+        setTimeout(() => {
+            laatste.focus({ preventScroll: true });
+            laatste.scrollIntoView({ block: 'nearest' });
+        }, 0);
+    }
+}, true);
+
+/*
+|------------------------------------------------------------------------------
+| Bewaren zonder de pagina te verlaten: data-async
+|------------------------------------------------------------------------------
+|
+| Een formulier met `data-async` gaat met fetch naar zijn action, met
+| Accept: application/json, en de pagina blijft staan. Voor een veld in een
+| voorbeeldvenster of een zijpaneel: wie een alt-tekst bewaart, hoort daarna
+| gewoon verder te kunnen bladeren.
+|
+| De waarde van `data-async` is wat er bij succes gemeld wordt, in het element
+| met `data-async-status` in het formulier (of anders onderaan het scherm). Een
+| validatiefout (422) toont de eerste melding daar. Na afloop `async:done` op
+| het formulier, met het antwoord van de server in `detail`.
+|
+| `data-confirm` werkt er gewoon op: die luistert eerst.
+*/
+document.addEventListener('submit', async (e) => {
+    const form = e.target.closest?.('form[data-async]');
+    if (!form || e.defaultPrevented) return;
+
+    e.preventDefault();
+
+    const status = form.querySelector('[data-async-status]');
+    const knoppen = [...form.querySelectorAll('button[type="submit"], button:not([type])')];
+    const zeg = (tekst, fout = false) => {
+        if (status) {
+            status.textContent = tekst;
+            status.toggleAttribute('data-danger', fout);
+        } else {
+            hansuiToast(tekst, fout ? 'danger' : null);
+        }
+    };
+
+    form.setAttribute('aria-busy', 'true');
+    knoppen.forEach((k) => { k.disabled = true; });
+    form.querySelectorAll('[aria-invalid]').forEach((v) => v.removeAttribute('aria-invalid'));
+
+    try {
+        const antwoord = await fetch(form.action, {
+            method: (form.getAttribute('method') || 'POST').toUpperCase(),
+            body: new FormData(form, e.submitter),
+            headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin',
+        });
+
+        let json = {};
+        try { json = await antwoord.json(); } catch (_) { /* geen json */ }
+
+        if (antwoord.status === 422 && json.errors) {
+            const [veld, meldingen] = Object.entries(json.errors)[0];
+            form.querySelector(`[name="${CSS.escape(veld)}"]`)?.setAttribute('aria-invalid', 'true');
+            zeg(meldingen[0], true);
+        } else if (!antwoord.ok) {
+            zeg(json.message || String(antwoord.status), true);
+        } else {
+            zeg(json.message || form.getAttribute('data-async') || '');
+            form.dispatchEvent(new CustomEvent('async:done', { bubbles: true, detail: json }));
+        }
+    } catch (_) {
+        zeg(form.getAttribute('data-async-offline') || 'Offline', true);
+    } finally {
+        form.removeAttribute('aria-busy');
+        knoppen.forEach((k) => { k.disabled = false; });
+    }
+});
+
+window.HansUI = Object.assign(window.HansUI || {}, {
+    toast: hansuiToast,
+    lightboxForget: hansuiLichtVergeet,
 });
