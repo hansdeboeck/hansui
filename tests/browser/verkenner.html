@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="utf-8">
+    <title>HansUI verkenner: harnas</title>
+    <style>
+        body { font-family: sans-serif; }
+        .tegels { display: grid; grid-template-columns: repeat(4, 8rem); gap: 0.5rem; }
+        .tegel { border: 1px solid #ccc; padding: 0.5rem; }
+        .tegel a { display: block; height: 4rem; background: #eee; }
+        [role='menu'][hidden] { display: none; }
+        [role='menu'] { position: fixed; background: #fff; border: 1px solid #999; padding: 0.25rem; min-width: 10rem; }
+        [role='menuitem'] { display: block; width: 100%; text-align: left; }
+        [role='menuitem']:focus { background: #def; }
+        [data-drop='over'] { outline: 2px dashed blue; }
+    </style>
+</head>
+<body>
+
+<!--
+    Het contextmenu, de selectie zoals in een verkenner, het raster met
+    pijltjes, slepen naar een doel en het voorbeeldvenster, zonder applicatie
+    eromheen. Openen via een webserver (een module laadt niet van file://):
+
+        php -S 127.0.0.1:8900 -t .   en dan /tests/browser/verkenner.html
+-->
+
+<p id="doel" data-drop-target="/verplaatsen" data-drop-fields='{"map": 7}'>Sleep hierheen</p>
+
+<div id="lijst" data-bulk="ids[]" data-context-menu="#menu-leeg" data-drag-label="tegel|tegels">
+    <label><input type="checkbox" data-bulk-all id="alles"> alles</label>
+
+    <div class="tegels" data-grid-nav>
+        <div class="tegel" data-bulk-row data-drag-item="1" draggable="true" data-context-menu="#menu" data-context-item='{"id": 1, "name": "Een", "kind": "image"}'>
+            <input type="checkbox" data-bulk-item value="1" tabindex="-1">
+            <button type="button" data-context-trigger tabindex="-1">…</button>
+            <a href="#een" data-grid-item data-lightbox="fotos" data-lightbox-src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='30'/%3E">Een</a>
+        </div>
+        <div class="tegel" data-bulk-row data-drag-item="2" draggable="true" data-context-menu="#menu" data-context-item='{"id": 2, "name": "Twee", "kind": "video"}'>
+            <input type="checkbox" data-bulk-item value="2" tabindex="-1">
+            <button type="button" data-context-trigger tabindex="-1">…</button>
+            <a href="#twee" data-grid-item data-lightbox="fotos" data-lightbox-type="other">Twee</a>
+        </div>
+        <div class="tegel" data-bulk-row data-drag-item="3" draggable="true" data-context-menu="#menu" data-context-item='{"id": 3, "name": "Drie", "kind": "image"}'>
+            <input type="checkbox" data-bulk-item value="3" tabindex="-1">
+            <button type="button" data-context-trigger tabindex="-1">…</button>
+            <a href="#drie" data-grid-item data-lightbox="fotos">Drie</a>
+        </div>
+        <div class="tegel" data-bulk-row data-drag-item="4" draggable="true" data-context-menu="#menu" data-context-item='{"id": 4, "name": "Vier", "kind": "image"}'>
+            <input type="checkbox" data-bulk-item value="4" tabindex="-1">
+            <button type="button" data-context-trigger tabindex="-1">…</button>
+            <a href="#vier" data-grid-item data-lightbox="fotos">Vier</a>
+        </div>
+        <div class="tegel" data-bulk-row data-drag-item="5" draggable="true" data-context-menu="#menu" data-context-item='{"id": 5, "name": "Vijf", "kind": "image"}'>
+            <input type="checkbox" data-bulk-item value="5" tabindex="-1">
+            <button type="button" data-context-trigger tabindex="-1">…</button>
+            <a href="#vijf" data-grid-item data-lightbox="fotos">Vijf</a>
+        </div>
+    </div>
+
+    <div data-bulk-bar hidden id="balk">
+        <span data-bulk-count="tegel|tegels" id="teller"></span>
+        <form id="balk-form" data-bulk-name="media[]"></form>
+        <button type="button" data-bulk-clear id="wis">wis</button>
+    </div>
+</div>
+
+<div id="menu" role="menu" hidden>
+    <p data-context-text="name" id="menu-naam"></p>
+    <a role="menuitem" href="/bestanden/{id}" id="open">Openen</a>
+    <button type="button" role="menuitem" data-context-key="F2" id="hernoem" data-context-fill="#venster">Hernoemen</button>
+    <a role="menuitem" href="/bijsnijden/{id}" data-context-disabled="kind!=image" id="snij">Bijsnijden</a>
+    <div role="none">
+        <button type="button" role="menuitem" data-context-sub id="sub-knop">Verplaatsen naar</button>
+        <div role="menu" hidden id="sub">
+            <button type="button" role="menuitem" id="sub-1">Map een</button>
+            <button type="button" role="menuitem" id="sub-2">Map twee</button>
+        </div>
+    </div>
+    <hr role="separator" id="sep">
+    <form id="verwijder" action="/weg" data-context-ids="ids[]" data-context-if="selection" onsubmit="event.preventDefault(); window.verwijderd = new FormData(this).getAll('ids[]')">
+        <button role="menuitem" data-context-key="Delete" id="weg-alle"><span data-context-text="count"></span> verwijderen</button>
+    </form>
+</div>
+
+<div id="menu-leeg" role="menu" hidden>
+    <button type="button" role="menuitem" data-context-click="[data-bulk-all]" id="kies-alles">Alles selecteren</button>
+</div>
+
+<div id="venster"><input data-context-value="name" id="venster-naam"><span id="venster-url" data-url="/x/{id}"></span></div>
+
+<dialog data-lightbox-view="fotos" id="licht">
+    <span data-lightbox-caption id="licht-titel"></span>
+    <span data-lightbox-count id="licht-teller"></span>
+    <button type="button" data-lightbox-prev id="vorige">vorige</button>
+    <button type="button" data-lightbox-next id="volgende">volgende</button>
+    <div data-lightbox-stage id="podium"></div>
+    <aside data-lightbox-aside><span data-context-text="name" id="paneel-naam"></span></aside>
+    <template data-lightbox-fallback><p id="terugval">geen voorbeeld <a data-lightbox-open>openen</a></p></template>
+</dialog>
+
+<script type="module" src="../../resources/js/hansui.js"></script>
+</body>
+</html>

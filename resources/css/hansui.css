@@ -1,4 +1,5 @@
 @source '../views';
+@source '../js';
 
 /*
 |------------------------------------------------------------------------------
@@ -1828,6 +1829,537 @@
         font-size: 0.75rem;
         color: var(--ink-faint);
     }
+
+    /* -------------------------------------------------------------- tegels */
+    /*
+    | Wat er in een .media-tile staat. `.media-thumb` is het vierkante vlak met
+    | het beeld (object-fit: cover, zodat een raster een raster blijft), met de
+    | kleur van het beeld als ondergrond via `--thumb-bg` terwijl het laadt.
+    | `.media-icon` is wat er staat als er geen beeld is: een pdf, een geluid.
+    | `.media-more` is de knop met drie puntjes rechtsboven die het
+    | contextmenu opent, voor wie geen rechtermuisknop heeft.
+    */
+    .media-thumb {
+        position: relative;
+        display: block;
+        aspect-ratio: var(--thumb-ratio, 1 / 1);
+        overflow: hidden;
+        background: var(--thumb-bg, var(--surface-sunk));
+    }
+
+    .media-thumb > img,
+    .media-thumb > video {
+        position: absolute;
+        inset: 0;
+        height: 100%;
+        width: 100%;
+        object-fit: cover;
+        -webkit-user-drag: none;
+    }
+
+    .media-icon {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.375rem;
+        color: var(--ink-faint);
+        font-size: 0.6875rem;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+    }
+
+    .media-meta {
+        display: block;
+        min-width: 0;
+        padding: 0.5rem 0.625rem 0.625rem;
+    }
+
+    .media-open {
+        display: block;
+        outline: none;
+        color: inherit;
+    }
+
+    .media-tile:has(.media-open:focus-visible) {
+        border-color: var(--brand);
+        box-shadow: 0 0 0 3px color-mix(in oklab, var(--brand) 40%, transparent);
+    }
+
+    .media-tile[data-context-open] {
+        border-color: var(--line-strong);
+        box-shadow: var(--shadow-md);
+    }
+
+    .media-tile:has(input:checked) .media-thumb::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: color-mix(in oklab, var(--brand) 18%, transparent);
+        pointer-events: none;
+    }
+
+    .media-more {
+        position: absolute;
+        right: 0.5rem;
+        top: 0.5rem;
+        z-index: 2;
+        display: grid;
+        place-items: center;
+        height: 1.75rem;
+        width: 1.75rem;
+        border-radius: 0.5rem;
+        background: rgb(0 0 0 / 0.55);
+        color: #fff;
+        opacity: 0;
+        transition: opacity 120ms, background-color 120ms;
+    }
+
+    .media-more:hover,
+    .media-more[aria-expanded='true'] {
+        background: rgb(0 0 0 / 0.75);
+    }
+
+    .media-tile:hover .media-more,
+    .media-tile:focus-within .media-more,
+    .media-tile[data-context-open] .media-more {
+        opacity: 1;
+    }
+
+    /* Zodra er iets aangevinkt staat, zijn alle vinkjes te zien: dan ben je
+       aan het kiezen, en een vinkje dat pas bij hover verschijnt, moet je
+       per tegel gaan zoeken. */
+    [data-bulk]:has([data-bulk-item]:checked) .media-check {
+        opacity: 1;
+    }
+
+    /* Een aanraakscherm kent geen hover. */
+    @media (hover: none) {
+        .media-check,
+        .media-more {
+            opacity: 1;
+        }
+    }
+
+    /* ------------------------------------------------------- slepen naar */
+    [data-drop-target][data-drop='over'] {
+        outline: 2px dashed var(--brand);
+        outline-offset: -2px;
+        background-color: var(--brand-soft);
+    }
+
+    [data-drop-target][data-drop='busy'] {
+        opacity: 0.6;
+    }
+
+    [data-drag-item][data-dragging] {
+        opacity: 0.45;
+    }
+
+    /* Het aantal naast de muis als er een stapel versleept wordt. */
+    .drag-ghost {
+        position: fixed;
+        left: -999px;
+        top: -999px;
+        border-radius: 9999px;
+        background: var(--brand);
+        color: var(--on-brand);
+        padding: 0.25rem 0.625rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        box-shadow: var(--shadow-md);
+    }
+
+    /*
+    | HET HELE SCHERM als sleepvlak. Met `data-upload-hint` op het
+    | `data-upload-surface` verschijnt de tekst ervan over de pagina zodra er
+    | een bestand boven hangt: wie sleept, hoort te zien dat loslaten mag.
+    */
+    [data-upload-surface][data-upload-hint][data-over='true']::after {
+        content: attr(data-upload-hint);
+        position: fixed;
+        inset: 0.75rem;
+        z-index: 60;
+        display: grid;
+        place-items: center;
+        border: 2px dashed var(--brand);
+        border-radius: 1rem;
+        background: color-mix(in oklab, var(--brand-soft) 88%, transparent);
+        color: var(--brand-deep);
+        font-size: 1rem;
+        font-weight: 600;
+        pointer-events: none;
+    }
+
+    /* ------------------------------------------------------- contextmenu */
+    /*
+    | Het menu van `data-context-menu`. Vast gepositioneerd: hansui.js zet
+    | left en top, binnen het venster. Een submenu is een .context-menu in een
+    | .context-menu; het staat ook vast, dus de ouder mag geen transform
+    | krijgen (dan zou die het ankerpunt worden).
+    */
+    .context-menu {
+        position: fixed;
+        z-index: 70;
+        min-width: 13rem;
+        max-width: min(20rem, calc(100vw - 1rem));
+        max-height: calc(100dvh - 1rem);
+        overflow-y: auto;
+        border-radius: 0.625rem;
+        border: 1px solid var(--line);
+        background: var(--surface);
+        color: var(--ink);
+        padding: 0.3125rem;
+        box-shadow: var(--shadow-lg);
+        font-size: 0.8125rem;
+        outline: none;
+    }
+
+    .context-menu[hidden] {
+        display: none;
+    }
+
+    .context-menu[data-open] {
+        animation: hansui-menu-in 120ms var(--ease-out);
+    }
+
+    @keyframes hansui-menu-in {
+        from { opacity: 0; }
+    }
+
+    .context-menu form:not([hidden]) {
+        display: contents;
+    }
+
+    .context-menu :is([role='menuitem'], [role='menuitemcheckbox'], [role='menuitemradio']) {
+        display: flex;
+        width: 100%;
+        align-items: center;
+        gap: 0.625rem;
+        border-radius: 0.375rem;
+        padding: 0.4375rem 0.625rem;
+        text-align: left;
+        color: var(--ink);
+        cursor: default;
+        outline: none;
+    }
+
+    .context-menu :is([role='menuitem'], [role='menuitemcheckbox'], [role='menuitemradio']) > svg {
+        flex: none;
+        color: var(--ink-faint);
+    }
+
+    .context-menu :is([role='menuitem'], [role='menuitemcheckbox'], [role='menuitemradio']):focus {
+        background: var(--surface-hover);
+    }
+
+    .context-menu [role='menuitem'][aria-disabled='true'] {
+        color: var(--ink-faint);
+        opacity: 0.6;
+    }
+
+    .context-menu [role='menuitem'][aria-disabled='true']:focus {
+        background: transparent;
+    }
+
+    .context-menu [role='menuitem'].context-danger,
+    .context-menu [role='menuitem'].context-danger > svg {
+        color: var(--danger);
+    }
+
+    .context-menu [role='menuitem'].context-danger:focus {
+        background: var(--danger-soft);
+    }
+
+    .context-menu [data-context-sub]::after {
+        content: '';
+        margin-left: auto;
+        height: 0.4rem;
+        width: 0.4rem;
+        border-right: 1.5px solid currentColor;
+        border-top: 1.5px solid currentColor;
+        transform: rotate(45deg);
+        opacity: 0.6;
+    }
+
+    /* Sneltoetsen zeggen niets op een scherm zonder toetsenbord. */
+    @media (pointer: coarse) {
+        .context-kbd {
+            display: none;
+        }
+    }
+
+    .context-sep {
+        margin: 0.3125rem 0.25rem;
+        border: 0;
+        border-top: 1px solid var(--line);
+    }
+
+    .context-label {
+        padding: 0.375rem 0.625rem 0.25rem;
+        font-size: 0.6875rem;
+        font-weight: 600;
+        color: var(--ink-faint);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .context-kbd {
+        margin-left: auto;
+        padding-left: 1rem;
+        font-family: inherit;
+        font-size: 0.6875rem;
+        color: var(--ink-faint);
+    }
+
+    /* ------------------------------------------------------------- toast */
+    .toast {
+        position: fixed;
+        left: 50%;
+        bottom: 1.25rem;
+        z-index: 80;
+        max-width: calc(100vw - 2rem);
+        transform: translate(-50%, 0.5rem);
+        border-radius: 0.625rem;
+        background: var(--nav);
+        color: var(--nav-high);
+        padding: 0.5rem 0.875rem;
+        font-size: 0.8125rem;
+        box-shadow: var(--shadow-lg);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 160ms var(--ease-out), transform 160ms var(--ease-out);
+    }
+
+    .toast[data-shown] {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+
+    .toast[data-danger] {
+        background: var(--danger);
+        color: #fff;
+    }
+
+    [data-async-status] {
+        font-size: 0.75rem;
+        color: var(--ok);
+    }
+
+    [data-async-status][data-danger] {
+        color: var(--danger);
+    }
+
+    form[aria-busy='true'] {
+        cursor: progress;
+    }
+
+    /* -------------------------------------------------------- lightbox */
+    /*
+    | Het voorbeeldvenster van <x-lightbox>: het hele scherm, het beeld op een
+    | donker vlak (een foto kantelt niet mee met het thema) en rechts een
+    | zijpaneel op de gewone ondergrond. Op een smal scherm staat het paneel
+    | onder het beeld en scrolt het geheel.
+    */
+    .lightbox {
+        margin: 0;
+        height: 100dvh;
+        max-height: none;
+        width: 100vw;
+        max-width: none;
+        padding: 0;
+        border: 0;
+        background: rgb(12 14 17);
+        color: #fff;
+        overflow-y: auto;
+    }
+
+    .lightbox[open] {
+        display: grid;
+        grid-template-rows: minmax(18rem, 62dvh) auto;
+    }
+
+    .lightbox::backdrop {
+        background: rgb(0 0 0 / 0.8);
+    }
+
+    .lightbox-main {
+        position: relative;
+        display: flex;
+        min-height: 0;
+        min-width: 0;
+        flex-direction: column;
+    }
+
+    .lightbox-bar {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.625rem 0.75rem 0.625rem 1rem;
+        font-size: 0.8125rem;
+    }
+
+    .lightbox-title {
+        min-width: 0;
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-weight: 600;
+    }
+
+    .lightbox-count {
+        flex: none;
+        color: rgb(255 255 255 / 0.6);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .lightbox-btn {
+        display: grid;
+        flex: none;
+        place-items: center;
+        height: 2.25rem;
+        width: 2.25rem;
+        border-radius: 9999px;
+        color: #fff;
+        transition: background-color 120ms;
+    }
+
+    .lightbox-btn:hover {
+        background: rgb(255 255 255 / 0.12);
+    }
+
+    .lightbox-btn:focus-visible,
+    .lightbox-nav:focus-visible {
+        outline: 2px solid #fff;
+        outline-offset: 2px;
+    }
+
+    .lightbox-stage {
+        position: relative;
+        display: grid;
+        min-height: 0;
+        flex: 1;
+        place-items: center;
+        padding: 0 0.75rem 0.75rem;
+        touch-action: pan-y;
+        user-select: none;
+    }
+
+    .lightbox-stage > img,
+    .lightbox-stage > video {
+        max-height: 100%;
+        max-width: 100%;
+        object-fit: contain;
+        border-radius: 0.25rem;
+        grid-area: 1 / 1;
+        min-height: 0;
+    }
+
+    .lightbox-stage > img {
+        height: 100%;
+        width: 100%;
+    }
+
+    .lightbox-stage > iframe {
+        grid-area: 1 / 1;
+        height: 100%;
+        width: min(100%, 60rem);
+        border: 0;
+        border-radius: 0.25rem;
+        background: #fff;
+    }
+
+    .lightbox-stage > audio {
+        width: min(28rem, 100%);
+    }
+
+    .lightbox-stage[aria-busy='true']::before {
+        content: '';
+        grid-area: 1 / 1;
+        height: 2rem;
+        width: 2rem;
+        border-radius: 9999px;
+        border: 2px solid rgb(255 255 255 / 0.25);
+        border-top-color: #fff;
+        animation: hansui-draai 800ms linear infinite;
+    }
+
+    @keyframes hansui-draai {
+        to { transform: rotate(360deg); }
+    }
+
+    .lightbox-fallback {
+        display: grid;
+        place-items: center;
+        gap: 0.75rem;
+        color: rgb(255 255 255 / 0.75);
+        text-align: center;
+        font-size: 0.875rem;
+    }
+
+    .lightbox-nav {
+        position: absolute;
+        top: 50%;
+        z-index: 2;
+        display: grid;
+        place-items: center;
+        height: 2.75rem;
+        width: 2.75rem;
+        border-radius: 9999px;
+        background: rgb(0 0 0 / 0.5);
+        color: #fff;
+        transition: background-color 120ms, opacity 120ms;
+    }
+
+    .lightbox-nav:hover:not(:disabled) {
+        background: rgb(0 0 0 / 0.75);
+    }
+
+    .lightbox-nav:disabled {
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .lightbox-prev { left: 0.75rem; }
+    .lightbox-next { right: 0.75rem; }
+
+    .lightbox-aside {
+        min-width: 0;
+        background: var(--surface);
+        color: var(--ink);
+        padding: 1rem;
+    }
+
+    .lightbox-aside[aria-busy='true'] {
+        opacity: 0.55;
+        transition: opacity 120ms 150ms;
+    }
+
+    @media (min-width: 1024px) {
+        .lightbox {
+            overflow: hidden;
+        }
+
+        .lightbox[open] {
+            grid-template-rows: none;
+            grid-template-columns: minmax(0, 1fr) 24rem;
+        }
+
+        .lightbox-aside {
+            overflow-y: auto;
+            border-left: 1px solid var(--line);
+            padding: 1.25rem;
+        }
+
+        .lightbox-stage {
+            padding: 0 4rem 1.25rem;
+        }
+    }
 }
 
 @layer utilities {
@@ -1840,6 +2372,12 @@
         display: grid;
         gap: 1rem;
         grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
+    }
+
+    .grid-tiles-sm {
+        display: grid;
+        gap: 0.75rem;
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 9rem), 1fr));
     }
 
     .grid-tiles-lg {

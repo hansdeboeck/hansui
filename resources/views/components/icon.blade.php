@@ -59,8 +59,7 @@
             @break
 
         @case('folder')
-            <path d="M6 3h9l4 4v14H6z"/>
-            <path d="M15 3v4h4"/>
+            <path d="M3 7.5V18a1.5 1.5 0 0 0 1.5 1.5h15A1.5 1.5 0 0 0 21 18V9a1.5 1.5 0 0 0-1.5-1.5h-7.1L10.3 5H4.5A1.5 1.5 0 0 0 3 6.5Z"/>
             @break
 
         @case('cap')
@@ -533,6 +532,30 @@
         @case('ear')
             <path d="M6 9a6 6 0 1 1 12 0c0 3-2 4.5-3 5.5s-1 2.5-1 3.5a3 3 0 0 1-6 0"/>
             <path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 1.5-1.5 2-1.5 3"/>
+            @break
+
+        @case('chevron-left')
+            <path d="M15.75 19.5 8.25 12l7.5-7.5"/>
+            @break
+
+        @case('chevron-right')
+            <path d="m8.25 4.5 7.5 7.5-7.5 7.5"/>
+            @break
+
+        @case('more')
+            <circle cx="5" cy="12" r="1.2" fill="currentColor"/>
+            <circle cx="12" cy="12" r="1.2" fill="currentColor"/>
+            <circle cx="19" cy="12" r="1.2" fill="currentColor"/>
+            @break
+
+        @case('folder-move')
+            <path d="M3 7.5V18a1.5 1.5 0 0 0 1.5 1.5h15A1.5 1.5 0 0 0 21 18V9a1.5 1.5 0 0 0-1.5-1.5h-7.1L10.3 5H4.5A1.5 1.5 0 0 0 3 6.5Z"/>
+            <path d="M10 13.5h6m-2.5-2.5 2.5 2.5-2.5 2.5"/>
+            @break
+
+        @case('select')
+            <rect x="4" y="4" width="16" height="16" rx="3"/>
+            <path d="m8.5 12 2.5 2.5 4.5-5"/>
             @break
 
     @endswitch

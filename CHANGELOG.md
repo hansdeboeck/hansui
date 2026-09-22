@@ -3,6 +3,67 @@
 Dit package zit straks in zes applicaties op een gepinde versie. Wat hier staat
 is wat je moet weten voor je die pin verzet.
 
+## 0.11.0
+
+### Nieuw
+
+Uit de mediabibliotheek van socialtail, en nergens in die vorm aan media
+gebonden: het werkt op elke lijst van dingen.
+
+- **Een contextmenu**: `data-context-menu` op een element (of op de omhulling,
+  voor een lege plek) opent een menu met role="menu" bij rechtsklikken, met
+  een knop met `data-context-trigger`, met de ContextMenu-toets en met
+  `Shift` + `F10`. De waarden uit `data-context-item` (JSON) worden ingevuld:
+  `{sleutel}` in attributen, `data-context-text`, `data-context-value`,
+  `data-context-if`, `data-context-disabled` en `data-context-ids`. Submenu's
+  met `data-context-sub`, sneltoetsen met `data-context-key`,
+  `data-context-click` en `data-context-fill`. Volledig met het toetsenbord
+  te bedienen, en binnen het venster.
+- **`<x-lightbox>`** en `data-lightbox`: een groot voorbeeld van een beeld,
+  video of geluid, met vorige en volgende (pijltjes, vegen), focusbeheer en
+  een zijpaneel dat uit de slot of per link van een url komt
+  (`data-lightbox-aside`).
+- **Selecteren zoals in een verkenner** in `data-bulk`: `Shift` + klik voor
+  een bereik, `Ctrl`/`Cmd` + klik op een `data-bulk-row`, `Ctrl`/`Cmd` + `A`,
+  `Escape` wist, `Ctrl` + spatie. `data-bulk-form` spiegelt de selectie ook
+  naar een formulier buiten de balk, `data-bulk-name` geeft een formulier in
+  de balk een eigen veldnaam, `data-bulk-clear` vinkt alles uit, en elke
+  wijziging stuurt `bulk:change`.
+- **`data-grid-nav`** en `data-grid-item`: een raster als een tabstop, met
+  pijltjes die de rij volgen zoals ze op het scherm staat.
+- **Slepen naar een doel**: `data-drag-item` en `data-drop-target` (met
+  `data-drop-name`, `data-drop-fields`, `data-drop-token` en
+  `data-drag-label`), met een POST en daarna een herladen pagina.
+- **`data-hover-play`**: een video die gedempt speelt zolang de muis erboven
+  staat.
+- **`data-async`**: een formulier bewaren met fetch, met de melding in
+  `data-async-status`.
+- **Een melding onderaan** (`.toast`) via het venster-event `toast`, en na
+  kopiëren met `data-copy` als er `data-copied` op staat.
+- **`data-upload-hint`** op het `data-upload-surface` toont een tekst over de
+  hele pagina terwijl er een bestand boven hangt. Staat de uploadlijst in een
+  dicht venster, dan gaat dat open bij het eerste bestand.
+- **Klassen** `.media-thumb`, `.media-icon`, `.media-meta`, `.media-open` en
+  `.media-more` voor wat er in een `.media-tile` staat, `.grid-tiles-sm` voor
+  kleine tegels, `.context-menu` met zijn onderdelen, `.lightbox` en `.toast`.
+- **Iconen** `more`, `chevron-left`, `chevron-right`, `folder-move` en `select`.
+- **`tests/browser/verkenner.html`**: een harnas met het contextmenu, de
+  selectie, het raster en het voorbeeldvenster samen.
+- `hansui.css` scant ook `hansui.js` (`@source '../js'`): de klassen die het
+  script zelf tekent, zoals de regels van de uploader, bestonden anders alleen
+  als een applicatie ze toevallig ook gebruikte.
+
+### Opgelost
+
+- **Het icoon `folder`** was een blad papier en geen map; het leek op `file`.
+- De regels van de uploader waren op een smal scherm breder dan het venster.
+- `data-copy` op een knop kopieerde niets: een lege `value` telde als waarde.
+
+### Wat je moet doen
+
+Niets. Had je een eigen contextmenu, voorbeeldvenster of selectie met `Shift`,
+haal die weg. Gebruik je het icoon `folder` voor een bestand, neem dan `file`.
+
 ## 0.10.0
 
 ### Nieuw
