@@ -3,6 +3,19 @@
 Dit package zit straks in zes applicaties op een gepinde versie. Wat hier staat
 is wat je moet weten voor je die pin verzet.
 
+## 0.10.0
+
+### Nieuw
+
+- **Een code in losse vakjes**: `data-code-group`, `data-code-cell`,
+  `data-code-value` en `data-code-autofocus`, met de klassen `.code-input` en
+  `.code-display`. Uit signagetail, waar je de koppelcode van een scherm
+  overtypt; bruikbaar voor elke verificatiecode (`data-code-group="digits"`).
+
+### Wat je moet doen
+
+Had je een eigen script en eigen klassen voor deze vakjes, haal ze weg.
+
 ## 0.9.0
 
 ### Nieuw

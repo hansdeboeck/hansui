@@ -85,7 +85,8 @@ typen bestaat, en kantelt mee.
 `.modal-foot`, `.link-muted`, `.empty`, `.sidebar`. Voor een bibliotheek:
 `.tree-item`, `.media-tile` + `.media-check` en `.media-badge`, `.dropzone`,
 `.meter` + `.meter-fill`, `.locked` voor wat het abonnement niet heeft, en de
-utilities `.grid-tiles`, `.grid-tiles-lg` en `.no-select`. Voor grafieken
+utilities `.grid-tiles`, `.grid-tiles-lg` en `.no-select`. Voor codes
+`.code-input` en `.code-display`. Voor grafieken
 `.chart` en zijn onderdelen.
 
 `.check` op een `<label>` rond een vinkje en zijn tekst maakt er een rij van.
@@ -226,6 +227,19 @@ de server met `duplicate: true`, dan staat er "stond er al".
 als een formulierveld een bepaalde waarde heeft: `herhalen[freq]=week,maand`,
 of zonder `=` zodra het veld iets heeft. Het veld wordt eerst in hetzelfde
 formulier gezocht. Zet `required` alleen op velden die altijd zichtbaar zijn.
+
+**Een code in losse vakjes.** Voor een koppel- of verificatiecode.
+
+| Attribuut | Wat het doet |
+|---|---|
+| `data-code-group` | de omhulling; waarde leeg of `alnum` (letters en cijfers, in hoofdletters) of `digits` |
+| `data-code-cell` | een vakje van een teken, met de klasse `.code-input` |
+| `data-code-value` | het verborgen veld met de hele code |
+| `data-code-autofocus` | op de groep: bij het laden de cursor in het eerste vakje |
+
+Typen springt naar het volgende vakje, Backspace naar het vorige, plakken
+verdeelt de code. Een volle code dient het formulier in, tenzij de groep
+`data-autosubmit="false"` draagt. `.code-display` toont een code groot.
 
 **Een botcontrole die niet rond raakt.** `data-turnstile-melding` op een
 verborgen melding in het formulier: bij een `turnstile:failed`-event verschijnt
