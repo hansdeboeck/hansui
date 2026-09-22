@@ -98,6 +98,15 @@
         --nav-accent:    var(--brand-primary-dark);
 
         /*
+        | DE BIJSNIJDER ligt op een foto, en een foto kantelt niet mee met het
+        | thema. Het waas rond de uitsnede en de lijn eromheen staan dus alleen
+        | hier, net als de overlays van de zijbalk hierboven: in het donker is
+        | een wit kader op een verduisterde foto nog altijd wat je wil zien.
+        */
+        --crop-shade: rgb(0 0 0 / 0.55);
+        --crop-line:  rgb(255 255 255 / 0.92);
+
+        /*
         | Merk en semantiek staan LOS van elkaar. Groen is Growtail; groen is
         | nooit een status. Daarom een eigen --ok, ook al lijkt hij erop: zo
         | verandert een huisstijl in een andere kleur niet stilletjes de
@@ -1561,6 +1570,143 @@
         background: color-mix(in oklab, var(--surface) 55%, transparent);
         backdrop-filter: saturate(0.4);
         pointer-events: none;
+    }
+
+    /* -------------------------------------------------------------- bijsnijden */
+    /*
+    | De bijsnijder van data-crop: een omhulling die zo groot is als het beeld,
+    | met een kader dat hansui.js erin zet.
+    |
+    | HET WAAS IS EEN SCHADUW van het kader zelf, zo groot dat ze het hele beeld
+    | bedekt, en de omhulling knipt ze af. Vier losse vlakken rond het kader
+    | kunnen hetzelfde, maar lopen bij elke beweging een pixel uit elkaar.
+    |
+    | `touch-action: none` op de omhulling: zonder die regel beslist de browser
+    | bij de eerste beweging van een vinger dat er gescrold wordt, en verschuift
+    | de pagina in plaats van het kader.
+    |
+    | De hoogte begrenst een applicatie met --crop-max-height; standaard 60vh,
+    | zodat een staande foto in een venster niet onder de knoppen verdwijnt.
+    */
+    .crop {
+        position: relative;
+        display: inline-block;
+        max-width: 100%;
+        overflow: hidden;
+        line-height: 0;
+        vertical-align: top;
+        border-radius: 0.5rem;
+        background: var(--surface-sunk);
+        cursor: crosshair;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+    }
+    .crop > img {
+        display: block;
+        max-width: 100%;
+        max-height: var(--crop-max-height, 60vh);
+        width: auto;
+        height: auto;
+        pointer-events: none;
+        -webkit-user-drag: none;
+    }
+
+    /*
+    | Het kader, met de derdelijnen erin: twee keer twee lijnen van een pixel.
+    | Wie een foto bijsnijdt, zet het onderwerp daar -- en zonder lijnen gokt
+    | hij waar een derde ligt.
+    */
+    .crop-frame {
+        position: absolute;
+        cursor: move;
+        box-shadow: 0 0 0 100vmax var(--crop-shade);
+        outline: 1px solid var(--crop-line);
+        background-image:
+            linear-gradient(to right, transparent calc(100% / 3 - 0.5px), var(--crop-line) calc(100% / 3 - 0.5px), var(--crop-line) calc(100% / 3 + 0.5px), transparent calc(100% / 3 + 0.5px), transparent calc(200% / 3 - 0.5px), var(--crop-line) calc(200% / 3 - 0.5px), var(--crop-line) calc(200% / 3 + 0.5px), transparent calc(200% / 3 + 0.5px)),
+            linear-gradient(to bottom, transparent calc(100% / 3 - 0.5px), var(--crop-line) calc(100% / 3 - 0.5px), var(--crop-line) calc(100% / 3 + 0.5px), transparent calc(100% / 3 + 0.5px), transparent calc(200% / 3 - 0.5px), var(--crop-line) calc(200% / 3 - 0.5px), var(--crop-line) calc(200% / 3 + 0.5px), transparent calc(200% / 3 + 0.5px));
+        background-repeat: no-repeat;
+    }
+
+    /* De lijnen zijn hulp bij het mikken, geen deel van de foto: alleen zolang
+       er gemikt wordt, of als het kader de focus heeft. */
+    .crop:not(.crop-busy) .crop-frame:not(:focus-visible) {
+        background-image: none;
+    }
+    .crop-frame:focus-visible {
+        outline: 2px solid var(--brand);
+        outline-offset: 0;
+    }
+
+    /*
+    | DE HOEKEN liggen BINNEN het kader, als een haakje. Erbuiten zouden ze aan
+    | de rand van het beeld half weggeknipt worden, en net daar trek je het
+    | vaakst aan. Het vlak om vast te pakken is groter dan wat je ziet.
+    */
+    .crop-handle {
+        position: absolute;
+        width: 1.75rem;
+        height: 1.75rem;
+        touch-action: none;
+    }
+    .crop-handle::after {
+        content: '';
+        position: absolute;
+        width: 1.125rem;
+        height: 1.125rem;
+        border-color: var(--crop-line);
+        border-style: solid;
+        border-width: 0;
+        filter: drop-shadow(0 0 1px rgb(0 0 0 / 0.6));
+    }
+    .crop-handle[data-crop-handle='nw'] { left: 0; top: 0; cursor: nwse-resize; }
+    .crop-handle[data-crop-handle='ne'] { right: 0; top: 0; cursor: nesw-resize; }
+    .crop-handle[data-crop-handle='sw'] { left: 0; bottom: 0; cursor: nesw-resize; }
+    .crop-handle[data-crop-handle='se'] { right: 0; bottom: 0; cursor: nwse-resize; }
+    .crop-handle[data-crop-handle='nw']::after { left: 0; top: 0; border-left-width: 3px; border-top-width: 3px; }
+    .crop-handle[data-crop-handle='ne']::after { right: 0; top: 0; border-right-width: 3px; border-top-width: 3px; }
+    .crop-handle[data-crop-handle='sw']::after { left: 0; bottom: 0; border-left-width: 3px; border-bottom-width: 3px; }
+    .crop-handle[data-crop-handle='se']::after { right: 0; bottom: 0; border-right-width: 3px; border-bottom-width: 3px; }
+
+    /* De maat in pixels van wat er overblijft: of het nog scherp genoeg is,
+       zie je aan een getal en niet aan het kader. */
+    .crop-size {
+        position: absolute;
+        left: 50%;
+        bottom: 0.375rem;
+        transform: translateX(-50%);
+        padding: 0.25rem 0.375rem;
+        border-radius: 0.25rem;
+        background: var(--crop-shade);
+        color: var(--crop-line);
+        font-size: 0.6875rem;
+        line-height: 1;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        pointer-events: none;
+    }
+
+    /* De knoppen voor de verhouding: een rij pillen, de gekozen in het merk. */
+    .crop-ratios {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.375rem;
+    }
+    .crop-ratio {
+        @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium;
+        border: 1px solid var(--line);
+        background: var(--surface);
+        color: var(--ink-soft);
+        transition: border-color 120ms, background-color 120ms, color 120ms;
+    }
+    .crop-ratio:hover {
+        border-color: var(--line-strong);
+        color: var(--ink);
+    }
+    .crop-ratio[aria-pressed='true'] {
+        border-color: var(--brand);
+        background: var(--brand-soft);
+        color: var(--brand-deep);
     }
 
     /* --------------------------------------------------------------- grafieken */

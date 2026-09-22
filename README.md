@@ -102,7 +102,7 @@ staat, loopt uit elkaar zodra er iets aan verandert.
 `<x-key-value>`, `<x-detail-list>`, `<x-detail-row>`, `<x-tabs>`,
 `<x-nav-link>`, `<x-footer>`, `<x-nav-dropdown>`, `<x-nav-mega-group>`,
 `<x-nav-mega-link>`, `<x-delta>`, `<x-chart.line>`, `<x-chart.columns>`,
-`<x-chart.bars>` en `<x-chart.heatmap>`. Ook bereikbaar als
+`<x-chart.bars>`, `<x-chart.heatmap>` en `<x-cropper>`. Ook bereikbaar als
 `<x-hansui::page>` wanneer een applicatie de korte naam zelf al gebruikt.
 
 `<x-card>` is een kaal vlak, `<x-section>` diezelfde kaart met een kopregel
@@ -214,6 +214,19 @@ gaan er ook `duration_ms`, `width`, `height` en een `poster` als data-URL mee:
 de browser kan ze lezen, de server zou er ffmpeg voor nodig hebben. Antwoordt
 de server met `duplicate: true`, dan staat er "stond er al".
 
+**Filteren terwijl je typt.** Voor een lijst die al op de pagina staat.
+
+| Attribuut | Wat het doet |
+|---|---|
+| `data-filter` | op een zoekveld; de waarde is de selector van de lijst |
+| `data-filter-item` | een regel in die lijst; de waarde is waarop gezocht wordt, anders de tekst |
+| `data-filter-empty` | wat er in de lijst verschijnt als niets past |
+
+**Tonen naargelang een veld.** `data-show-when` op een element toont het alleen
+als een formulierveld een bepaalde waarde heeft: `herhalen[freq]=week,maand`,
+of zonder `=` zodra het veld iets heeft. Het veld wordt eerst in hetzelfde
+formulier gezocht. Zet `required` alleen op velden die altijd zichtbaar zijn.
+
 **Een botcontrole die niet rond raakt.** `data-turnstile-melding` op een
 verborgen melding in het formulier: bij een `turnstile:failed`-event verschijnt
 ze, met de waarde van het attribuut als tekst. Wie zelf afbrak, ziet niets.
@@ -278,6 +291,41 @@ ordent, hoort er een te hebben.
 keuze: wie niet kan slepen, kan deze lijst niet ordenen. Zorg er tot die tijd
 voor dat de volgorde ook ergens anders te wijzigen is -- een veld met een
 nummer in het bewerkformulier is genoeg -- als de volgorde er echt toe doet.
+
+**Bijsnijden.** Een kader over een beeld: slepen verschuift het, de hoeken
+maken het groter of kleiner, drukken naast het kader zet het daar neer. Met
+de muis, een vinger en het toetsenbord: pijltjes verschuiven, `Shift` +
+pijltjes vergroten (rechts, omlaag) of verkleinen (links, omhoog), met `Alt`
+erbij in kleine stapjes. Geen bibliotheek: het is een `<img>` met een kader
+erover.
+
+```blade
+<x-cropper :src="$foto->url()" :ratios="['free', '1:1', '4:5' => 'Instagram 4:5']" ratio="4:5" name="uitsnede"/>
+```
+
+| Attribuut | Wat het doet |
+|---|---|
+| `data-crop` | de omhulling met het `<img>` erin; de waarde is het label van het kader voor een schermlezer |
+| `data-crop-ratio` | een knop met een verhouding: `1:1`, `4:5`, `9:16`, `16:9`, `1.91:1`, of `free`; de knop met `aria-pressed="true"` is waarmee het begint |
+| `data-crop-x` | een (verborgen) veld dat de linkerrand krijgt, in procenten van de breedte |
+| `data-crop-y` | idem, de bovenrand, in procenten van de hoogte |
+| `data-crop-width` | idem, de breedte |
+| `data-crop-height` | idem, de hoogte |
+| `data-crop-handle` | zet je niet zelf: de vier hoeken (`nw`, `ne`, `sw`, `se`) van het kader dat `hansui.js` tekent |
+
+De knoppen en de velden horen bij de dichtstbijzijnde bijsnijder: zet ze in
+dezelfde omhulling, dan kunnen er twee op een pagina staan zonder id's. Elke
+wijziging stuurt ook een `crop:change`-event op de omhulling, met in `detail`
+`x`, `y`, `width` en `height` (procenten, vier decimalen), `ratio` en `pixels`
+(de maat van wat er overblijft in het echte beeld).
+
+De verhouding geldt voor de pixels van het beeld, niet voor het kader op het
+scherm. Staan de vier velden ingevuld als het beeld laadt, dan begint het
+kader daar; anders begint het met het grootste kader in de gekozen verhouding,
+in het midden. Een nieuw `src` begint opnieuw; stuur `crop:reset` op de
+omhulling om opnieuw te beginnen met hetzelfde beeld (maak de velden dan eerst
+leeg). De hoogte van het beeld begrens je met `--crop-max-height` (standaard
+`60vh`). Het snijden zelf doet de server: de browser meldt alleen waar.
 
 ## Afwijken
 
