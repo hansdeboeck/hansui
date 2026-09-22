@@ -26,6 +26,7 @@
 |   data-palette-open            een venster-event voor een zoekpalet
 |   data-regel*                  herhaalbare formulierregels
 |   data-sortable*               slepen om te herordenen, met PUT naar de server
+|   data-crop*                   een beeld bijsnijden, met muis, vinger of toetsenbord
 |
 | De vier helpers onder "Gebaren" -- spoor, veer, projectie en rubberband --
 | zijn wat de zijbalk en het herordenen delen. Wie hier een gebaar bij bouwt,
@@ -1782,3 +1783,566 @@ document.addEventListener('turnstile:failed', (e) => {
         || 'De controle is niet gelukt. Ververs de pagina en probeer het opnieuw.';
     melding.classList.remove('hidden');
 });
+
+/*
+|------------------------------------------------------------------------------
+| Bijsnijden: data-crop
+|------------------------------------------------------------------------------
+|
+| Een kader over een beeld dat je versleept, aan de hoeken groter maakt en
+| met het toetsenbord bijstuurt. Wat eruit komt zijn vier getallen in
+| PROCENTEN van het beeld: x, y, breedte en hoogte. Procenten en geen pixels,
+| want wat hier op het scherm staat is bijna nooit het beeld op ware grootte,
+| en de server die de pixels snijdt kent de echte maat beter dan wij.
+|
+| De verhouding (1:1, 4:5, 1.91:1 ...) geldt voor de PIXELS van het beeld en
+| niet voor het kader op het scherm. Bij een beeld dat verkleind getoond wordt
+| is dat hetzelfde; bij een beeld dat een browser uitrekt niet, en dan hoort de
+| uitsnede nog steeds te kloppen.
+|
+| De knoppen en de velden horen bij de dichtstbijzijnde bijsnijder: zet ze in
+| dezelfde omhulling. Zo kan een pagina er twee naast elkaar hebben zonder dat
+| er een id tussen moet.
+|
+| Het kader verschuiven volgt de vinger een-op-een; voorbij de rand geeft het
+| nog wat mee en veert het terug. De getallen die naar buiten gaan, blijven
+| altijd binnen het beeld.
+*/
+const hansuiCrop = new WeakMap();
+let hansuiCropGreep = null;
+
+// Kleiner dan dit op het scherm kan je het kader niet meer vastpakken.
+const HANSUI_CROP_MIN = 24;
+
+function hansuiCropRatio(waarde) {
+    const [a, b] = String(waarde ?? '').split(':').map(Number);
+
+    return a > 0 && b > 0 ? a / b : null;
+}
+
+function hansuiCropKlem(waarde, min, max) {
+    return Math.min(Math.max(waarde, min), Math.max(min, max));
+}
+
+// De dichtstbijzijnde voorouder waar iets in zit dat op de selector past.
+function hansuiCropBuur(el, selector) {
+    for (let x = el.parentElement; x; x = x.parentElement) {
+        if (x.querySelector(selector)) {
+            return x;
+        }
+    }
+
+    return null;
+}
+
+function hansuiCropVan(knop) {
+    return hansuiCropBuur(knop, '[data-crop]')?.querySelector('[data-crop]') ?? null;
+}
+
+function hansuiCropKnoppen(crop) {
+    const buur = hansuiCropBuur(crop, '[data-crop-ratio]');
+
+    return buur ? [...buur.querySelectorAll('[data-crop-ratio]')].filter((k) => hansuiCropVan(k) === crop) : [];
+}
+
+function hansuiCropVelden(crop) {
+    const houder = crop.querySelector('[data-crop-x]') ? crop : hansuiCropBuur(crop, '[data-crop-x]');
+
+    return {
+        x: houder?.querySelector('[data-crop-x]'),
+        y: houder?.querySelector('[data-crop-y]'),
+        width: houder?.querySelector('[data-crop-width]'),
+        height: houder?.querySelector('[data-crop-height]'),
+    };
+}
+
+// Hoeveel keer de breedte de hoogte is, in delen van het beeld: h = w * k.
+function hansuiCropK(s) {
+    return s.ratio ? s.W / (s.H * s.ratio) : null;
+}
+
+/*
+| Het grootste kader in deze verhouding, zo dicht mogelijk rond een middelpunt.
+|
+| Bij het kiezen van een verhouding en bij de start. Het GROOTSTE en niet een
+| kader van dezelfde oppervlakte: wie 4:5 kiest, wil zien wat er van zijn foto
+| overblijft, en dat is meestal bijna alles.
+*/
+function hansuiCropVul(s, cx, cy) {
+    const k = hansuiCropK(s);
+
+    if (k === null) {
+        return;
+    }
+
+    [s.w, s.h] = k <= 1 ? [1, k] : [1 / k, 1];
+    s.x = hansuiCropKlem(cx - s.w / 2, 0, 1 - s.w);
+    s.y = hansuiCropKlem(cy - s.h / 2, 0, 1 - s.h);
+}
+
+function hansuiCropBouw(crop) {
+    let kader = crop.querySelector('.crop-frame');
+
+    if (kader) {
+        return kader;
+    }
+
+    kader = document.createElement('div');
+    kader.className = 'crop-frame';
+    kader.tabIndex = 0;
+    kader.setAttribute('role', 'group');
+    kader.setAttribute('aria-label', crop.getAttribute('data-crop')
+        || 'Uitsnede. Pijltjes verschuiven, shift en pijltjes vergroten of verkleinen.');
+
+    ['nw', 'ne', 'sw', 'se'].forEach((hoek) => {
+        const greep = document.createElement('span');
+        greep.className = 'crop-handle';
+        greep.setAttribute('data-crop-handle', hoek);
+        greep.setAttribute('aria-hidden', 'true');
+        kader.appendChild(greep);
+    });
+
+    const maat = document.createElement('span');
+    maat.className = 'crop-size';
+    kader.appendChild(maat);
+
+    crop.appendChild(kader);
+
+    return kader;
+}
+
+/*
+| Beginnen, of opnieuw beginnen: bij het laden van het beeld en bij
+| `crop:reset`.
+|
+| Staan de vier velden al ingevuld, dan is dat de uitsnede van de vorige keer
+| en begint het kader daar. Anders het grootste kader in de gekozen verhouding,
+| in het midden -- of het hele beeld, als er geen verhouding gekozen is.
+*/
+function hansuiCropStart(crop) {
+    const img = crop.querySelector('img');
+
+    if (!img || !img.complete || !img.naturalWidth) {
+        return;
+    }
+
+    hansuiCrop.get(crop)?.veer?.stop();
+
+    const knop = hansuiCropKnoppen(crop).find((k) => k.getAttribute('aria-pressed') === 'true');
+    const velden = hansuiCropVelden(crop);
+    const gezet = ['x', 'y', 'width', 'height'].map((sleutel) => parseFloat(velden[sleutel]?.value ?? ''));
+    const s = {
+        W: img.naturalWidth,
+        H: img.naturalHeight,
+        ratio: hansuiCropRatio(knop?.getAttribute('data-crop-ratio')),
+        naam: knop?.getAttribute('data-crop-ratio') ?? 'free',
+        x: 0,
+        y: 0,
+        w: 1,
+        h: 1,
+        toon: null,
+        veer: null,
+    };
+
+    hansuiCrop.set(crop, s);
+    hansuiCropBouw(crop);
+
+    if (gezet.every(Number.isFinite) && gezet[2] > 0 && gezet[3] > 0) {
+        s.w = hansuiCropKlem(gezet[2] / 100, 0.01, 1);
+        s.h = hansuiCropKlem(gezet[3] / 100, 0.01, 1);
+        s.x = hansuiCropKlem(gezet[0] / 100, 0, 1 - s.w);
+        s.y = hansuiCropKlem(gezet[1] / 100, 0, 1 - s.h);
+    } else {
+        hansuiCropVul(s, 0.5, 0.5);
+    }
+
+    hansuiCropTeken(crop);
+}
+
+/*
+| Het kader tekenen, en als het echt veranderde ook melden.
+|
+| `toon` is wat er op het scherm staat terwijl het kader voorbij een rand hangt
+| of terugveert. Wat er gemeld wordt is altijd de uitsnede binnen het beeld:
+| een formulier dat halverwege een veer verstuurd wordt, krijgt geen -3%.
+*/
+function hansuiCropTeken(crop, melden = true) {
+    const s = hansuiCrop.get(crop);
+    const kader = crop.querySelector('.crop-frame');
+
+    if (!s || !kader) {
+        return;
+    }
+
+    const [x, y, w, h] = s.toon ?? [s.x, s.y, s.w, s.h];
+
+    kader.style.left = `${x * 100}%`;
+    kader.style.top = `${y * 100}%`;
+    kader.style.width = `${w * 100}%`;
+    kader.style.height = `${h * 100}%`;
+
+    const breed = Math.round(s.w * s.W);
+    const hoog = Math.round(s.h * s.H);
+    const maat = kader.querySelector('.crop-size');
+
+    if (maat) {
+        maat.textContent = `${breed} × ${hoog}`;
+    }
+
+    if (!melden) {
+        return;
+    }
+
+    const rond = (waarde) => Math.round(waarde * 1000000) / 10000;
+    const detail = { x: rond(s.x), y: rond(s.y), width: rond(s.w), height: rond(s.h), ratio: s.naam, pixels: { width: breed, height: hoog } };
+    const velden = hansuiCropVelden(crop);
+
+    ['x', 'y', 'width', 'height'].forEach((sleutel) => {
+        if (velden[sleutel]) {
+            velden[sleutel].value = String(detail[sleutel]);
+        }
+    });
+
+    crop.dispatchEvent(new CustomEvent('crop:change', { bubbles: true, detail }));
+}
+
+/*
+| Groter of kleiner vanuit een hoek: de tegenoverliggende hoek blijft staan.
+|
+| Met een verhouding volgt het kader de richting waarin de hand het verst ging,
+| en stopt het waar een van beide kanten tegen de rand komt. Zonder verhouding
+| gaan breedte en hoogte elk hun eigen weg.
+*/
+function hansuiCropSchaal(s, anker, px, py, minX, minY) {
+    const links = px < anker.x;
+    const boven = py < anker.y;
+    const ruimteX = links ? anker.x : 1 - anker.x;
+    const ruimteY = boven ? anker.y : 1 - anker.y;
+    const k = hansuiCropK(s);
+
+    let w = Math.min(Math.abs(px - anker.x), ruimteX);
+    let h = Math.min(Math.abs(py - anker.y), ruimteY);
+
+    if (k !== null) {
+        w = Math.max(w, h / k, minX, minY / k);
+        w = Math.min(w, ruimteX, ruimteY / k);
+        h = w * k;
+    } else {
+        w = hansuiCropKlem(w, minX, ruimteX);
+        h = hansuiCropKlem(h, minY, ruimteY);
+    }
+
+    s.w = Math.min(w, 1);
+    s.h = Math.min(h, 1);
+
+    // Tegen de rand gedrukt met te weinig ruimte: dan schuift het kader mee
+    // in plaats van uit het beeld te lopen.
+    s.x = hansuiCropKlem(links ? anker.x - s.w : anker.x, 0, 1 - s.w);
+    s.y = hansuiCropKlem(boven ? anker.y - s.h : anker.y, 0, 1 - s.h);
+}
+
+document.addEventListener('pointerdown', (e) => {
+    if (hansuiCropGreep || (e.pointerType === 'mouse' && e.button !== 0)) {
+        return;
+    }
+
+    const crop = e.target.closest?.('[data-crop]');
+    const s = crop ? hansuiCrop.get(crop) : null;
+
+    if (!s) {
+        return;
+    }
+
+    // Geen beeld dat meesleept en geen tekst die blauw wordt.
+    e.preventDefault();
+
+    s.veer?.stop();
+    s.veer = null;
+    s.toon = null;
+
+    const vak = crop.getBoundingClientRect();
+    const kader = crop.querySelector('.crop-frame');
+    const hoek = e.target.closest('[data-crop-handle]')?.getAttribute('data-crop-handle') ?? null;
+
+    /*
+    | Naast het kader gedrukt: het kader springt erheen en het slepen gaat
+    | meteen door. Wie op het stuk van de foto drukt dat hij wil houden, hoort
+    | niet eerst te moeten mikken op een rand.
+    */
+    if (!hoek && !kader.contains(e.target)) {
+        s.x = hansuiCropKlem((e.clientX - vak.left) / vak.width - s.w / 2, 0, 1 - s.w);
+        s.y = hansuiCropKlem((e.clientY - vak.top) / vak.height - s.h / 2, 0, 1 - s.h);
+        hansuiCropTeken(crop);
+    }
+
+    hansuiCropGreep = {
+        crop,
+        hoek,
+        vak,
+        pointerId: e.pointerId,
+        startX: e.clientX,
+        startY: e.clientY,
+        van: { x: s.x, y: s.y },
+        anker: hoek ? {
+            x: hoek.includes('w') ? s.x + s.w : s.x,
+            y: hoek.includes('n') ? s.y + s.h : s.y,
+        } : null,
+    };
+
+    crop.classList.add('crop-busy');
+    hansuiGrijp(crop, e.pointerId);
+    kader.focus({ preventScroll: true });
+});
+
+document.addEventListener('pointermove', (e) => {
+    const g = hansuiCropGreep;
+
+    if (!g || e.pointerId !== g.pointerId) {
+        return;
+    }
+
+    const s = hansuiCrop.get(g.crop);
+    const { vak } = g;
+
+    if (g.hoek) {
+        hansuiCropSchaal(
+            s,
+            g.anker,
+            (e.clientX - vak.left) / vak.width,
+            (e.clientY - vak.top) / vak.height,
+            HANSUI_CROP_MIN / vak.width,
+            HANSUI_CROP_MIN / vak.height,
+        );
+        s.toon = null;
+    } else {
+        const vrijX = g.van.x + (e.clientX - g.startX) / vak.width;
+        const vrijY = g.van.y + (e.clientY - g.startY) / vak.height;
+
+        s.x = hansuiCropKlem(vrijX, 0, 1 - s.w);
+        s.y = hansuiCropKlem(vrijY, 0, 1 - s.h);
+
+        const toonX = s.x + hansuiRubberband((vrijX - s.x) * vak.width, vak.width) / vak.width;
+        const toonY = s.y + hansuiRubberband((vrijY - s.y) * vak.height, vak.height) / vak.height;
+
+        s.toon = toonX === s.x && toonY === s.y ? null : [toonX, toonY, s.w, s.h];
+    }
+
+    hansuiCropTeken(g.crop);
+});
+
+function hansuiCropLos(e) {
+    const g = hansuiCropGreep;
+
+    if (!g || e.pointerId !== g.pointerId) {
+        return;
+    }
+
+    hansuiCropGreep = null;
+    g.crop.classList.remove('crop-busy');
+
+    const s = hansuiCrop.get(g.crop);
+
+    if (!s?.toon) {
+        return;
+    }
+
+    // Terug binnen het beeld, met een veer: hard terugspringen leest als een fout.
+    const [vanX, vanY] = s.toon;
+
+    s.veer = hansuiVeer({
+        van: 0,
+        naar: 100,
+        respons: 0.3,
+        stap: (t) => {
+            s.toon = [vanX + ((s.x - vanX) * t) / 100, vanY + ((s.y - vanY) * t) / 100, s.w, s.h];
+            hansuiCropTeken(g.crop, false);
+        },
+        klaar: () => {
+            s.toon = null;
+            s.veer = null;
+            hansuiCropTeken(g.crop, false);
+        },
+    });
+}
+
+document.addEventListener('pointerup', hansuiCropLos);
+document.addEventListener('pointercancel', hansuiCropLos);
+
+/*
+| Het toetsenbord: pijltjes verschuiven, shift en pijltjes maken het kader
+| groter (rechts, omlaag) of kleiner (links, omhoog), rond zijn midden. Met
+| alt erbij gaat het in kleine stapjes, voor wie op de pixel wil mikken.
+*/
+document.addEventListener('keydown', (e) => {
+    const kader = e.target.closest?.('.crop-frame');
+    const crop = kader?.closest('[data-crop]');
+    const s = crop ? hansuiCrop.get(crop) : null;
+    const pijl = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+
+    if (!s || !pijl) {
+        return;
+    }
+
+    e.preventDefault();
+
+    const stap = e.altKey ? 0.002 : 0.01;
+    const vak = crop.getBoundingClientRect();
+    const minX = HANSUI_CROP_MIN / Math.max(1, vak.width);
+    const minY = HANSUI_CROP_MIN / Math.max(1, vak.height);
+
+    if (e.shiftKey) {
+        const [cx, cy] = [s.x + s.w / 2, s.y + s.h / 2];
+        const k = hansuiCropK(s);
+
+        if (k !== null) {
+            s.w = hansuiCropKlem(s.w + (pijl[0] || pijl[1]) * stap, Math.max(minX, minY / k), Math.min(1, 1 / k));
+            s.h = s.w * k;
+        } else {
+            s.w = hansuiCropKlem(s.w + pijl[0] * stap, minX, 1);
+            s.h = hansuiCropKlem(s.h + pijl[1] * stap, minY, 1);
+        }
+
+        s.x = hansuiCropKlem(cx - s.w / 2, 0, 1 - s.w);
+        s.y = hansuiCropKlem(cy - s.h / 2, 0, 1 - s.h);
+    } else {
+        s.x = hansuiCropKlem(s.x + pijl[0] * stap, 0, 1 - s.w);
+        s.y = hansuiCropKlem(s.y + pijl[1] * stap, 0, 1 - s.h);
+    }
+
+    hansuiCropTeken(crop);
+});
+
+// Een verhouding kiezen. "Vrij" (of wat geen verhouding is) laat het kader staan.
+document.addEventListener('click', (e) => {
+    const knop = e.target.closest?.('[data-crop-ratio]');
+    const crop = knop ? hansuiCropVan(knop) : null;
+
+    if (!crop) {
+        return;
+    }
+
+    hansuiCropKnoppen(crop).forEach((k) => k.setAttribute('aria-pressed', k === knop ? 'true' : 'false'));
+
+    const s = hansuiCrop.get(crop);
+
+    // Het beeld is er nog niet: de ingedrukte knop wordt gelezen bij de start.
+    if (!s) {
+        return;
+    }
+
+    s.naam = knop.getAttribute('data-crop-ratio');
+    s.ratio = hansuiCropRatio(s.naam);
+    hansuiCropVul(s, s.x + s.w / 2, s.y + s.h / 2);
+    hansuiCropTeken(crop);
+});
+
+// Een nieuw beeld in de bijsnijder begint opnieuw. `load` bubbelt niet, dus
+// in de vangfase.
+document.addEventListener('load', (e) => {
+    const crop = e.target.tagName === 'IMG' ? e.target.closest('[data-crop]') : null;
+
+    if (crop) {
+        hansuiCropStart(crop);
+    }
+}, true);
+
+document.addEventListener('crop:reset', (e) => {
+    if (e.target.matches?.('[data-crop]')) {
+        hansuiCropStart(e.target);
+    }
+});
+
+function hansuiCroppers() {
+    document.querySelectorAll('[data-crop]').forEach(hansuiCropStart);
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', hansuiCroppers);
+} else {
+    hansuiCroppers();
+}
+
+/*
+|------------------------------------------------------------------------------
+| Filteren terwijl je typt: data-filter
+|------------------------------------------------------------------------------
+|
+| Een zoekveld met `data-filter="#lijst"` verbergt in die lijst de elementen met
+| `data-filter-item` die niet passen. De waarde van `data-filter-item` is waarop
+| gezocht wordt, anders de tekst. Matchen op woordgrens, zoals het zoekpalet:
+| "gent" vindt "Etalage Gent" maar niet "Urgentie". `data-filter-empty` in de
+| lijst verschijnt als niets past.
+|
+| Geen aanvraag naar de server: dit is voor lijsten die al op de pagina staan,
+| tot een paar honderd regels.
+*/
+function hansuiFilterPast(hooiberg, term) {
+    return term.split(/\s+/).every((woord) =>
+        hooiberg.split(/[\s\-/·,.:;()]+/).some((deel) => deel.startsWith(woord)) || hooiberg.startsWith(woord));
+}
+
+document.addEventListener('input', (e) => {
+    const veld = e.target.closest?.('[data-filter]');
+    if (!veld) return;
+
+    const lijst = document.querySelector(veld.getAttribute('data-filter'));
+    if (!lijst) return;
+
+    const term = veld.value.trim().toLowerCase();
+    let zichtbaar = 0;
+
+    lijst.querySelectorAll('[data-filter-item]').forEach((regel) => {
+        const hooiberg = (regel.getAttribute('data-filter-item') || regel.textContent).toLowerCase();
+        const ja = term === '' || hansuiFilterPast(hooiberg, term);
+        regel.hidden = !ja;
+        if (ja) zichtbaar += 1;
+    });
+
+    const leeg = lijst.querySelector('[data-filter-empty]');
+    if (leeg) leeg.hidden = zichtbaar > 0;
+});
+
+/*
+|------------------------------------------------------------------------------
+| Tonen naargelang een veld: data-show-when
+|------------------------------------------------------------------------------
+|
+| `data-show-when="naam=waarde"` toont een element alleen als het formulierveld
+| met die naam die waarde heeft; meer waarden scheid je met een komma
+| ("herhalen[freq]=week,maand"). Zonder `=` volstaat dat het veld iets heeft:
+| een aangevinkt vakje, een gekozen optie, getypte tekst.
+|
+| Het veld wordt eerst in hetzelfde formulier gezocht, dan in het document.
+| Wat verborgen staat, gaat gewoon mee met het formulier: de server leest wat
+| bij de keuze hoort. Een verborgen verplicht veld blokkeert het versturen
+| wel; zet `required` dus alleen op wat altijd zichtbaar is.
+*/
+function hansuiVeldwaarden(naam, bij) {
+    const vorm = bij.closest('form');
+    const velden = [...(vorm || document).querySelectorAll(`[name="${CSS.escape(naam)}"]`)];
+
+    return velden.flatMap((veld) => {
+        if (veld.type === 'checkbox' || veld.type === 'radio') return veld.checked ? [veld.value] : [];
+        if (veld.multiple) return [...veld.selectedOptions].map((o) => o.value);
+
+        return veld.value === '' ? [] : [veld.value];
+    });
+}
+
+function hansuiToonWanneer() {
+    document.querySelectorAll('[data-show-when]').forEach((el) => {
+        const regel = el.getAttribute('data-show-when');
+        const [naam, lijst] = regel.includes('=') ? [regel.slice(0, regel.indexOf('=')), regel.slice(regel.indexOf('=') + 1)] : [regel, null];
+        const waarden = hansuiVeldwaarden(naam, el);
+
+        el.hidden = lijst === null
+            ? waarden.length === 0
+            : !lijst.split(',').some((w) => waarden.includes(w) || (w === '' && waarden.length === 0));
+    });
+}
+
+document.addEventListener('change', hansuiToonWanneer);
+document.addEventListener('input', (e) => {
+    if (e.target.matches?.('input[type="text"], input[type="number"], textarea')) hansuiToonWanneer();
+});
+document.addEventListener('DOMContentLoaded', hansuiToonWanneer);

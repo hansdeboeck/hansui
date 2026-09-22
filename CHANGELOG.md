@@ -3,6 +3,47 @@
 Dit package zit straks in zes applicaties op een gepinde versie. Wat hier staat
 is wat je moet weten voor je die pin verzet.
 
+## 0.9.0
+
+### Nieuw
+
+- **Bijsnijden**: `data-crop` op een omhulling met een `<img>` zet er een
+  kader over dat je versleept, aan de hoeken groter of kleiner maakt en met
+  het toetsenbord bijstuurt (pijltjes verschuiven, `Shift` + pijltjes
+  vergroten of verkleinen, `Alt` voor kleine stapjes). Werkt met muis en
+  aanraking, zonder bibliotheek. Knoppen met `data-crop-ratio` kiezen de
+  verhouding (`1:1`, `4:5`, `9:16`, `16:9`, `1.91:1` of `free`); de uitsnede
+  komt in procenten in `data-crop-x`, `data-crop-y`, `data-crop-width` en
+  `data-crop-height`, en als `crop:change`-event op de omhulling. `crop:reset`
+  begint opnieuw. Gemaakt voor socialtail, waar een foto per netwerk een
+  andere verhouding moet hebben.
+- **`<x-cropper>`** zet de knoppen, het beeld en de vier velden bij elkaar:
+  `src`, `alt`, `ratios` (een lijst, of verhouding => naam), `ratio`, `name`
+  en `label`.
+- **Klassen** `.crop`, `.crop-frame`, `.crop-handle`, `.crop-size`,
+  `.crop-ratios` en `.crop-ratio`, met twee nieuwe tokens `--crop-shade` (het
+  waas rond de uitsnede) en `--crop-line` (het kader). Die staan alleen in
+  `:root` en niet in de donkere blokken: ze liggen op een foto, en een foto
+  kantelt niet mee. `--crop-max-height` (standaard `60vh`) begrenst de hoogte
+  van het beeld.
+- **Icoon `crop`** in `<x-icon>`, voor de knop die de bijsnijder opent.
+- **Iconen** `ear` (luisteren), `arrow-up` en `arrow-down`.
+- **`data-filter`**, `data-filter-item` en `data-filter-empty`: een lijst
+  filteren terwijl je typt, op woordgrens zoals het zoekpalet.
+- **`data-show-when`**: een element tonen naargelang de waarde van een
+  formulierveld, zonder eigen script per formulier.
+
+### Opgelost
+
+- **`<x-chart.line>` met meer reeksen op dezelfde datums** schaalde op de
+  laatste reeks in plaats van op de hoogste, zodat de andere lijnen boven de
+  as uitliepen.
+
+### Wat je moet doen
+
+Niets, tenzij je zelf een bijsnijder had: haal die dan weg. Het snijden zelf
+blijft bij de applicatie; de browser meldt alleen waar.
+
 ## 0.8.0
 
 ### Nieuw

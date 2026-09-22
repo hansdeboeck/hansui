@@ -29,7 +29,10 @@
     $n = max(1, $dates->count());
     $w = 720; $h = (int) $height; $padL = 44; $padR = 12; $padT = 10; $padB = 24;
     $plotW = $w - $padL - $padR; $plotH = $h - $padT - $padB;
-    $values = $series->flatMap(fn ($s) => array_filter($s['points'], fn ($v) => $v !== null));
+    // array_values: de punten hebben datums als sleutel, en flatMap zou dezelfde
+    // datum van een volgende reeks over de vorige schrijven. Dan volgt de schaal
+    // alleen de laatste reeks en lopen de andere boven de as uit.
+    $values = $series->flatMap(fn ($s) => array_values(array_filter($s['points'], fn ($v) => $v !== null)));
     $rawMin = (float) ($values->min() ?? 0);
     $rawMax = (float) ($values->max() ?? 0);
     $min = min(0, $rawMin);

@@ -66,6 +66,7 @@ final class ComponentsTest extends TestCase
             'chart.columns' => ['<x-chart.columns :data="[\'2026-01-01\' => 3, \'2026-01-02\' => 0]"/><x-chart.columns :data="[\'Beeld\' => 4]" :dates="false"/>'],
             'chart.bars' => ['<x-chart.bars :rows="[[\'label\' => \'Instagram\', \'value\' => 4.2, \'hint\' => \'12 berichten\']]" unit="%" :decimals="1"/>'],
             'chart.heatmap' => ['<x-chart.heatmap :cells="[1 => [9 => [\'value\' => 3.1, \'tip\' => \'2 berichten\'], 10 => [\'value\' => 1, \'weak\' => true]]]" less="rustig" more="druk"/>'],
+            'cropper' => ['<x-cropper src="/foto.jpg" alt="Etalage" :ratios="[\'free\', \'1:1\', \'4:5\' => \'Instagram 4:5\']" ratio="4:5" name="uitsnede"/><x-cropper/>'],
         ];
     }
 
@@ -153,6 +154,19 @@ final class ComponentsTest extends TestCase
     }
 
     #[Test]
+    public function een_lijn_met_meer_reeksen_schaalt_op_de_hoogste(): void
+    {
+        // Twee reeksen op dezelfde datums: de schaal moet de hoogste volgen,
+        // niet de laatste. Zo stond het eerst niet.
+        $html = Blade::render('<x-chart.line :series="$reeksen"/>', ['reeksen' => [
+            ['label' => 'Hoog', 'color' => 'var(--series-1)', 'points' => ['2026-01-01' => 900, '2026-01-02' => 950]],
+            ['label' => 'Laag', 'color' => 'var(--series-2)', 'points' => ['2026-01-01' => 10, '2026-01-02' => 12]],
+        ]]);
+
+        $this->assertStringContainsString('>1.000</text>', $html);
+    }
+
+    #[Test]
     public function een_onbekende_icoonnaam_levert_een_leeg_vierkant_op(): void
     {
         // Zoals het commentaar in <x-icon> belooft: geen stille verdwijning,
@@ -186,5 +200,26 @@ final class ComponentsTest extends TestCase
         $this->assertStringContainsString('€&nbsp;1.234,56', Blade::render('<x-money :cents="123456"/>'));
         $this->assertStringContainsString('-€&nbsp;12,50', Blade::render('<x-money :cents="-1250"/>'));
         $this->assertStringContainsString('—', Blade::render('<x-money/>'));
+    }
+
+    #[Test]
+    public function de_bijsnijder_levert_vier_velden_en_de_gekozen_verhouding(): void
+    {
+        /*
+        | De velden en de knoppen horen bij de dichtstbijzijnde bijsnijder, en
+        | de knop met aria-pressed is de verhouding waarmee hansui.js begint.
+        | Staat die er niet, dan begint het kader vrij en klopt de eerste
+        | uitsnede niet met wat de knoppen beloven.
+        */
+        $html = Blade::render('<x-cropper src="/foto.jpg" :ratios="[\'free\', \'1:1\', \'4:5\' => \'Instagram 4:5\']" ratio="4:5" name="uitsnede"/>');
+
+        foreach (['x', 'y', 'width', 'height'] as $veld) {
+            $this->assertStringContainsString('name="uitsnede['.$veld.']" data-crop-'.$veld, $html);
+        }
+
+        $this->assertSame(1, substr_count($html, 'aria-pressed="true"'));
+        $this->assertMatchesRegularExpression('/data-crop-ratio="4:5"\s+aria-pressed="true">Instagram 4:5</', $html);
+        $this->assertStringContainsString('data-crop-ratio="free"', $html);
+        $this->assertMatchesRegularExpression('/data-crop="[^"]+"/', $html, 'Het kader heeft een label nodig voor een schermlezer.');
     }
 }

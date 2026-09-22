@@ -259,6 +259,11 @@
             <path d="m4 17 4.5-4.5 3.5 3.5 3-2.5L20 17"/>
             @break
 
+        @case('crop')
+            <path d="M6.5 2.5v13a2 2 0 0 0 2 2h13"/>
+            <path d="M17.5 21.5v-13a2 2 0 0 0-2-2h-13"/>
+            @break
+
         @case('music')
             <path d="M9 18V6l10-2v12"/>
             <circle cx="6.5" cy="18" r="2.5"/>
@@ -513,6 +518,21 @@
         @case('at')
             <circle cx="12" cy="12" r="4"/>
             <path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"/>
+            @break
+
+        @case('arrow-up')
+            <path d="M12 19V5"/>
+            <path d="m6 11 6-6 6 6"/>
+            @break
+
+        @case('arrow-down')
+            <path d="M12 5v14"/>
+            <path d="m6 13 6 6 6-6"/>
+            @break
+
+        @case('ear')
+            <path d="M6 9a6 6 0 1 1 12 0c0 3-2 4.5-3 5.5s-1 2.5-1 3.5a3 3 0 0 1-6 0"/>
+            <path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 1.5-1.5 2-1.5 3"/>
             @break
 
     @endswitch
