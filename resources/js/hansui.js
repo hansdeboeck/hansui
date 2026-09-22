@@ -2346,3 +2346,109 @@ document.addEventListener('input', (e) => {
     if (e.target.matches?.('input[type="text"], input[type="number"], textarea')) hansuiToonWanneer();
 });
 document.addEventListener('DOMContentLoaded', hansuiToonWanneer);
+
+/*
+|------------------------------------------------------------------------------
+| Een code in losse vakjes: data-code-group
+|------------------------------------------------------------------------------
+|
+| Zes vakjes van een teken, voor een koppelcode of een verificatiecode. Meer
+| werk dan een veld, en het waard: wie een code overtypt van een ander scherm,
+| ziet in een oogopslag hoever hij is.
+|
+| `data-code-cell` op elk vakje, `data-code-value` op het verborgen veld dat de
+| hele code naar de server brengt. De waarde van `data-code-group` kiest de
+| tekens: leeg of `alnum` voor letters en cijfers (kleine letters worden
+| hoofdletters), `digits` voor alleen cijfers. PLAKKEN verdeelt de code over de
+| vakjes. Is de code vol, dan wordt het formulier ingediend, tenzij
+| `data-autosubmit="false"` op de groep staat. `data-code-autofocus` zet de
+| cursor bij het laden in het eerste vakje.
+*/
+function hansuiCodeTekens(groep, tekst) {
+    const soort = groep.getAttribute('data-code-group');
+
+    return soort === 'digits'
+        ? tekst.replace(/\D/g, '')
+        : tekst.toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+function hansuiCodeVakjes(groep) {
+    return [...groep.querySelectorAll('[data-code-cell]')];
+}
+
+function hansuiCodeBewaar(groep) {
+    const waarde = hansuiCodeVakjes(groep).map((v) => v.value).join('');
+    const verborgen = groep.querySelector('[data-code-value]');
+    if (verborgen) verborgen.value = waarde;
+
+    const vorm = groep.closest('form');
+    if (waarde.length === hansuiCodeVakjes(groep).length && vorm && groep.dataset.autosubmit !== 'false') {
+        vorm.requestSubmit();
+    }
+}
+
+document.addEventListener('input', (e) => {
+    const vak = e.target.closest?.('[data-code-cell]');
+    const groep = vak?.closest('[data-code-group]');
+    if (!groep) return;
+
+    const vakjes = hansuiCodeVakjes(groep);
+    const i = vakjes.indexOf(vak);
+    vak.value = hansuiCodeTekens(groep, vak.value).slice(0, 1);
+
+    if (vak.value && i < vakjes.length - 1) {
+        vakjes[i + 1].focus();
+        vakjes[i + 1].select();
+    }
+
+    hansuiCodeBewaar(groep);
+});
+
+document.addEventListener('keydown', (e) => {
+    const vak = e.target.closest?.('[data-code-cell]');
+    const groep = vak?.closest('[data-code-group]');
+    if (!groep) return;
+
+    const vakjes = hansuiCodeVakjes(groep);
+    const i = vakjes.indexOf(vak);
+
+    if (e.key === 'Backspace' && !vak.value && i > 0) {
+        e.preventDefault();
+        vakjes[i - 1].focus();
+        vakjes[i - 1].value = '';
+        hansuiCodeBewaar(groep);
+    } else if (e.key === 'ArrowLeft' && i > 0) {
+        e.preventDefault();
+        vakjes[i - 1].focus();
+    } else if (e.key === 'ArrowRight' && i < vakjes.length - 1) {
+        e.preventDefault();
+        vakjes[i + 1].focus();
+    }
+});
+
+document.addEventListener('focusin', (e) => {
+    if (e.target.matches?.('[data-code-cell]')) e.target.select();
+});
+
+document.addEventListener('paste', (e) => {
+    const vak = e.target.closest?.('[data-code-cell]');
+    const groep = vak?.closest('[data-code-group]');
+    if (!groep) return;
+
+    e.preventDefault();
+
+    const vakjes = hansuiCodeVakjes(groep);
+    const i = vakjes.indexOf(vak);
+    const tekst = hansuiCodeTekens(groep, e.clipboardData?.getData('text') || '');
+
+    [...tekst].slice(0, vakjes.length - i).forEach((teken, n) => {
+        vakjes[i + n].value = teken;
+    });
+
+    vakjes[Math.min(i + tekst.length, vakjes.length - 1)].focus();
+    hansuiCodeBewaar(groep);
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelector('[data-code-group][data-code-autofocus] [data-code-cell]')?.focus();
+});
