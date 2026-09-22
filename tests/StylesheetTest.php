@@ -110,7 +110,10 @@ final class StylesheetTest extends TestCase
             .'|ink|ink-soft|ink-faint|nav|nav-ink|nav-high|brand|brand-primary|brand-primary-dark'
             .'|brand-deep|brand-soft|brand-line|on-brand|ok|ok-soft|danger|danger-soft'
             .'|warn|warn-soft|info|info-soft|row-y|font-sans|shadow-(sm|md|lg)'
-            .'|ease-(out|in-out|drawer)|color-.*)$/';
+            .'|ease-(out|in-out|drawer)|color-.*'
+            // De grafiekkleuren staan in inline stijlen van de views
+            // (style="fill: var(--series-3)"), niet in dit stijlblad.
+            .'|series-\d|seq-\d)$/';
 
         $css = $this->css();
 

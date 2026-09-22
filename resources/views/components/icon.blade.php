@@ -316,5 +316,204 @@
             <path d="m13 6 6 6-6 6"/>
             @break
 
+        @case('link')
+            <path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1"/>
+            <path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1"/>
+            @break
+
+        @case('inbox')
+            <path d="M4 13h4l2 3h4l2-3h4"/>
+            <path d="M5.5 5h13L21 13v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5z"/>
+            @break
+
+        @case('globe')
+            <circle cx="12" cy="12" r="9"/>
+            <path d="M3 12h18"/>
+            <path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18z"/>
+            @break
+
+        @case('flag')
+            <path d="M5 21V4"/>
+            <path d="M5 4h11l-2 4 2 4H5"/>
+            @break
+
+        @case('rss')
+            <path d="M5 11a8 8 0 0 1 8 8"/>
+            <path d="M5 5a14 14 0 0 1 14 14"/>
+            <circle cx="6" cy="18" r="1"/>
+            @break
+
+        @case('send')
+            <path d="M21 3 10 14"/>
+            <path d="M21 3l-7 18-4-7-7-4z"/>
+            @break
+
+        @case('eye')
+            <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/>
+            <circle cx="12" cy="12" r="3"/>
+            @break
+
+        @case('eye-off')
+            <path d="M3 3l18 18"/>
+            <path d="M10.6 5.1A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.1"/>
+            <path d="M6.6 6.6A17 17 0 0 0 2 12s3.5 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/>
+            <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>
+            @break
+
+        @case('heart')
+            <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>
+            @break
+
+        @case('share')
+            <circle cx="18" cy="5" r="2.5"/>
+            <circle cx="6" cy="12" r="2.5"/>
+            <circle cx="18" cy="19" r="2.5"/>
+            <path d="M8.2 10.8l7.6-4.6M8.2 13.2l7.6 4.6"/>
+            @break
+
+        @case('repeat')
+            <path d="M17 2l3 3-3 3"/>
+            <path d="M4 11V9a4 4 0 0 1 4-4h12"/>
+            <path d="M7 22l-3-3 3-3"/>
+            <path d="M20 13v2a4 4 0 0 1-4 4H4"/>
+            @break
+
+        @case('comment')
+            <path d="M21 12a8 8 0 0 1-11.8 7L4 20l1.1-4.2A8 8 0 1 1 21 12z"/>
+            @break
+
+        @case('reply')
+            <path d="M9 14 4 9l5-5"/>
+            <path d="M4 9h10a6 6 0 0 1 6 6v4"/>
+            @break
+
+        @case('hash')
+            <path d="M5 9h14M5 15h14M10 3 8 21M16 3l-2 18"/>
+            @break
+
+        @case('sparkles')
+            <path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/>
+            <path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>
+            @break
+
+        @case('copy')
+            <rect x="8" y="8" width="12" height="12" rx="2"/>
+            <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>
+            @break
+
+        @case('external')
+            <path d="M14 4h6v6"/>
+            <path d="M20 4 10 14"/>
+            <path d="M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/>
+            @break
+
+        @case('upload')
+            <path d="M12 16V4"/>
+            <path d="m7 9 5-5 5 5"/>
+            <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>
+            @break
+
+        @case('download')
+            <path d="M12 4v12"/>
+            <path d="m7 11 5 5 5-5"/>
+            <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>
+            @break
+
+        @case('bookmark')
+            <path d="M6 3h12v18l-6-4-6 4z"/>
+            @break
+
+        @case('pointer')
+            <path d="M5 3l14 7-6 2-2 6z"/>
+            @break
+
+        @case('trend-up')
+            <path d="M3 17l6-6 4 4 8-8"/>
+            <path d="M15 7h6v6"/>
+            @break
+
+        @case('trend-down')
+            <path d="M3 7l6 6 4-4 8 8"/>
+            <path d="M15 17h6v-6"/>
+            @break
+
+        @case('pause')
+            <path d="M8 5v14M16 5v14"/>
+            @break
+
+        @case('play')
+            <path d="M7 4l13 8-13 8z"/>
+            @break
+
+        @case('refresh')
+            <path d="M20 11a8 8 0 0 0-14.9-3"/>
+            <path d="M4 4v4h4"/>
+            <path d="M4 13a8 8 0 0 0 14.9 3"/>
+            <path d="M20 20v-4h-4"/>
+            @break
+
+        @case('filter')
+            <path d="M3 5h18l-7 8v6l-4 2v-8z"/>
+            @break
+
+        @case('queue')
+            <path d="M4 6h16M4 12h10M4 18h7"/>
+            <circle cx="18" cy="17" r="3"/>
+            <path d="M18 15.5V17l1 1"/>
+            @break
+
+        @case('smile')
+            <circle cx="12" cy="12" r="9"/>
+            <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
+            <path d="M9 9h.01M15 9h.01"/>
+            @break
+
+        @case('frown')
+            <circle cx="12" cy="12" r="9"/>
+            <path d="M16 16s-1.5-2-4-2-4 2-4 2"/>
+            <path d="M9 9h.01M15 9h.01"/>
+            @break
+
+        @case('meh')
+            <circle cx="12" cy="12" r="9"/>
+            <path d="M8 15h8"/>
+            <path d="M9 9h.01M15 9h.01"/>
+            @break
+
+        @case('layers')
+            <path d="m12 3 9 5-9 5-9-5z"/>
+            <path d="m3 13 9 5 9-5"/>
+            @break
+
+        @case('drag')
+            <circle cx="9" cy="6" r="1"/>
+            <circle cx="15" cy="6" r="1"/>
+            <circle cx="9" cy="12" r="1"/>
+            <circle cx="15" cy="12" r="1"/>
+            <circle cx="9" cy="18" r="1"/>
+            <circle cx="15" cy="18" r="1"/>
+            @break
+
+        @case('printer')
+            <path d="M7 9V3h10v6"/>
+            <rect x="3" y="9" width="18" height="8" rx="2"/>
+            <path d="M7 14h10v7H7z"/>
+            @break
+
+        @case('video')
+            <rect x="3" y="6" width="13" height="12" rx="2"/>
+            <path d="m16 10 5-3v10l-5-3z"/>
+            @break
+
+        @case('smartphone')
+            <rect x="6" y="2" width="12" height="20" rx="2"/>
+            <path d="M11 18h2"/>
+            @break
+
+        @case('at')
+            <circle cx="12" cy="12" r="4"/>
+            <path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"/>
+            @break
+
     @endswitch
 </svg>

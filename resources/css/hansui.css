@@ -199,6 +199,37 @@
         | color-scheme blijven die wit op een donkere pagina -- de enige plek
         | waar tokens niet bij kunnen.
         */
+        /*
+        | GRAFIEKEN. Acht reekskleuren in een VASTE volgorde, voor identiteit:
+        | een reeks houdt haar kleur, ook als een filter er andere weghaalt. En
+        | een sequentiele ladder van een tint, voor grootte (een heatmap).
+        |
+        | Nagekeken op onderscheid bij kleurenblindheid, tegen #ffffff en tegen
+        | --n-0 in het donker. Een paar lichte tinten halen geen 3:1 op wit;
+        | daarom heeft elke grafiek van dit package een tabel eronder, en draagt
+        | elke reeks een naam in de legende. DONKER is een eigen reeks stappen,
+        | geen omgedraaide lichte.
+        */
+        --series-1: #2a78d6;
+        --series-2: #eb6834;
+        --series-3: #1baf7a;
+        --series-4: #eda100;
+        --series-5: #e87ba4;
+        --series-6: #008300;
+        --series-7: #4a3aa7;
+        --series-8: #e34948;
+
+        --seq-0: #f3f7fd;
+        --seq-1: #cde2fb;
+        --seq-2: #9ec5f4;
+        --seq-3: #6da7ec;
+        --seq-4: #3987e5;
+        --seq-5: #256abf;
+        --seq-6: #184f95;
+
+        --chart-grid: var(--n-2);
+        --chart-axis: var(--line-strong);
+
         color-scheme: light;
     }
 
@@ -255,6 +286,23 @@
             --shadow-md: 0 4px 16px -4px rgb(0 0 0 / 0.5), 0 1px 3px rgb(0 0 0 / 0.4);
             --shadow-lg: 0 24px 60px -20px rgb(0 0 0 / 0.7);
 
+            --series-1: #3987e5;
+            --series-2: #d95926;
+            --series-3: #199e70;
+            --series-4: #c98500;
+            --series-5: #d55181;
+            --series-6: #008300;
+            --series-7: #9085e9;
+            --series-8: #e66767;
+
+            --seq-0: #1d2328;
+            --seq-1: #0d366b;
+            --seq-2: #104281;
+            --seq-3: #184f95;
+            --seq-4: #256abf;
+            --seq-5: #3987e5;
+            --seq-6: #6da7ec;
+
             color-scheme: dark;
         }
     }
@@ -296,6 +344,23 @@
         --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
         --shadow-md: 0 4px 16px -4px rgb(0 0 0 / 0.5), 0 1px 3px rgb(0 0 0 / 0.4);
         --shadow-lg: 0 24px 60px -20px rgb(0 0 0 / 0.7);
+
+        --series-1: #3987e5;
+        --series-2: #d95926;
+        --series-3: #199e70;
+        --series-4: #c98500;
+        --series-5: #d55181;
+        --series-6: #008300;
+        --series-7: #9085e9;
+        --series-8: #e66767;
+
+        --seq-0: #1d2328;
+        --seq-1: #0d366b;
+        --seq-2: #104281;
+        --seq-3: #184f95;
+        --seq-4: #256abf;
+        --seq-5: #3987e5;
+        --seq-6: #6da7ec;
 
         color-scheme: dark;
     }
@@ -645,6 +710,29 @@
     | naast een .input van 14 pixels te klein oogt.
     */
     .check {
+        @apply h-4 w-4 flex-none;
+        accent-color: var(--brand);
+    }
+
+    /*
+    | `.check` op een <label> rond vinkje en tekst. Zonder deze regel wordt de
+    | label zelf 16 bij 16 pixels en loopt de tekst er letter per letter onder;
+    | zo wordt het een rij, en krijgt het vinkje erin de maat.
+    */
+    label.check {
+        display: inline-flex;
+        width: auto;
+        height: auto;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    label.check.items-start {
+        align-items: flex-start;
+    }
+
+    label.check > input[type='checkbox'],
+    label.check > input[type='radio'] {
         @apply h-4 w-4 flex-none;
         accent-color: var(--brand);
     }
@@ -1324,9 +1412,268 @@
         @apply text-sm font-medium;
         color: var(--ink);
     }
+
+    /* ------------------------------------------------------------ bibliotheek */
+    /*
+    | Een mappenboom: een rij per map, de huidige met aria-current, en
+    | `data-drop="over"` terwijl er iets boven gesleept wordt.
+    */
+    .tree-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        border-radius: 0.5rem;
+        padding: 0.375rem 0.5rem;
+        font-size: 0.8125rem;
+        color: var(--ink-soft);
+        transition: background-color 120ms, color 120ms;
+    }
+
+    .tree-item:hover {
+        background: var(--surface-hover);
+        color: var(--ink);
+    }
+
+    .tree-item[aria-current='page'] {
+        background: var(--brand-soft);
+        color: var(--brand-deep);
+        font-weight: 500;
+    }
+
+    .tree-item[data-drop='over'] {
+        outline: 2px dashed var(--brand);
+        outline-offset: -2px;
+        background: var(--brand-soft);
+    }
+
+    /*
+    | EEN TEGEL MET EEN BEELD, zoals in een mediabibliotheek.
+    |
+    | Het vinkje (.media-check) staat linksboven en verschijnt bij hover of
+    | wanneer de tegel aangevinkt is. .media-badge is het labeltje rechtsonder:
+    | een duur, een formaat.
+    */
+    .media-tile {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        border-radius: 0.75rem;
+        border: 1px solid var(--line);
+        background: var(--surface);
+        transition: border-color 120ms, box-shadow 120ms, transform 120ms;
+    }
+
+    .media-tile:hover {
+        border-color: var(--line-strong);
+        box-shadow: var(--shadow-md);
+    }
+
+    .media-tile:has(input:checked) {
+        border-color: var(--brand);
+        box-shadow: 0 0 0 2px color-mix(in oklab, var(--brand) 35%, transparent);
+    }
+
+    .media-check {
+        position: absolute;
+        left: 0.5rem;
+        top: 0.5rem;
+        z-index: 2;
+        opacity: 0;
+        transition: opacity 120ms;
+    }
+
+    .media-tile:hover .media-check,
+    .media-tile:focus-within .media-check,
+    .media-tile:has(input:checked) .media-check {
+        opacity: 1;
+    }
+
+    .media-badge {
+        position: absolute;
+        right: 0.5rem;
+        bottom: 0.5rem;
+        border-radius: 0.375rem;
+        background: rgb(0 0 0 / 0.65);
+        padding: 0.0625rem 0.375rem;
+        font-size: 0.6875rem;
+        color: #fff;
+    }
+
+    /*
+    | HET SLEEPVLAK voor uploads. Het tekent alleen waar een bestand landt; het
+    | echte sleepvlak is `data-upload-surface` (standaard de hele pagina), want
+    | wie een bestand uit een map sleept, mikt op het midden van het venster.
+    | `data-over` zet hansui.js zelf.
+    */
+    .dropzone {
+        display: grid;
+        place-items: center;
+        gap: 0.5rem;
+        border-radius: 0.75rem;
+        border: 2px dashed var(--line-strong);
+        background: var(--surface-sunk);
+        padding: 2rem 1rem;
+        text-align: center;
+        transition: border-color 120ms, background-color 120ms;
+    }
+
+    .dropzone[data-over='true'] {
+        border-color: var(--brand);
+        background: var(--brand-soft);
+    }
+
+    /* Een voortgangs- of verbruiksbalk: opslag, een upload, een quotum. */
+    .meter {
+        height: 0.375rem;
+        width: 100%;
+        overflow: hidden;
+        border-radius: 9999px;
+        background: var(--surface-sunk);
+    }
+
+    .meter-fill {
+        height: 100%;
+        border-radius: 9999px;
+        background: var(--brand);
+        transition: width 300ms ease;
+    }
+
+    .meter-fill[data-level='warn']   { background: var(--warn); }
+    .meter-fill[data-level='danger'] { background: var(--danger); }
+
+    /*
+    | EEN VLAK DAT OP SLOT ZIT, omdat het abonnement het niet heeft.
+    |
+    | Zichtbaar en niet verborgen: een functie die je niet ziet, kan je niet
+    | willen. Het vlak wordt gedempt; wat erboven staat (een uitleg, een knop
+    | om te upgraden) zet de applicatie zelf.
+    */
+    .locked {
+        position: relative;
+        overflow: hidden;
+    }
+
+    .locked::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: color-mix(in oklab, var(--surface) 55%, transparent);
+        backdrop-filter: saturate(0.4);
+        pointer-events: none;
+    }
+
+    /* --------------------------------------------------------------- grafieken */
+    /*
+    | De vormen van <x-chart.line>, <x-chart.columns>, <x-chart.bars> en
+    | <x-chart.heatmap>. Dunne lijnen, een recessief raster, en een hover-strook
+    | die groter is dan het teken zelf: wie op een lijn van 2 pixels moet mikken,
+    | mikt ernaast.
+    */
+    .chart {
+        position: relative;
+        width: 100%;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .chart svg {
+        display: block;
+        width: 100%;
+        height: auto;
+        overflow: visible;
+    }
+
+    .chart-grid { stroke: var(--chart-grid); stroke-width: 1; }
+    .chart-axis { stroke: var(--chart-axis); stroke-width: 1; }
+    .chart-tick { fill: var(--ink-faint); font-size: 11px; }
+
+    .chart-line {
+        fill: none;
+        stroke-width: 2;
+        stroke-linejoin: round;
+        stroke-linecap: round;
+    }
+
+    .chart-dot { stroke: var(--surface); stroke-width: 2; }
+
+    .chart-hit { fill: transparent; cursor: crosshair; }
+    .chart-hit:hover + .chart-cross,
+    .chart-hit:focus + .chart-cross { opacity: 1; }
+    .chart-cross { stroke: var(--chart-axis); stroke-width: 1; opacity: 0; pointer-events: none; }
+
+    .chart-bar { transition: opacity 120ms; }
+    .chart-bar:hover { opacity: 0.8; }
+
+    .chart-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem 1rem;
+        font-size: 0.75rem;
+        color: var(--ink-soft);
+    }
+
+    .chart-key {
+        display: inline-block;
+        width: 0.875rem;
+        height: 2px;
+        border-radius: 1px;
+        vertical-align: middle;
+        margin-right: 0.375rem;
+    }
+
+    /* Het kadertje van data-tip; hansui.js maakt het een keer aan. */
+    .chart-tip {
+        position: fixed;
+        z-index: 60;
+        pointer-events: none;
+        max-width: 18rem;
+        padding: 0.4rem 0.6rem;
+        border-radius: 0.5rem;
+        background: var(--surface);
+        color: var(--ink);
+        border: 1px solid var(--line);
+        box-shadow: var(--shadow-md);
+        font-size: 0.75rem;
+        line-height: 1.4;
+        white-space: pre-line;
+    }
+
+    .heat-cell {
+        border-radius: 3px;
+        aspect-ratio: 1 / 1;
+        min-width: 0;
+    }
+
+    .chart-table summary {
+        cursor: pointer;
+        font-size: 0.75rem;
+        color: var(--ink-faint);
+    }
 }
 
 @layer utilities {
+    /*
+    | Een raster van tegels. auto-fill met een minimum en geen vast aantal
+    | kolommen: op een 13-inch laptop passen er vier naast elkaar, op een breed
+    | scherm zeven, en geen van beide is een breakpoint om te onderhouden.
+    */
+    .grid-tiles {
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
+    }
+
+    .grid-tiles-lg {
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr));
+    }
+
+    /* Voor een voorbeeld of een sleepvlak: geen tekst selecteren, niet slepen. */
+    .no-select {
+        user-select: none;
+        -webkit-user-drag: none;
+    }
     /*
     | Op een altijd-donker vlak (navigatie, foutpagina) is wit gewoon wit en
     | geen token dat omklapt.
