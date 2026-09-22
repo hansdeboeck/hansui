@@ -1314,3 +1314,471 @@ function hansuiSleepLeg(s) {
         body: JSON.stringify({ volgorde }),
     });
 }
+
+/*
+|------------------------------------------------------------------------------
+| Tooltips: data-tip
+|------------------------------------------------------------------------------
+|
+| Elk element met `data-tip` toont zijn tekst in een zwevend kadertje dat de
+| muis volgt. Gemaakt voor de grafieken van <x-chart.*>, waar de server tekent
+| en dit alleen de hover toevoegt, maar het werkt op alles. Een regeleinde in
+| de tekst blijft een regeleinde.
+|
+| Het kadertje bestaat een keer per pagina en krijgt role="status", zodat een
+| schermlezer die op een staaf landt de waarde hoort.
+*/
+let hansuiTip = null;
+
+function hansuiToonTip(doel, x, y) {
+    if (!hansuiTip) {
+        hansuiTip = document.createElement('div');
+        hansuiTip.className = 'chart-tip';
+        hansuiTip.setAttribute('role', 'status');
+        document.body.appendChild(hansuiTip);
+    }
+
+    hansuiTip.textContent = doel.getAttribute('data-tip');
+    hansuiTip.hidden = false;
+
+    const vak = hansuiTip.getBoundingClientRect();
+    const links = Math.min(window.innerWidth - vak.width - 8, x + 14);
+    const boven = y + vak.height + 20 > window.innerHeight ? y - vak.height - 10 : y + 14;
+
+    hansuiTip.style.left = `${Math.max(8, links)}px`;
+    hansuiTip.style.top = `${Math.max(8, boven)}px`;
+}
+
+document.addEventListener('pointermove', (e) => {
+    const doel = e.target.closest?.('[data-tip]');
+
+    if (doel) {
+        hansuiToonTip(doel, e.clientX, e.clientY);
+    } else if (hansuiTip) {
+        hansuiTip.hidden = true;
+    }
+});
+
+document.addEventListener('focusin', (e) => {
+    const doel = e.target.closest?.('[data-tip]');
+
+    if (doel) {
+        const vak = doel.getBoundingClientRect();
+        hansuiToonTip(doel, vak.left + vak.width / 2, vak.top);
+    }
+});
+
+/*
+|------------------------------------------------------------------------------
+| Het zoekpalet: data-palette
+|------------------------------------------------------------------------------
+|
+| Ctrl/Cmd + K en `data-palette-open` sturen `open-palette` (zie hoger); hier
+| wordt het opgevangen door een <dialog data-palette>. De index staat in de
+| HTML en komt niet van de server: een paar honderd regels zijn een paar
+| kilobyte, en dan is zoeken meteen, ook als de verbinding hapert.
+|
+| MATCHEN OP WOORDGRENS en niet op substring: wie "gent" typt, wil "Etalage
+| Gent" vinden maar niet elke naam waar toevallig "gent" in het midden staat.
+*/
+function hansuiPalet() {
+    const venster = document.querySelector('[data-palette]');
+    if (!venster || venster.dataset.paletKlaar) return;
+    venster.dataset.paletKlaar = '1';
+
+    const invoer = venster.querySelector('[data-palette-input]');
+    const lijst = venster.querySelector('[data-palette-list]');
+    const leeg = venster.querySelector('[data-palette-empty]');
+    const regels = [...lijst.querySelectorAll('[data-palette-item]')].map((el) => ({
+        el,
+        hooiberg: (el.getAttribute('data-palette-item') || el.textContent).toLowerCase(),
+    }));
+
+    const huidig = () => lijst.querySelector('[data-palette-item][data-active="true"]');
+
+    const markeer = (el) => {
+        lijst.querySelectorAll('[data-palette-item]').forEach((r) => r.removeAttribute('data-active'));
+        el.setAttribute('data-active', 'true');
+        el.scrollIntoView({ block: 'nearest' });
+    };
+
+    const past = (hooiberg, term) => term.split(/\s+/).every((woord) =>
+        hooiberg.split(/[\s\-/·,]+/).some((deel) => deel.startsWith(woord)) || hooiberg.startsWith(woord));
+
+    const filter = (term) => {
+        let zichtbaar = 0;
+
+        regels.forEach(({ el, hooiberg }) => {
+            const ja = term === '' || past(hooiberg, term);
+            el.hidden = !ja;
+            if (ja) zichtbaar += 1;
+        });
+
+        if (leeg) leeg.hidden = zichtbaar > 0;
+
+        const eerste = regels.find(({ el }) => !el.hidden);
+        if (eerste) markeer(eerste.el);
+    };
+
+    const stap = (richting) => {
+        const zichtbaar = [...lijst.querySelectorAll('[data-palette-item]:not([hidden])')];
+        if (zichtbaar.length === 0) return;
+
+        const i = zichtbaar.indexOf(huidig());
+        markeer(zichtbaar[(i + richting + zichtbaar.length) % zichtbaar.length]);
+    };
+
+    window.addEventListener('open-palette', () => {
+        if (!venster.open) venster.showModal?.();
+        invoer.value = '';
+        filter('');
+        invoer.focus();
+    });
+
+    invoer.addEventListener('input', () => filter(invoer.value.trim().toLowerCase()));
+
+    invoer.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            huidig()?.click();
+        }
+
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            stap(e.key === 'ArrowDown' ? 1 : -1);
+        }
+    });
+
+    lijst.addEventListener('pointermove', (e) => {
+        const regel = e.target.closest('[data-palette-item]');
+        if (regel) markeer(regel);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', hansuiPalet);
+
+/*
+|------------------------------------------------------------------------------
+| Uploaden: data-uploader
+|------------------------------------------------------------------------------
+|
+| Slepen, plakken of kiezen: alle drie leveren ze een FileList op, en het
+| verschil hoort niet in de rest van deze code te zitten.
+|
+| EEN VOOR EEN en niet allemaal tegelijk. Twintig gelijktijdige uploads van een
+| telefoon op 4G zijn twintig verbindingen die elkaar verdringen; op een rij
+| loopt de eerste vol terwijl de rest wacht, en dat verwacht wie kijkt ook.
+|
+| Het vak met `data-uploader` draagt waar het heen moet (`data-action`,
+| `data-token`) en optioneel `data-folder`, `data-max-bytes` en
+| `data-free-bytes`. De teksten komen uit `data-upload-texts`, een JSON-object,
+| zodat ze vertaald uit de view komen.
+|
+| Van een VIDEO leest de browser de duur, de afmetingen en een posterbeeld: hij
+| heeft het bestand al in handen, en de server zou er ffmpeg voor nodig hebben.
+*/
+const hansuiUpload = { rij: [], bezig: false };
+
+function hansuiUploadTekst(zone, sleutel, terugval, waarden = {}) {
+    let teksten = {};
+    try { teksten = JSON.parse(zone.getAttribute('data-upload-texts') || '{}'); } catch (e) { /* geen teksten */ }
+
+    return Object.entries(waarden).reduce(
+        (tekst, [naam, waarde]) => tekst.replace(`:${naam}`, waarde),
+        teksten[sleutel] || terugval,
+    );
+}
+
+function hansuiUploader() {
+    const zone = document.querySelector('[data-uploader]');
+    if (!zone || zone.dataset.uploaderKlaar) return;
+    zone.dataset.uploaderKlaar = '1';
+
+    const invoer = zone.querySelector('input[type="file"]');
+    const lijst = document.querySelector('[data-upload-list]');
+    const vlak = document.querySelector('[data-upload-surface]') || document.body;
+    const heeftBestanden = (e) => [...(e.dataTransfer?.types || [])].includes('Files');
+    let diepte = 0;
+
+    // dragenter en dragleave vuren ook voor elk kind: tellen in plaats van
+    // omschakelen, anders knippert het kader bij elke rand die je kruist.
+    vlak.addEventListener('dragenter', (e) => {
+        if (!heeftBestanden(e)) return;
+        e.preventDefault();
+        diepte += 1;
+        zone.setAttribute('data-over', 'true');
+    });
+
+    vlak.addEventListener('dragover', (e) => {
+        if (!heeftBestanden(e)) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+    });
+
+    vlak.addEventListener('dragleave', () => {
+        diepte = Math.max(0, diepte - 1);
+        if (diepte === 0) zone.removeAttribute('data-over');
+    });
+
+    vlak.addEventListener('drop', (e) => {
+        if (!heeftBestanden(e)) return;
+        e.preventDefault();
+        diepte = 0;
+        zone.removeAttribute('data-over');
+        hansuiUploadZet(e.dataTransfer.files, zone, lijst);
+    });
+
+    zone.addEventListener('click', (e) => {
+        if (e.target.closest('input, a, button[data-no-browse]')) return;
+        invoer?.click();
+    });
+
+    invoer?.addEventListener('change', () => {
+        hansuiUploadZet(invoer.files, zone, lijst);
+        invoer.value = '';
+    });
+
+    // Plakken uit het klembord: een schermafdruk komt zo binnen zonder dat
+    // iemand hem eerst moet opslaan.
+    document.addEventListener('paste', (e) => {
+        const bestanden = [...(e.clipboardData?.files || [])];
+        if (bestanden.length) hansuiUploadZet(bestanden, zone, lijst);
+    });
+}
+
+function hansuiUploadZet(bestanden, zone, lijst) {
+    const max = Number(zone.dataset.maxBytes || 0);
+    const vrij = Number(zone.dataset.freeBytes || 0);
+    let gepland = 0;
+
+    for (const bestand of bestanden) {
+        if (max && bestand.size > max) {
+            hansuiUploadRij(zone, lijst, bestand, 'fout',
+                hansuiUploadTekst(zone, 'tooBig', 'Te groot voor dit abonnement (max :max).', { max: hansuiBytes(max) }));
+            continue;
+        }
+
+        // De ruimte wordt HIER al afgetrokken, voor de eerste byte vertrekt: wie
+        // tien bestanden sleept met 40 MB over, hoort dat nu te zien en niet na
+        // tien minuten uploaden. De server controleert het opnieuw.
+        if (vrij && gepland + bestand.size > vrij) {
+            hansuiUploadRij(zone, lijst, bestand, 'fout',
+                hansuiUploadTekst(zone, 'noSpace', 'Niet genoeg vrije opslag. Ruim eerst op of kies een hoger plan.'));
+            continue;
+        }
+
+        gepland += bestand.size;
+        hansuiUpload.rij.push({ bestand, el: hansuiUploadRij(zone, lijst, bestand, 'wacht', hansuiUploadTekst(zone, 'waiting', 'wachten')) });
+    }
+
+    hansuiUploadPomp(zone);
+}
+
+async function hansuiUploadPomp(zone) {
+    if (hansuiUpload.bezig || hansuiUpload.rij.length === 0) return;
+
+    hansuiUpload.bezig = true;
+
+    const taak = hansuiUpload.rij.shift();
+    const form = new FormData();
+
+    form.append('file', taak.bestand);
+    if (zone.dataset.folder) form.append('folder_id', zone.dataset.folder);
+
+    if (taak.bestand.type.startsWith('video/')) {
+        try {
+            const meta = await hansuiVideoMeta(taak.bestand);
+            if (meta.duur) form.append('duration_ms', Math.round(meta.duur * 1000));
+            if (meta.breedte) form.append('width', meta.breedte);
+            if (meta.hoogte) form.append('height', meta.hoogte);
+            if (meta.poster) form.append('poster', meta.poster);
+        } catch (e) {
+            // Een codec die deze browser niet kent: het bestand gaat gewoon
+            // mee zonder duur, en dat is beter dan een upload die afketst.
+        }
+    }
+
+    const verzoek = new XMLHttpRequest();
+    verzoek.open('POST', zone.dataset.action, true);
+    verzoek.setRequestHeader('X-CSRF-TOKEN', zone.dataset.token ?? '');
+    verzoek.setRequestHeader('Accept', 'application/json');
+
+    verzoek.upload.addEventListener('progress', (e) => {
+        if (!e.lengthComputable || !taak.el) return;
+        const procent = Math.round((e.loaded / e.total) * 100);
+        taak.el.querySelector('.meter-fill').style.width = `${procent}%`;
+        taak.el.querySelector('[data-state]').textContent = `${procent}%`;
+    });
+
+    const volgende = () => {
+        hansuiUpload.bezig = false;
+        hansuiUploadPomp(zone);
+    };
+
+    verzoek.addEventListener('load', () => {
+        let antwoord = {};
+        try { antwoord = JSON.parse(verzoek.responseText); } catch (e) { /* leeg antwoord */ }
+
+        if (verzoek.status >= 200 && verzoek.status < 300) {
+            hansuiUploadStaat(taak.el, 'ok', antwoord.duplicate
+                ? hansuiUploadTekst(zone, 'duplicate', 'stond er al')
+                : hansuiUploadTekst(zone, 'done', 'klaar'));
+        } else {
+            hansuiUploadStaat(taak.el, 'fout', antwoord.message
+                || hansuiUploadTekst(zone, 'failed', 'Mislukt (:status).', { status: verzoek.status }));
+        }
+
+        volgende();
+
+        if (hansuiUpload.rij.length === 0) {
+            // Een lijst met "klaar" zegt niets over wat er nu in de bibliotheek
+            // staat. Herladen is eerlijker dan tegels bijtekenen en hopen dat de
+            // sortering klopt.
+            window.setTimeout(() => window.location.reload(), 700);
+        }
+    });
+
+    verzoek.addEventListener('error', () => {
+        hansuiUploadStaat(taak.el, 'fout', hansuiUploadTekst(zone, 'offline', 'De verbinding viel weg.'));
+        volgende();
+    });
+
+    verzoek.send(form);
+}
+
+function hansuiUploadRij(zone, lijst, bestand, staat, tekst) {
+    if (!lijst) return null;
+
+    const el = document.createElement('li');
+    el.className = 'flex items-center gap-3 border-b border-gray-200 px-3 py-2 text-sm last:border-0';
+    el.innerHTML = `
+        <span class="min-w-0 flex-1 truncate text-gray-900"></span>
+        <span class="flex-none text-xs text-gray-500">${hansuiBytes(bestand.size)}</span>
+        <span class="w-28 flex-none"><span class="meter"><span class="meter-fill" style="width:0%"></span></span></span>
+        <span class="w-40 flex-none truncate text-right text-xs text-gray-500" data-state></span>
+    `;
+    el.firstElementChild.textContent = bestand.name;
+    el.querySelector('[data-state]').textContent = tekst;
+
+    if (staat === 'fout') {
+        el.querySelector('.meter-fill').style.width = '100%';
+        hansuiUploadStaat(el, 'fout', tekst);
+    }
+
+    lijst.append(el);
+    lijst.closest('[data-upload-panel]')?.removeAttribute('hidden');
+
+    return el;
+}
+
+function hansuiUploadStaat(el, staat, tekst) {
+    if (!el) return;
+
+    const label = el.querySelector('[data-state]');
+    label.textContent = tekst;
+    label.className = `w-40 flex-none truncate text-right text-xs ${staat === 'ok' ? 'text-emerald-600' : 'text-red-600'}`;
+
+    const balk = el.querySelector('.meter-fill');
+    if (staat === 'ok') balk.style.width = '100%';
+    if (staat === 'fout') balk.setAttribute('data-level', 'danger');
+}
+
+/*
+| Een video even openen voor haar duur, afmetingen en een posterbeeld. Dat
+| beeld komt van een seconde in en niet van nul: het eerste frame is vaker
+| zwart dan niet, en een bibliotheek vol zwarte tegels vind je niets in terug.
+*/
+function hansuiVideoMeta(bestand) {
+    return new Promise((klaar, mislukt) => {
+        const adres = URL.createObjectURL(bestand);
+        const video = document.createElement('video');
+        const opruimen = () => URL.revokeObjectURL(adres);
+
+        video.preload = 'metadata';
+        video.muted = true;
+        video.playsInline = true;
+
+        const wekker = window.setTimeout(() => {
+            opruimen();
+            mislukt(new Error('timeout'));
+        }, 10000);
+
+        video.addEventListener('loadedmetadata', () => {
+            const meta = {
+                duur: Number.isFinite(video.duration) ? video.duration : null,
+                breedte: video.videoWidth || null,
+                hoogte: video.videoHeight || null,
+                poster: null,
+            };
+
+            video.currentTime = Math.min(1, (video.duration || 2) / 2);
+
+            video.addEventListener('seeked', () => {
+                window.clearTimeout(wekker);
+
+                try {
+                    const doek = document.createElement('canvas');
+                    const schaal = Math.min(1, 480 / (video.videoWidth || 480));
+
+                    doek.width = Math.round((video.videoWidth || 480) * schaal);
+                    doek.height = Math.round((video.videoHeight || 270) * schaal);
+                    doek.getContext('2d').drawImage(video, 0, 0, doek.width, doek.height);
+                    meta.poster = doek.toDataURL('image/jpeg', 0.7);
+                } catch (e) {
+                    // De duur is het waardevolle deel, en die is er al.
+                }
+
+                opruimen();
+                klaar(meta);
+            }, { once: true });
+        }, { once: true });
+
+        video.addEventListener('error', () => {
+            window.clearTimeout(wekker);
+            opruimen();
+            mislukt(new Error('decode'));
+        }, { once: true });
+
+        video.src = adres;
+    });
+}
+
+function hansuiBytes(bytes) {
+    if (bytes < 1024) return `${bytes} B`;
+
+    const eenheden = ['kB', 'MB', 'GB', 'TB'];
+    const macht = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), eenheden.length);
+
+    return `${(bytes / 1024 ** macht).toFixed(macht > 1 ? 1 : 0)} ${eenheden[macht - 1]}`;
+}
+
+document.addEventListener('DOMContentLoaded', hansuiUploader);
+
+/*
+|------------------------------------------------------------------------------
+| Een botcontrole die niet rond raakt: data-turnstile-melding
+|------------------------------------------------------------------------------
+|
+| Een botcontrole zoals Turnstile houdt het versturen tegen tot er een token
+| is. Lukt dat niet, dan meldt ze dat met een `turnstile:failed`-event op het
+| formulier en doet ze verder niets. Zonder dit blijft de knop stil hangen:
+| de bezoeker drukt, er gebeurt niets, en niemand weet waarom.
+|
+| De melding staat in het formulier en niet in een toast, om dezelfde reden als
+| de banners hierboven: wat vanzelf verdwijnt, mist iemand. De tekst is de
+| waarde van het attribuut. ZELF AFBREKEN is geen fout; dan verdwijnt alleen
+| de melding.
+*/
+document.addEventListener('turnstile:failed', (e) => {
+    const melding = e.target.querySelector?.('[data-turnstile-melding]');
+    if (!melding) return;
+
+    if (e.detail?.cancelled) {
+        melding.classList.add('hidden');
+        return;
+    }
+
+    melding.textContent = melding.getAttribute('data-turnstile-melding')
+        || 'De controle is niet gelukt. Ververs de pagina en probeer het opnieuw.';
+    melding.classList.remove('hidden');
+});

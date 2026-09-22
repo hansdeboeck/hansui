@@ -3,6 +3,52 @@
 Dit package zit straks in zes applicaties op een gepinde versie. Wat hier staat
 is wat je moet weten voor je die pin verzet.
 
+## 0.8.0
+
+### Nieuw
+
+Wat socialtail en signagetail elk voor zich hadden, of allebei als kopie.
+
+- **Grafieken**: `<x-chart.line>`, `<x-chart.columns>`, `<x-chart.bars>` en
+  `<x-chart.heatmap>`, op de server getekend als SVG. Een as, een tabel onder
+  elke lijn- en kolomgrafiek, een `data-tip` op elk teken. Het rekenwerk staat
+  in `HansDeBoeck\HansUi\Chart` (`scale`, `tick`, `series`).
+- **Grafiekkleuren**: `--series-1` tot `--series-8` en `--seq-0` tot `--seq-6`,
+  met een eigen donkere reeks in beide donkere blokken. Nagekeken op
+  onderscheid bij kleurenblindheid tegen wit en tegen `--n-0` in het donker.
+- **`<x-delta>`** en **`change`/`invert` op `<x-stat>`**: het verschil met de
+  vorige periode naast een kerncijfer.
+- **Zevenendertig iconen** in `<x-icon>`, onder meer `link`, `inbox`, `globe`,
+  `send`, `eye`, `heart`, `share`, `comment`, `reply`, `hash`, `sparkles`,
+  `copy`, `external`, `upload`, `download`, `trend-up`, `trend-down`, `play`,
+  `pause`, `refresh`, `filter`, `layers`, `drag`, `printer`, `video`.
+- **Klassen voor een bibliotheek**: `.tree-item`, `.media-tile` met
+  `.media-check` en `.media-badge`, `.dropzone`, `.meter` met `.meter-fill`,
+  `.locked`, en de utilities `.grid-tiles`, `.grid-tiles-lg` en `.no-select`.
+- **Gedrag**: `data-tip` (tooltips), het zoekpalet (`data-palette` en zijn
+  onderdelen, het antwoord op `open-palette`), uploaden (`data-uploader` en
+  zijn onderdelen) en `data-turnstile-melding`. De teksten van de uploader
+  komen uit `data-upload-texts`, die van de botcontrole uit de waarde van
+  het attribuut.
+
+### Opgelost
+
+- **`.check` op een `<label>`** maakte de label zelf 16 bij 16 pixels, zodat
+  de tekst er letter per letter onder liep. Op een label wordt het nu een rij,
+  en krijgt het vinkje erin de maat.
+
+### Wat je moet doen
+
+Haal uit je applicatie weg wat nu hier staat: dezelfde klassen in `app.css`,
+eigen kopieën van het palet, de uploader, de botcontrole en de tooltip, en
+eigen grafiekcomponenten. Blijven ze staan, dan wint die van de applicatie
+(componenten) of staan de regels dubbel (css), en dan loopt het op den duur
+uit elkaar.
+
+Een `data-turnstile-melding` zonder waarde toont de Nederlandse terugvaltekst;
+geef hem een vertaalde waarde. Voor de uploader geldt hetzelfde met
+`data-upload-texts`.
+
 ## 0.7.0
 
 ### Opgelost

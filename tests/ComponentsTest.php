@@ -61,6 +61,11 @@ final class ComponentsTest extends TestCase
             'tabs' => ['<x-tabs :items="[[\'label\' => \'Jobs\', \'href\' => \'/jobs\', \'active\' => true, \'count\' => 4]]">terug</x-tabs>'],
             'choice' => ['<x-choice name="job" value="politie" label="Politie" icon="shield" hint="Rang 3" :checked="true"/>'],
             'alert' => ['<x-alert variant="warning" title="Let op" :dismissible="true">Dit kan niet terug.</x-alert><x-alert>Los.</x-alert>'],
+            'delta' => ['<x-delta :change="12.5"/><x-delta :change="-3" :invert="true"/><x-delta/>'],
+            'chart.line' => ['<x-chart.line :series="[[\'label\' => \'Volgers\', \'color\' => \'var(--series-1)\', \'points\' => [\'2026-01-01\' => 10, \'2026-01-02\' => 14]]]" :from-zero="false"/><x-chart.line/>'],
+            'chart.columns' => ['<x-chart.columns :data="[\'2026-01-01\' => 3, \'2026-01-02\' => 0]"/><x-chart.columns :data="[\'Beeld\' => 4]" :dates="false"/>'],
+            'chart.bars' => ['<x-chart.bars :rows="[[\'label\' => \'Instagram\', \'value\' => 4.2, \'hint\' => \'12 berichten\']]" unit="%" :decimals="1"/>'],
+            'chart.heatmap' => ['<x-chart.heatmap :cells="[1 => [9 => [\'value\' => 3.1, \'tip\' => \'2 berichten\'], 10 => [\'value\' => 1, \'weak\' => true]]]" less="rustig" more="druk"/>'],
         ];
     }
 
@@ -98,9 +103,11 @@ final class ComponentsTest extends TestCase
         | HansUI in de gedeelde ruimte claimt -- en een inventaris die niemand
         | controleert, is een lijst die uit de pas loopt.
         */
+        // Ook een map dieper: chart/line.blade.php is <x-chart.line>.
+        $map = $this->pakket('resources/views/components/');
         $bestanden = array_map(
-            static fn (string $pad): string => basename($pad, '.blade.php'),
-            glob($this->pakket('resources/views/components/*.blade.php')) ?: [],
+            static fn (string $pad): string => str_replace('/', '.', substr($pad, strlen($map), -strlen('.blade.php'))),
+            array_merge(glob($map.'*.blade.php') ?: [], glob($map.'*/*.blade.php') ?: []),
         );
 
         sort($bestanden);
@@ -113,6 +120,36 @@ final class ComponentsTest extends TestCase
 
         $this->assertSame($bestanden, $geclaimd, 'COMPONENTS en de componentmap lopen uit elkaar.');
         $this->assertSame($geclaimd, $gedekt, 'Er is een component zonder regel in deze test.');
+    }
+
+    #[Test]
+    public function een_verschil_kleurt_naar_wat_beter_is(): void
+    {
+        // Minder is soms beter (een reactietijd): dan kantelt de kleur, niet
+        // het teken. Het teken blijft zeggen wat er gebeurde.
+        $this->assertStringContainsString('text-emerald-700', Blade::render('<x-delta :change="-4" :invert="true"/>'));
+        $this->assertStringContainsString('-4,0%', Blade::render('<x-delta :change="-4" :invert="true"/>'));
+        $this->assertStringContainsString('text-red-700', Blade::render('<x-delta :change="-4"/>'));
+        $this->assertSame('', trim(Blade::render('<x-delta/>')));
+    }
+
+    #[Test]
+    public function een_kerncijfer_toont_zijn_verschil(): void
+    {
+        $html = Blade::render('<x-stat label="Weergaven" value="4.210" :change="18"/>');
+
+        $this->assertStringContainsString('+18%', $html);
+    }
+
+    #[Test]
+    public function elke_grafiek_heeft_een_tabel_of_tooltips(): void
+    {
+        // Kleur alleen is geen identiteit: wie de reeksen niet uit elkaar
+        // houdt, leest de tabel eronder of de tooltip.
+        $lijn = Blade::render('<x-chart.line :series="[[\'label\' => \'A\', \'color\' => \'var(--series-1)\', \'points\' => [\'2026-01-01\' => 1]]]"/>');
+
+        $this->assertStringContainsString('<details class="chart-table', $lijn);
+        $this->assertStringContainsString('data-tip=', $lijn);
     }
 
     #[Test]

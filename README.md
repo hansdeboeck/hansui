@@ -82,7 +82,13 @@ typen bestaat, en kantelt mee.
 `.help`, `.check`, `.badge` + varianten, `.alert` + varianten, `.tone-` + rol, `.th`,
 `.td`, `.chip`, `.choice`, `.nav-item`, `.nav-group`, `.nav-light`,
 `.dropdown-panel`, `.tab`, `.modal` + `.modal-head`, `.modal-body` en
-`.modal-foot`, `.link-muted`, `.empty`, `.sidebar`.
+`.modal-foot`, `.link-muted`, `.empty`, `.sidebar`. Voor een bibliotheek:
+`.tree-item`, `.media-tile` + `.media-check` en `.media-badge`, `.dropzone`,
+`.meter` + `.meter-fill`, `.locked` voor wat het abonnement niet heeft, en de
+utilities `.grid-tiles`, `.grid-tiles-lg` en `.no-select`. Voor grafieken
+`.chart` en zijn onderdelen.
+
+`.check` op een `<label>` rond een vinkje en zijn tekst maakt er een rij van.
 
 `.nav-light` op de omhulling zet dezelfde `.nav-item` op een licht vlak. Geen
 tweede klassenset maar andere tokens -- `--nav`, `--nav-ink`, `--nav-high`,
@@ -95,13 +101,36 @@ staat, loopt uit elkaar zodra er iets aan verandert.
 `<x-field>`, `<x-choice>`, `<x-money>`, `<x-modal>`, `<x-code-block>`,
 `<x-key-value>`, `<x-detail-list>`, `<x-detail-row>`, `<x-tabs>`,
 `<x-nav-link>`, `<x-footer>`, `<x-nav-dropdown>`, `<x-nav-mega-group>`,
-`<x-nav-mega-link>`. Ook bereikbaar als `<x-hansui::page>` wanneer een
-applicatie de korte naam zelf al gebruikt.
+`<x-nav-mega-link>`, `<x-delta>`, `<x-chart.line>`, `<x-chart.columns>`,
+`<x-chart.bars>` en `<x-chart.heatmap>`. Ook bereikbaar als
+`<x-hansui::page>` wanneer een applicatie de korte naam zelf al gebruikt.
 
 `<x-card>` is een kaal vlak, `<x-section>` diezelfde kaart met een kopregel
 erboven, en `<x-table>` de vorm met een tabel erin. `<x-stat>` is het
 kerncijfer van een dashboard, `<x-choice>` een radioknop die eruitziet als een
 tegel, en `<x-tabs>` de pillenrij tussen samenhangende schermen.
+
+`<x-stat>` neemt `change` (een percentage) en `invert` voor het verschil met de
+vorige periode; dat tekent `<x-delta>`, dat ook los bestaat. Groen is beter,
+rood slechter, en bij `invert` andersom, voor een cijfer waar minder beter is.
+
+**Grafieken**, op de server getekend als SVG, zonder JavaScript-bibliotheek:
+
+| Component | Voor | Invoer |
+|---|---|---|
+| `<x-chart.line>` | een of meer reeksen over de tijd | `series`: `[['label', 'color', 'points' => ['2026-01-01' => 12]]]`, `from-zero`, `unit` |
+| `<x-chart.columns>` | een reeks per dag of per categorie | `data`: `['2026-01-01' => 12]`, `dates`, `color`, `unit` |
+| `<x-chart.bars>` | liggende balken voor lange namen | `rows`: `[['label', 'value', 'hint', 'color']]`, `unit`, `decimals` |
+| `<x-chart.heatmap>` | weekdag x uur | `cells`: `[weekdag => [uur => ['value', 'tip', 'weak']]]`, `less`, `more` |
+
+Een as, nooit twee. Een lijn en een kolom krijgen een tabel eronder ("Als
+tabel") en elk teken een `data-tip`; een reeks draagt haar naam in de legende.
+De kleuren komen uit `--series-1` tot `--series-8`, in een vaste volgorde en
+gevalideerd op onderscheid bij kleurenblindheid, en `--seq-0` tot `--seq-6`
+voor de heatmap; beide met een eigen donkere reeks. Kies een kleur per
+entiteit en niet per rang, met `HansDeBoeck\HansUi\Chart::series($id)`: dan
+verandert een kanaal niet van kleur als een filter er een ander weghaalt.
+`Chart::scale()` en `Chart::tick()` geven mooie aswaarden, voor wie zelf tekent.
 
 **De flash-partial** is een view en geen component, want ze leest de sessie:
 
@@ -138,16 +167,56 @@ ophoudt te werken.
 | `data-theme-icon` | twee iconen, `light` en `dark` | de een verbergt als de ander toont |
 | `data-density-toggle` | een knop | compacte of ruime regels, in `hansui.density` |
 | `data-palette-open` | een knop | stuurt het venster-event `open-palette` |
+| `data-tip` | om het even wat | toont de waarde in een zwevend kadertje bij hover of focus |
 
 Drie attributen zet `hansui.js` ZELF, en die schrijf je dus niet in een view:
 `data-uit` op een melding die weggeklikt is, `data-wissel` op een kopieerknop
 terwijl zijn tekst omslaat, en `data-sleept` op de rij die op dat moment aan de
-vinger hangt. Alle drie staan ze in `hansui.css` -- ze staan hier omdat een
+vinger hangt. Daarbij komen `data-over` op een `.dropzone` waar een bestand
+boven hangt, en `data-drop` met de waarde `over` op een `.tree-item` waar de
+applicatie iets boven sleept. Ze staan allemaal in `hansui.css` -- ze staan hier omdat een
 applicatie die haar eigen meldingen, kopieerknoppen of lijsten opmaakt, anders
 op een selector botst die ze nergens beschreven ziet.
 
 Ook `Ctrl`/`Cmd` + `K` stuurt `open-palette`, en `Escape` sluit een open
 dropdown of de zijbalk.
+
+**Het zoekpalet.** Een `<dialog>` die opengaat op `open-palette`, met de
+index in de HTML: zoeken is dan meteen, zonder aanvraag.
+
+| Attribuut | Wat het doet |
+|---|---|
+| `data-palette` | de `<dialog>`; zet er ook `data-modal` op |
+| `data-palette-input` | het zoekveld; pijltjes kiezen, Enter opent |
+| `data-palette-list` | de lijst met regels |
+| `data-palette-item` | een regel, meestal een link; de waarde is waarop gezocht wordt, anders de tekst |
+| `data-palette-empty` | wat er staat als niets past |
+| `data-active` | zet je niet zelf: de regel die Enter opent |
+
+Er wordt op woordgrens gezocht: "gent" vindt "Etalage Gent" maar niet
+"Urgentie".
+
+**Uploaden.** Slepen, plakken of kiezen, een bestand na het andere, met een
+balk per bestand. Na de laatste herlaadt de pagina.
+
+| Attribuut | Wat het doet |
+|---|---|
+| `data-uploader` | het vak; draagt `data-action`, `data-token` en optioneel `data-folder`, `data-max-bytes`, `data-free-bytes` |
+| `data-upload-texts` | op datzelfde vak: een JSON-object met de teksten (`tooBig`, `noSpace`, `waiting`, `done`, `duplicate`, `failed`, `offline`) |
+| `data-upload-surface` | waar je mag loslaten; standaard de hele pagina |
+| `data-upload-list` | de `<ul>` waar de regels in komen |
+| `data-upload-panel` | wat rond die lijst staat; verliest `hidden` bij de eerste regel |
+| `data-no-browse` | op een knop in het vak die het bestandsvenster niet moet openen |
+| `data-state` | zet je niet zelf: de status van een regel |
+
+Het bestand gaat als `file` naar `data-action`, met `folder_id`. Van een video
+gaan er ook `duration_ms`, `width`, `height` en een `poster` als data-URL mee:
+de browser kan ze lezen, de server zou er ffmpeg voor nodig hebben. Antwoordt
+de server met `duplicate: true`, dan staat er "stond er al".
+
+**Een botcontrole die niet rond raakt.** `data-turnstile-melding` op een
+verborgen melding in het formulier: bij een `turnstile:failed`-event verschijnt
+ze, met de waarde van het attribuut als tekst. Wie zelf afbrak, ziet niets.
 
 **Bulkselectie.** Rijen aanvinken en er samen iets mee doen. De balk verschijnt
 pas als er iets aanstaat — een lege balk die altijd onderaan hangt kost hoogte
