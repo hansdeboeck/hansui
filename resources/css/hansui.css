@@ -1553,6 +1553,66 @@
     .meter-fill[data-level='danger'] { background: var(--danger); }
 
     /*
+    | STAPPEN waar een proces staat (<x-steps>). Liggend vanaf sm, met een lijn
+    | tussen de rondjes; staand op een telefoon. De toestand hangt aan
+    | data-step en niet aan een klasse, zodat hij ook in de HTML leesbaar is.
+    */
+    .steps {
+        display: grid;
+        gap: 0.75rem;
+    }
+
+    @media (min-width: 40rem) {
+        .steps {
+            grid-auto-columns: minmax(0, 1fr);
+            grid-auto-flow: column;
+            gap: 0.5rem;
+        }
+    }
+
+    .step {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.625rem;
+        min-width: 0;
+    }
+
+    .step-dot {
+        display: grid;
+        flex: none;
+        place-items: center;
+        width: 1.5rem;
+        height: 1.5rem;
+        border-radius: 9999px;
+        border: 1px solid var(--line-strong);
+        background: var(--surface);
+        color: var(--ink-faint);
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .step-label {
+        display: block;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--ink-soft);
+    }
+
+    .step-hint {
+        display: block;
+        margin-top: 0.125rem;
+        font-size: 0.75rem;
+        color: var(--ink-faint);
+    }
+
+    .step[data-step='done'] .step-dot    { border-color: var(--ok); background: var(--ok); color: var(--on-brand); }
+    .step[data-step='current'] .step-dot { border-color: var(--info); background: var(--info-soft); color: var(--info); }
+    .step[data-step='error'] .step-dot   { border-color: var(--danger); background: var(--danger); color: var(--on-brand); }
+    .step[data-step='done'] .step-label,
+    .step[data-step='current'] .step-label { color: var(--ink); }
+    .step[data-step='error'] .step-label { color: var(--danger); }
+
+    /*
     | EEN VLAK DAT OP SLOT ZIT, omdat het abonnement het niet heeft.
     |
     | Zichtbaar en niet verborgen: een functie die je niet ziet, kan je niet

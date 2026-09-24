@@ -3,6 +3,21 @@
 Dit package zit straks in zes applicaties op een gepinde versie. Wat hier staat
 is wat je moet weten voor je die pin verzet.
 
+## 0.12.0
+
+### Nieuw
+
+Uit de korte links van socialtail, waar een eigen domein eerst op zijn DNS
+en dan op zijn certificaat wacht. Niets daarvan is aan domeinen gebonden.
+
+- **`<x-steps>`**: een rij stappen die toont waar een proces staat, met per
+  stap `done`, `current`, `error` of `todo` in `data-step`. Liggend vanaf
+  `sm`, staand op een telefoon. De toestand staat er ook als teken in het
+  rondje en als verborgen tekst voor een schermlezer.
+- **Klassen** `.steps`, `.step`, `.step-dot`, `.step-label` en `.step-hint`.
+- Engelse vertalingen voor de toestanden (`klaar`, `bezig`, `probleem`,
+  `nog niet`).
+
 ## 0.11.0
 
 ### Nieuw

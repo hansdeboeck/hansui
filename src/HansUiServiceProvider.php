@@ -94,6 +94,7 @@ class HansUiServiceProvider extends ServiceProvider
         'chart.heatmap',
         'cropper',
         'lightbox',
+        'steps',
     ];
 
     public function boot(): void

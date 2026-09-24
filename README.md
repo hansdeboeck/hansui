@@ -107,13 +107,21 @@ staat, loopt uit elkaar zodra er iets aan verandert.
 `<x-key-value>`, `<x-detail-list>`, `<x-detail-row>`, `<x-tabs>`,
 `<x-nav-link>`, `<x-footer>`, `<x-nav-dropdown>`, `<x-nav-mega-group>`,
 `<x-nav-mega-link>`, `<x-delta>`, `<x-chart.line>`, `<x-chart.columns>`,
-`<x-chart.bars>`, `<x-chart.heatmap>`, `<x-cropper>` en `<x-lightbox>`. Ook bereikbaar als
+`<x-chart.bars>`, `<x-chart.heatmap>`, `<x-cropper>`, `<x-lightbox>` en `<x-steps>`. Ook bereikbaar als
 `<x-hansui::page>` wanneer een applicatie de korte naam zelf al gebruikt.
 
 `<x-card>` is een kaal vlak, `<x-section>` diezelfde kaart met een kopregel
 erboven, en `<x-table>` de vorm met een tabel erin. `<x-stat>` is het
 kerncijfer van een dashboard, `<x-choice>` een radioknop die eruitziet als een
 tegel, en `<x-tabs>` de pillenrij tussen samenhangende schermen.
+
+`<x-steps>` toont waar een proces staat dat zichzelf doorloopt (een domein
+dat op zijn DNS en dan op zijn certificaat wacht): `items` is
+`[['label', 'hint', 'state' => 'done|current|error|todo']]`, met `label` voor
+een schermlezer. Geen wizard: er valt niets aan te klikken. De toestand staat
+in `data-step` op elke `.step` (met `.step-dot`, `.step-label` en
+`.step-hint`), en ook als teken en als verborgen tekst, zodat ze niet op kleur
+alleen leunt.
 
 `<x-stat>` neemt `change` (een percentage) en `invert` voor het verschil met de
 vorige periode; dat tekent `<x-delta>`, dat ook los bestaat. Groen is beter,
