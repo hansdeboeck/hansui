@@ -67,6 +67,7 @@ final class ComponentsTest extends TestCase
             'chart.bars' => ['<x-chart.bars :rows="[[\'label\' => \'Instagram\', \'value\' => 4.2, \'hint\' => \'12 berichten\']]" unit="%" :decimals="1"/>'],
             'chart.heatmap' => ['<x-chart.heatmap :cells="[1 => [9 => [\'value\' => 3.1, \'tip\' => \'2 berichten\'], 10 => [\'value\' => 1, \'weak\' => true]]]" less="rustig" more="druk"/>'],
             'cropper' => ['<x-cropper src="/foto.jpg" alt="Etalage" :ratios="[\'free\', \'1:1\', \'4:5\' => \'Instagram 4:5\']" ratio="4:5" name="uitsnede"/><x-cropper/>'],
+            'steps' => ['<x-steps label="Voortgang" :items="[[\'label\' => \'DNS\', \'state\' => \'done\'], [\'label\' => \'Certificaat\', \'hint\' => \'Een paar minuten\', \'state\' => \'current\'], [\'label\' => \'Fout\', \'state\' => \'error\'], [\'label\' => \'Actief\']]"/><x-steps/>'],
             'lightbox' => ['<x-lightbox id="voorbeeld" group="fotos" label="Voorbeeld"><p>Paneel</p><x-slot:actions>knop</x-slot:actions></x-lightbox><x-lightbox id="kaal"/><x-lightbox id="leeg" :aside="true"/>'],
         ];
     }

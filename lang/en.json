@@ -51,5 +51,9 @@
     "wo": "Wed",
     "za": "Sat",
     "zo": "Sun",
-    "{0}Niets uitgevoerd|{1}Een gelukt|[2,*]:count gelukt": "{0}Nothing done|{1}One succeeded|[2,*]:count succeeded"
+    "{0}Niets uitgevoerd|{1}Een gelukt|[2,*]:count gelukt": "{0}Nothing done|{1}One succeeded|[2,*]:count succeeded",
+    "bezig": "in progress",
+    "klaar": "done",
+    "nog niet": "not yet",
+    "probleem": "problem"
 }
