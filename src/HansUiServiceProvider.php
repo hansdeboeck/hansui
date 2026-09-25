@@ -53,7 +53,7 @@ class HansUiServiceProvider extends ServiceProvider
      * geen stilzwijgende botsing meer op, maar een rode test.
      *
      * Per component registreren zou de lijst afdwingen zonder test, maar dan
-     * moet elk van deze vierendertig een klasse krijgen in plaats van een
+     * moet elk van deze drieënveertig een klasse krijgen in plaats van een
      * Blade-bestand. Dat is de omhaal niet waard voor dezelfde bewaking.
      *
      * @var array<int, string>
@@ -95,6 +95,13 @@ class HansUiServiceProvider extends ServiceProvider
         'cropper',
         'lightbox',
         'steps',
+        'panes',
+        'list-row',
+        'message',
+        'thread-day',
+        'composer',
+        'ago',
+        'shortcuts',
     ];
 
     public function boot(): void

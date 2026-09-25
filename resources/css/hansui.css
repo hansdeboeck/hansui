@@ -2420,6 +2420,901 @@
             padding: 0 4rem 1.25rem;
         }
     }
+    /* ---------------------------------------------------------- werkblad */
+    /*
+    | EEN WERKBLAD EN GEEN PAGINA -- <x-panes>.
+    |
+    | Een lijst links, wat je opende in het midden en de details rechts, en
+    | elk scrolt op zich. Wie een lijst afwerkt (een inbox, tickets,
+    | bestellingen), houdt zo de lijst in beeld terwijl hij leest, en wat
+    | onderaan het midden staat -- een antwoordvak -- staat altijd onderaan
+    | het scherm in plaats van onder een lange mail.
+    |
+    | Vanaf lg vult het de hoogte van het venster, min wat erboven en eronder
+    | staat: de bovenbalk en de marge van de applicatie. Dat weet dit package
+    | niet, dus het is een token met een terugval: `--panes-offset`. De
+    | breedte van de lijst en van de zijkolom ook: `--panes-list` en
+    | `--panes-aside`.
+    |
+    | Op een telefoon zijn het twee schermen: de lijst, of wat er open is.
+    | `.panes-detail` zegt welk van de twee; de kop valt dan ook weg, want op
+    | 390 pixels hoort het gesprek de ruimte te krijgen en niet de titel.
+    |
+    | De ZIJKOLOM pas vanaf 2xl. Daaronder is er geen plaats voor drie
+    | kolommen, en toont de applicatie hetzelfde in een venster.
+    */
+    .panes {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .panes-head {
+        flex: none;
+    }
+
+    .panes-grid {
+        display: grid;
+        flex: 1 1 auto;
+        gap: 0.75rem;
+        min-height: 0;
+    }
+
+    .panes-grid > * {
+        min-width: 0;
+        min-height: 0;
+    }
+
+    /* Wat op een telefoon of zonder zijkolom wegvalt, staat bij de utilities onderaan. */
+
+    @media (min-width: 64rem) {
+        .panes {
+            height: calc(100dvh - var(--panes-offset, 6.5rem));
+        }
+
+        .panes-grid {
+            grid-template-columns: var(--panes-list, 20rem) minmax(0, 1fr);
+        }
+    }
+
+    @media (min-width: 80rem) {
+        .panes-grid {
+            grid-template-columns: var(--panes-list, 23rem) minmax(0, 1fr);
+        }
+    }
+
+    @media (min-width: 96rem) {
+        .panes-grid:has(> .panes-aside) {
+            grid-template-columns: var(--panes-list, 23rem) minmax(0, 1fr) var(--panes-aside, 17rem);
+        }
+
+        .panes-aside {
+            overflow-y: auto;
+            overscroll-behavior: contain;
+        }
+    }
+
+    /*
+    | Een paneel van het werkblad: een kaart met een kop, een middenstuk dat
+    | zelf scrolt, en een voet. Alleen `.pane-body` scrolt; de kop en de voet
+    | blijven staan.
+    |
+    | GEEN overflow: hidden op het paneel, ook al zou dat de hoeken netjes
+    | afsnijden: het snijdt dan ook de uitklappanelen in de kop af. De stukken
+    | aan de rand nemen de ronding daarom zelf over.
+    |
+    | `.pane-empty` is een paneel waar nog niets in staat: gestippeld, en wat
+    | erin staat in het midden.
+    */
+    .pane {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        min-height: 0;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 0.75rem;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .pane-head {
+        flex: none;
+        border-bottom: 1px solid var(--surface-sunk);
+    }
+
+    .pane-body {
+        position: relative;
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        /* Smal, want er staan er twee naast elkaar. */
+        scrollbar-width: thin;
+        scrollbar-color: var(--line-strong) transparent;
+    }
+
+    .pane-foot {
+        flex: none;
+        border-top: 1px solid var(--surface-sunk);
+    }
+
+    .pane :is(.pane-head, .pane-body, .pane-foot, .composer):first-child {
+        border-top-left-radius: calc(0.75rem - 1px);
+        border-top-right-radius: calc(0.75rem - 1px);
+    }
+
+    .pane :is(.pane-head, .pane-body, .pane-foot, .composer):last-child {
+        border-bottom-left-radius: calc(0.75rem - 1px);
+        border-bottom-right-radius: calc(0.75rem - 1px);
+    }
+
+    .pane-empty {
+        display: grid;
+        place-items: center;
+        border-style: dashed;
+        background: color-mix(in oklab, var(--surface) 60%, transparent);
+        box-shadow: none;
+    }
+
+    /* ------------------------------------------------------------- rijen */
+    /*
+    | Een rij in een lijst om af te werken -- <x-list-row>: een gesprek, een
+    | ticket, een bestelling. Wie, waarover, hoe lang al, en wat ermee
+    | gebeurt, zonder te klikken.
+    |
+    | DE HELE RIJ IS EEN LINK: de ::after van `.list-row-link` spant over de
+    | rij. Wat erboven moet liggen -- het vinkje, een tooltip in de voet --
+    | ligt een laag hoger. Met Ctrl of Shift erbij kies je rijen in plaats van
+    | ze te openen, zoals in een verkenner (`data-bulk-row`).
+    |
+    | HET VINKJE LIGT OVER DE AVATAR en verschijnt bij hover, met de focus erop,
+    | of zodra er in de lijst iets aangevinkt staat: dan ben je aan het kiezen,
+    | en een vinkje dat pas bij hover verschijnt, moet je per rij zoeken. Op
+    | een aanraakscherm niet: daar zou het elke avatar bedekken.
+    |
+    | De hoogte volgt --row-y, dus ook de compacte dichtheid.
+    */
+    .list-row {
+        position: relative;
+        display: flex;
+        gap: 0.75rem;
+        padding: var(--row-y) 0.875rem var(--row-y) 0.75rem;
+        border-bottom: 1px solid var(--surface-sunk);
+        transition: background-color 150ms ease;
+    }
+
+    @media (hover: hover) {
+        .list-row:hover {
+            background: var(--surface-hover);
+        }
+    }
+
+    /* Wat open staat: het merk, en een streep aan de rand voor wie geen kleur ziet. */
+    .list-row:has(.list-row-link[aria-current='true']) {
+        background: var(--brand-soft);
+    }
+
+    .list-row:has(.list-row-link[aria-current='true'])::before {
+        content: '';
+        position: absolute;
+        inset-block: 0;
+        left: 0;
+        width: 3px;
+        border-radius: 0 3px 3px 0;
+        background: var(--brand);
+    }
+
+    .list-row-avatar {
+        position: relative;
+        flex: none;
+        align-self: flex-start;
+    }
+
+    .list-row-check {
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+        display: grid;
+        place-items: center;
+        border-radius: 9999px;
+        background: var(--surface);
+        box-shadow: inset 0 0 0 1px var(--line);
+        cursor: pointer;
+        opacity: 0;
+        transition: opacity 120ms ease;
+    }
+
+    .list-row-check > input {
+        height: 1rem;
+        width: 1rem;
+        cursor: pointer;
+        accent-color: var(--brand);
+    }
+
+    .list-row:hover .list-row-check,
+    .list-row-check:has(:checked),
+    .list-row-check:has(:focus-visible),
+    [data-bulk]:has([data-bulk-item]:checked) .list-row-check {
+        opacity: 1;
+    }
+
+    @media (hover: none), (pointer: coarse) {
+        .list-row-check {
+            display: none;
+        }
+    }
+
+    .list-row-main {
+        min-width: 0;
+        flex: 1 1 auto;
+    }
+
+    .list-row-top {
+        display: flex;
+        align-items: baseline;
+        gap: 0.5rem;
+    }
+
+    .list-row-link {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--ink-soft);
+        outline: none;
+    }
+
+    .list-row-link::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+    }
+
+    .list-row-link:focus-visible::after {
+        box-shadow: inset 0 0 0 2px var(--brand);
+    }
+
+    .list-row-count {
+        flex: none;
+        border-radius: 9999px;
+        background: var(--surface-sunk);
+        padding: 0 0.375rem;
+        font-size: 0.6875rem;
+        font-weight: 500;
+        color: var(--ink-faint);
+    }
+
+    .list-row-time {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        gap: 0.25rem;
+        margin-left: auto;
+        font-size: 0.75rem;
+        color: var(--ink-faint);
+    }
+
+    .list-row-subject {
+        display: block;
+        margin-top: 0.125rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 0.8125rem;
+        color: var(--ink-soft);
+    }
+
+    .list-row-preview {
+        display: -webkit-box;
+        margin-top: 0.125rem;
+        overflow: hidden;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        font-size: 0.8125rem;
+        line-height: 1.375;
+        color: var(--ink-faint);
+    }
+
+    .list-row-meta {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        gap: 0.375rem;
+        margin-top: 0.375rem;
+        font-size: 0.6875rem;
+        color: var(--ink-faint);
+    }
+
+    /* Wat je in de rij aanwijst of aanklikt, ligt boven de link die over de rij spant. */
+    .list-row-time :is(a, button, [data-tip]),
+    .list-row-meta :is(a, button, [data-tip]) {
+        position: relative;
+        z-index: 2;
+    }
+
+    /* Vet is wat op jou wacht, niet wat open staat. */
+    .list-row-strong .list-row-link {
+        font-weight: 600;
+        color: var(--ink);
+    }
+
+    .list-row-strong .list-row-subject {
+        font-weight: 500;
+        color: var(--ink);
+    }
+
+    /* ----------------------------------------------------------- draadje */
+    /*
+    | Een gesprek -- <x-message> en <x-thread-day> in een `.thread`.
+    |
+    | Het leest als een gesprek: wat binnenkwam links, wat jij schreef rechts
+    | in de merkkleur, een notitie in het midden en in de kleur van een
+    | waarschuwing, zodat niemand ze voor een antwoord aanziet. Een automatisch
+    | antwoord krijgt een stippellijn en een bliksem: wie "we hebben je
+    | bericht" kreeg, heeft nog geen antwoord. Wat niet vertrok, staat in het
+    | rood, met de reden erbij.
+    |
+    | Een mail is een kaart met een kop (`.message-card`), want een mail heeft
+    | een afzender, een adres en een onderwerp dat ertoe doet.
+    |
+    | `.thread-end` zet een chat onderaan, naast het antwoordvak, zoals in elke
+    | berichtenapp; een mail begint bovenaan.
+    */
+    .thread {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        padding: 1.25rem 0.75rem;
+        background: var(--surface-hover);
+    }
+
+    @media (min-width: 40rem) {
+        .thread {
+            padding-inline: 1.5rem;
+        }
+    }
+
+    /*
+    | Niet krimpen. Het draadje is een flexkolom die zelf scrolt, en een kind
+    | met overflow: hidden (een mail als kaart) mag in een flexkolom tot nul
+    | krimpen: dan stond van een lange mail alleen de eerste regel er.
+    */
+    .thread > * {
+        flex-shrink: 0;
+        width: 100%;
+        max-width: 48rem;
+        margin-inline: auto;
+    }
+
+    .thread-end > :first-child {
+        margin-top: auto;
+    }
+
+    .thread-day {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding-block: 0.25rem;
+        font-size: 0.6875rem;
+        font-weight: 500;
+        letter-spacing: 0.025em;
+        text-transform: uppercase;
+        color: var(--ink-faint);
+    }
+
+    .thread-day::before,
+    .thread-day::after {
+        content: '';
+        flex: 1 1 0%;
+        height: 1px;
+        background: var(--line);
+    }
+
+    .message {
+        display: flex;
+        align-items: flex-end;
+        gap: 0.5rem;
+    }
+
+    .message.message-out {
+        flex-direction: row-reverse;
+    }
+
+    /* Onderaan naast de bel, boven de regel met naam en tijd. */
+    .message-avatar {
+        flex: none;
+        margin-bottom: 1.25rem;
+    }
+
+    .message-bot {
+        display: grid;
+        height: 2rem;
+        width: 2rem;
+        place-items: center;
+        border-radius: 9999px;
+        background: var(--brand);
+        color: var(--on-brand);
+    }
+
+    .message-main {
+        display: flex;
+        min-width: 0;
+        max-width: 85%;
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .message-out .message-main {
+        align-items: flex-end;
+    }
+
+    @media (min-width: 40rem) {
+        .message-main {
+            max-width: 75%;
+        }
+    }
+
+    .message-bubble {
+        border-radius: 1rem 1rem 1rem 0.375rem;
+        padding: 0.625rem 0.875rem;
+        background: var(--surface);
+        box-shadow: 0 0 0 1px var(--line), var(--shadow-sm);
+        font-size: 0.875rem;
+        color: var(--ink);
+    }
+
+    .message-out .message-bubble {
+        border-radius: 1rem 1rem 0.375rem 1rem;
+        background: var(--brand-soft);
+        box-shadow: 0 0 0 1px var(--brand-line), var(--shadow-sm);
+    }
+
+    .message-auto .message-bubble {
+        border: 1px dashed var(--brand-line);
+        box-shadow: var(--shadow-sm);
+    }
+
+    .message-failed .message-bubble {
+        background: var(--danger-soft);
+        box-shadow: 0 0 0 1px color-mix(in oklab, var(--danger) 30%, transparent), var(--shadow-sm);
+    }
+
+    /* De tekst zoals ze geschreven werd: regeleinden blijven, een lange link breekt. */
+    .message-text {
+        white-space: pre-line;
+        overflow-wrap: anywhere;
+    }
+
+    .message-label {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+        margin-bottom: 0.25rem;
+        font-size: 0.6875rem;
+        font-weight: 500;
+        color: var(--brand);
+    }
+
+    .message-foot {
+        margin-top: 0.25rem;
+        padding-inline: 0.25rem;
+        font-size: 0.6875rem;
+        color: var(--ink-faint);
+    }
+
+    .message-error {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        column-gap: 0.5rem;
+        margin-top: 0.25rem;
+        padding-inline: 0.25rem;
+        font-size: 0.75rem;
+        color: var(--danger);
+    }
+
+    :is(.message-error, .message-card-error) :is(button, a) {
+        font-weight: 500;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+    }
+
+    .message-card {
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 0.75rem;
+        background: var(--surface);
+        box-shadow: var(--shadow-sm);
+    }
+
+    .message-card.message-out {
+        border-color: var(--brand-line);
+    }
+
+    .message-card.message-failed {
+        border-color: color-mix(in oklab, var(--danger) 30%, transparent);
+    }
+
+    .message-card-head {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+        padding: 0.75rem 1rem;
+    }
+
+    .message-out .message-card-head {
+        background: var(--brand-soft);
+    }
+
+    .message-failed .message-card-head {
+        background: var(--danger-soft);
+    }
+
+    .message-card-body {
+        border-top: 1px solid var(--surface-sunk);
+        padding: 0.875rem 1rem;
+        font-size: 0.875rem;
+        line-height: 1.625;
+        color: var(--ink);
+    }
+
+    .message-card-error {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem;
+        border-top: 1px solid color-mix(in oklab, var(--danger) 30%, transparent);
+        padding: 0.5rem 1rem;
+        background: var(--danger-soft);
+        font-size: 0.75rem;
+        color: var(--danger);
+    }
+
+    .message-note {
+        max-width: 36rem;
+        border: 1px solid color-mix(in oklab, var(--warn) 30%, transparent);
+        border-radius: 0.75rem;
+        padding: 0.75rem 1rem;
+        background: var(--warn-soft);
+    }
+
+    .message-note-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        column-gap: 0.375rem;
+        font-size: 0.75rem;
+        color: var(--warn);
+    }
+
+    .message-note .message-text {
+        margin-top: 0.375rem;
+        font-size: 0.875rem;
+        color: var(--ink);
+    }
+
+    /* Bijlagen bij naam, onder de tekst. */
+    .message-files {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.375rem;
+        margin-top: 0.625rem;
+        font-size: 0.75rem;
+        color: var(--ink-soft);
+    }
+
+    .message-file {
+        display: inline-flex;
+        max-width: 100%;
+        align-items: center;
+        gap: 0.25rem;
+        border: 1px solid var(--line);
+        border-radius: 0.375rem;
+        padding: 0.125rem 0.375rem;
+        background: var(--surface);
+    }
+
+    /* --------------------------------------------------------- antwoordvak */
+    /*
+    | Het antwoordvak onder een gesprek -- <x-composer>.
+    |
+    | EEN VAK en geen los tekstveld: de tekst, wat eronder meegaat (een
+    | handtekening) en de knoppen staan in dezelfde rand, en die rand licht op
+    | zodra je typt.
+    |
+    | Een NOTITIE kleurt het vak in de kleur waarin ze in het gesprek staat:
+    | een radioknop met `data-composer-note` die aanstaat. Met :has() en zonder
+    | script, zodat het ook klopt als de pagina met de notitie al gekozen opent.
+    |
+    | Op een telefoon plakt het vak onderaan het scherm: een antwoord onder een
+    | lange mail hoort niet eerst gezocht te worden.
+    */
+    .composer {
+        flex: none;
+        border-top: 1px solid var(--surface-sunk);
+        padding: 0.625rem 0.75rem 0.75rem;
+        background: var(--surface);
+    }
+
+    @media (min-width: 40rem) {
+        .composer {
+            padding-inline: 1rem;
+        }
+    }
+
+    @media (width < 64rem) {
+        .composer {
+            position: sticky;
+            bottom: 0;
+            z-index: 10;
+            box-shadow: 0 -4px 12px -8px rgb(0 0 0 / 0.15);
+        }
+    }
+
+    .composer-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.375rem 0.75rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .composer-box {
+        border: 1px solid var(--line-strong);
+        border-radius: 0.75rem;
+        background: var(--surface);
+        box-shadow: var(--shadow-sm);
+        transition:
+            background-color 150ms ease,
+            border-color 150ms ease,
+            box-shadow 150ms ease;
+    }
+
+    .composer-box:focus-within {
+        border-color: var(--brand);
+        box-shadow: 0 0 0 3px var(--brand-soft), var(--shadow-sm);
+    }
+
+    .composer:has([data-composer-note]:checked) .composer-box {
+        border-color: color-mix(in oklab, var(--warn) 45%, transparent);
+        background: var(--warn-soft);
+    }
+
+    .composer:has([data-composer-note]:checked) .composer-box:focus-within {
+        border-color: var(--warn);
+        box-shadow: 0 0 0 3px color-mix(in oklab, var(--warn) 22%, transparent), var(--shadow-sm);
+    }
+
+    .composer-input {
+        display: block;
+        width: 100%;
+        min-height: 3.25rem;
+        max-height: 40vh;
+        resize: none;
+        border: 0;
+        border-radius: 0.75rem 0.75rem 0 0;
+        padding: 0.75rem 0.875rem;
+        background: transparent;
+        font-size: 0.875rem;
+        color: var(--ink);
+    }
+
+    .composer-input:focus {
+        outline: none;
+    }
+
+    .composer-input::placeholder {
+        color: var(--ink-faint);
+    }
+
+    @media (min-width: 40rem) {
+        .composer-input {
+            min-height: 4.75rem;
+        }
+    }
+
+    /* Wat meegaat zonder dat je het typt: een handtekening, op een regel. */
+    .composer-sign {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        gap: 0.375rem;
+        border-top: 1px dashed var(--line);
+        padding: 0.375rem 0.875rem;
+        font-size: 0.75rem;
+        color: var(--ink-faint);
+    }
+
+    .composer-bar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.25rem;
+        border-top: 1px solid var(--surface-sunk);
+        padding: 0.375rem 0.5rem;
+    }
+
+    .composer:has([data-composer-note]:checked) .composer-bar {
+        border-top-color: color-mix(in oklab, var(--warn) 20%, transparent);
+    }
+
+    .composer-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-left: auto;
+    }
+
+    /* De teller van data-count; `data-danger` zet hansui.js zodra het te veel is. */
+    [data-count] {
+        padding-inline: 0.25rem;
+        font-size: 0.75rem;
+        font-variant-numeric: tabular-nums;
+        color: var(--ink-faint);
+    }
+
+    [data-count][data-danger] {
+        font-weight: 600;
+        color: var(--danger);
+    }
+
+    /* ------------------------------------------------------ keuzeknoppen */
+    /*
+    | Twee of drie keuzes naast elkaar, waarvan er een aanstaat: open of
+    | afgehandeld, antwoorden of notitie, de toon van een gesprek.
+    |
+    | Een rij en geen keuzelijst: drie mogelijkheden zie je liever in een keer
+    | dan achter een klik. Wat aanstaat, hangt aan wat de elementen zelf al
+    | zeggen -- `aria-current` op een link, `aria-pressed` op een knop, een
+    | aangevinkte radioknop in een label -- en niet aan een klasse die een
+    | script bijhoudt.
+    |
+    | `.segment-success`, `.segment-warning` en `.segment-danger` kleuren de
+    | keuze die aanstaat in die rol: een notitie in het geel, een negatieve
+    | toon in het rood.
+    */
+    .segmented {
+        display: inline-flex;
+        align-items: stretch;
+        gap: 0.125rem;
+        border-radius: 0.5rem;
+        padding: 0.125rem;
+        background: var(--surface-sunk);
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+
+    .segment {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.375rem;
+        border-radius: 0.375rem;
+        padding: 0.25rem 0.625rem;
+        color: var(--ink-faint);
+        cursor: pointer;
+        transition:
+            background-color 150ms ease,
+            color 150ms ease,
+            box-shadow 150ms ease,
+            transform 120ms var(--ease-out);
+    }
+
+    @media (hover: hover) {
+        .segment:hover {
+            color: var(--ink);
+        }
+    }
+
+    .segment:active {
+        transform: scale(var(--press));
+    }
+
+    /* De radioknop zelf is onzichtbaar; het label is de knop. */
+    .segment > :is(input[type='radio'], input[type='checkbox']) {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+        opacity: 0;
+    }
+
+    .segment:is([aria-current='page'], [aria-current='true'], [aria-pressed='true'], :has(> input:checked)) {
+        background: var(--surface);
+        color: var(--ink);
+        box-shadow: var(--shadow-sm);
+    }
+
+    .segment-success:is([aria-current='page'], [aria-current='true'], [aria-pressed='true'], :has(> input:checked)) {
+        background: var(--ok-soft);
+        color: var(--ok);
+    }
+
+    .segment-warning:is([aria-current='page'], [aria-current='true'], [aria-pressed='true'], :has(> input:checked)) {
+        background: var(--warn-soft);
+        color: var(--warn);
+    }
+
+    .segment-danger:is([aria-current='page'], [aria-current='true'], [aria-pressed='true'], :has(> input:checked)) {
+        background: var(--danger-soft);
+        color: var(--danger);
+    }
+
+    .segment:has(> input:focus-visible) {
+        box-shadow: 0 0 0 2px var(--brand);
+    }
+
+    .segment:has(> input:disabled) {
+        cursor: not-allowed;
+        opacity: 0.5;
+    }
+
+    /* ----------------------------------------------------------- toetsen */
+    /*
+    | Een toets: als hint in een knop ("Versturen Ctrl ↵"), in het overzicht
+    | van <x-shortcuts>, of in een zin. In een primaire knop op het merk.
+    */
+    .kbd {
+        display: inline-flex;
+        min-width: 1.25rem;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--line);
+        border-radius: 0.3125rem;
+        padding: 0 0.3125rem;
+        background: var(--surface);
+        box-shadow: 0 1px 0 var(--line);
+        font-family: inherit;
+        font-size: 0.6875rem;
+        font-weight: 500;
+        line-height: 1.125rem;
+        white-space: nowrap;
+        color: var(--ink-soft);
+    }
+
+    .btn-primary .kbd {
+        border-color: transparent;
+        background: color-mix(in oklab, var(--on-brand) 20%, transparent);
+        box-shadow: none;
+        color: inherit;
+    }
+
+    /* ------------------------------------------------------------ avatar */
+    /*
+    | Het bolletje rechtsonder op <x-avatar>: waar iets binnenkwam, of of
+    | iemand online is. De kleur geeft de applicatie mee; de rand is die van
+    | het vlak, zodat het bolletje los van de foto staat.
+    */
+    .avatar-wrap {
+        position: relative;
+        display: inline-flex;
+        flex: none;
+    }
+
+    .avatar-badge {
+        position: absolute;
+        right: -0.125rem;
+        bottom: -0.125rem;
+        display: grid;
+        height: 1rem;
+        width: 1rem;
+        place-items: center;
+        border-radius: 9999px;
+        background: var(--ink-faint);
+        box-shadow: 0 0 0 2px var(--surface);
+        font-size: 0.5rem;
+        font-weight: 700;
+        line-height: 1;
+        color: #fff;
+    }
 }
 
 @layer utilities {
@@ -2444,6 +3339,40 @@
         display: grid;
         gap: 1rem;
         grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr));
+    }
+
+    /*
+    | Een melding in het werkblad (<x-panes>) staat in de rij van de panelen,
+    | met dezelfde tussenruimte. De flash-partial geeft ze een marge onderaan,
+    | voor een gewone pagina; hier doet de `gap` van het werkblad dat al. In
+    | deze laag en niet bij de componenten, want die marge is zelf een utility.
+    */
+    .panes > [data-flash] {
+        margin-bottom: 0;
+    }
+
+    /*
+    | WAT HET WERKBLAD VERBERGT, in deze laag en met twee klassen.
+    |
+    | In de componentlaag verloor het twee keer: van een utility op hetzelfde
+    | element (een kop met `flex`), en van `.pane`, dat verderop staat en zelf
+    | een flexbox is. Dan stond op een telefoon de kop boven het gesprek, en de
+    | zijkolom op elke breedte. Hier wint de regel van een enkele utility, en
+    | valt ze buiten haar breedte weg, zodat het element zijn eigen `display`
+    | houdt.
+    */
+    @media (width < 64rem) {
+        .panes-detail > .panes-head,
+        .panes-detail > .panes-grid > .panes-list,
+        .panes:not(.panes-detail) > .panes-grid > .panes-main {
+            display: none;
+        }
+    }
+
+    @media (width < 96rem) {
+        .panes-grid > .panes-aside {
+            display: none;
+        }
     }
 
     /* Voor een voorbeeld of een sleepvlak: geen tekst selecteren, niet slepen. */

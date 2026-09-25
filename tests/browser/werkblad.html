@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="utf-8">
+    <title>HansUI werkblad: harnas</title>
+
+    <!--
+        Geen stijlblad: dit harnas toont GEDRAG en geen opmaak, net als
+        bulk.html. De paar regels hieronder zijn er omdat het gedrag ervan
+        afhangt: `hidden` komt normaal van Tailwind, en een lijst die niet zelf
+        scrolt, kan ook niet in beeld scrollen.
+    -->
+    <style>
+        .hidden { display: none }
+        .scroller { height: 8rem; overflow-y: auto; border: 1px solid #ccc; margin-bottom: 1rem }
+        .scroller > * { padding: 0.25rem 0.5rem }
+        textarea { display: block; width: 24rem; max-height: 12rem }
+    </style>
+</head>
+<body>
+
+<!--
+    Het werkblad: sneltoetsen, het antwoordvak en wat bij het laden in beeld
+    staat. Dezelfde haken als in <x-panes>, <x-list-row> en <x-composer>, maar
+    met de hand geschreven, zodat een wijziging aan hansui.js hier zonder
+    applicatie na te lopen is.
+
+    Open dit bestand met een statische server naast het package:
+
+        cd hansui && php -S 127.0.0.1:8020
+        open http://127.0.0.1:8020/tests/browser/werkblad.html
+-->
+
+<h2>Sneltoetsen: data-shortcut</h2>
+
+<p>Verwacht: J en K gaan naar #volgende en #vorige, ook al staat de link van K
+alleen met een klasse uit beeld (zoals `hidden xl:flex` op een smal scherm).
+X doet niets: die knop staat in iets met `hidden`. / zet de cursor in het
+zoekveld; typen daarin is gewoon typen. ? opent het venster; daarin doet J
+niets, want de links staan buiten het venster. N wint van de balk: de knop in
+de pagina telt, niet die in de balk erboven.</p>
+
+<nav id="balk">
+    <a href="#nieuw-bericht" data-shortcut="n" id="balk-nieuw">Nieuw (balk)</a>
+</nav>
+
+<a href="#volgende" data-shortcut="j" id="volgende">Volgende (J)</a>
+<a href="#vorige" data-shortcut="k" class="hidden" id="vorige">Vorige (K)</a>
+
+<div hidden>
+    <button type="button" data-shortcut="x" id="verborgen">Verborgen (X)</button>
+</div>
+
+<input type="search" data-shortcut="/" id="zoeken" placeholder="Zoeken (/)">
+
+<button type="button" data-shortcut="?" data-modal-open="#sneltoetsen" id="toon-toetsen">? toetsen</button>
+
+<dialog id="sneltoetsen" data-modal>
+    <p><kbd data-kbd-mod>Ctrl ↵</kbd> versturen (op een Mac: ⌘ ↵)</p>
+    <button type="button" data-modal-close>Sluiten</button>
+</dialog>
+
+<h2>Het antwoordvak: data-composer-form</h2>
+
+<p>Verwacht: het vak groeit mee met wat je typt. Herlaad de pagina: de tekst
+staat er nog. Ctrl + Enter verstuurt met de knop die je ziet (in de stand
+notitie is dat "Notitie bewaren"), en daarna is het concept weg. "Notitie"
+zet een andere voorzettekst en de cursor in het vak, net als N. De knop
+"Standaardantwoord" zet "Dag Nina," waar de cursor staat. De teller toont
+"12 / 20" en wordt rood voorbij 20.</p>
+
+<form method="GET" action="#verstuurd" data-composer-form data-composer-values='{"naam": "Nina"}' id="antwoord">
+    <label><input type="radio" name="internal" value="0" checked data-shortcut="r"
+                  data-composer-placeholder="Schrijf een antwoord aan Nina…"> Antwoorden</label>
+    <label><input type="radio" name="internal" value="1" data-shortcut="n" data-composer-note
+                  data-composer-placeholder="Schrijf een notitie voor je team…"> Notitie</label>
+
+    <textarea id="bericht" name="body" rows="2" data-autogrow data-draft="harnas.1" required></textarea>
+
+    <button type="button" data-insert="Dag {naam}, {onbekend} blijft staan." id="standaard">Standaardantwoord</button>
+    <span data-count="#bericht" data-count-max="20" id="teller"></span>
+
+    <span data-show-when="internal=0"><button type="submit" id="versturen">Versturen</button></span>
+    <span data-show-when="internal=1" hidden><button type="submit" id="bewaren">Notitie bewaren</button></span>
+</form>
+
+<h2>In beeld bij het laden: data-scroll-here</h2>
+
+<p>Verwacht: in de lijst staat rij 30 in het midden, in het gesprek staat het
+laatste bericht bovenaan. De pagina zelf is niet verschoven.</p>
+
+<div class="scroller" id="lijst"></div>
+<div class="scroller" id="gesprek"></div>
+
+<script>
+    // Veertig rijen en twintig berichten, zonder ze uit te schrijven.
+    for (let i = 1; i <= 40; i++) {
+        const rij = document.createElement('div');
+        rij.textContent = `Rij ${i}`;
+        rij.id = `rij-${i}`;
+        if (i === 30) rij.setAttribute('data-scroll-here', 'center');
+        document.getElementById('lijst').append(rij);
+    }
+
+    for (let i = 1; i <= 20; i++) {
+        const bericht = document.createElement('div');
+        bericht.textContent = `Bericht ${i}`;
+        bericht.id = `bericht-${i}`;
+        if (i === 20) bericht.setAttribute('data-scroll-here', '');
+        document.getElementById('gesprek').append(bericht);
+    }
+</script>
+<script type="module" src="../../resources/js/hansui.js"></script>
+</body>
+</html>

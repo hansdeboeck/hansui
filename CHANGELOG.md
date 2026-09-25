@@ -3,6 +3,65 @@
 Dit package zit straks in zes applicaties op een gepinde versie. Wat hier staat
 is wat je moet weten voor je die pin verzet.
 
+## 0.13.0
+
+### Nieuw
+
+Uit de inbox van socialtail, waar reacties, berichten, reviews en mail in een
+lijst samenkomen. Niets daarvan is aan een inbox gebonden: het is de vorm van
+elke lijst die je afwerkt, van tickets tot bestellingen.
+
+- **`<x-panes>`**: een werkblad met een lijst, wat je opende en de details,
+  die elk op zich scrollen en samen het venster vullen vanaf `lg`. Op een
+  telefoon de lijst of wat open staat (`detail`). Klassen `.panes`,
+  `.panes-head`, `.panes-grid`, `.panes-list`, `.panes-main`, `.panes-aside`,
+  en voor de panelen zelf `.pane`, `.pane-head`, `.pane-body`, `.pane-foot` en
+  `.pane-empty`. De maten zijn tokens met een terugval: `--panes-offset`,
+  `--panes-list` en `--panes-aside`.
+- **`<x-list-row>`**: een rij die een link is, met een vinkje over de avatar
+  voor `data-bulk`, een tijd, een onderwerp, een voorbeeld van twee regels en
+  een voet. Klassen `.list-row` en zijn onderdelen; de hoogte volgt `--row-y`.
+- **`<x-message>`**: een bericht in een gesprek, als ballon of als kaart (een
+  mail), in vijf soorten: `in`, `out`, `auto`, `failed` en `note`. Met
+  **`<x-thread-day>`** ("Vandaag", "Gisteren", "maandag 3 maart") in een
+  `.thread`. Klassen `.message`, `.message-card`, `.message-note`,
+  `.message-files` en hun onderdelen.
+- **`<x-composer>`**: een antwoordvak dat meegroeit, onthoudt wat je typte tot
+  het vertrokken is, en verstuurt met `Ctrl`/`Cmd` + `Enter`. Een notitie
+  kleurt het vak (`data-composer-note`). Klassen `.composer` en zijn onderdelen.
+- **`<x-ago>`**: hoe lang geleden, kort ("12 min", "3 u", "2 d").
+- **`<x-shortcuts>`**: het overzicht van de sneltoetsen van een scherm, in een
+  venster.
+- **`tint` en de slot `badge` op `<x-avatar>`**: een kleur voor de letter die
+  bij de persoon blijft, en een bolletje rechtsonder.
+- **`.segmented`** met **`.segment`**, `.segment-success`, `.segment-warning`
+  en `.segment-danger`: twee of drie keuzes naast elkaar, voor links, knoppen
+  en radioknoppen. En **`.kbd`** voor een toets.
+- **Gedrag**: `data-shortcut` (een toets die doet wat een klik doet),
+  `data-kbd-mod`, `data-autogrow`, `data-draft`, `data-count` met
+  `data-count-max`, `data-composer-form` met `data-composer-placeholder`,
+  `data-composer-note` en `data-composer-values`, `data-insert` en
+  `data-scroll-here`. Niet `data-composer` zonder meer: dat heeft socialtail
+  al voor de opsteller van zijn berichten.
+- **`tests/browser/werkblad.html`**: een harnas voor de sneltoetsen, het
+  antwoordvak en wat bij het laden in beeld staat.
+- Engelse vertalingen voor de nieuwe zinnen.
+
+### Veranderd
+
+- **`<x-avatar>` met een foto** neemt een `alt` die je meegeeft. Naast een naam
+  in het scherm is `alt=""` beter; anders hoor je de naam twee keer. Zonder
+  `alt` blijft het de naam.
+
+### Wat je moet doen
+
+Niets. Stond er in een view al een `data-shortcut` zonder script erachter, dan
+werkt die nu: kijk na of die toets doet wat je wil. Had je zelf een werkblad,
+een antwoordvak of een tijd als "3 u", haal ze weg of laat ze op deze
+componenten steunen. Een applicatie die zelf al een `<x-ago>` had, houdt de
+hare (de applicatie wint); gebruik dan `<x-hansui::ago>` waar je die van het
+package wil.
+
 ## 0.12.0
 
 ### Nieuw

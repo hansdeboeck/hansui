@@ -55,5 +55,19 @@
     "bezig": "in progress",
     "klaar": "done",
     "nog niet": "not yet",
-    "probleem": "problem"
+    "probleem": "problem",
+    ":n d": ":n d",
+    ":n min": ":n min",
+    ":n u": ":n h",
+    "Automatisch antwoord": "Automatic reply",
+    "Bericht": "Message",
+    "Gisteren": "Yesterday",
+    "Kiezen": "Select",
+    "Niet verstuurd:": "Not sent:",
+    "Sneltoetsen": "Keyboard shortcuts",
+    "Vandaag": "Today",
+    "aan :adres": "to :adres",
+    "interne notitie": "internal note",
+    "nu": "now",
+    "{1}Een bericht|[2,*]:count berichten": "{1}One message|[2,*]:count messages"
 }
