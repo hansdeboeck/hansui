@@ -593,11 +593,13 @@ scherm zelf aanbiedt, wint van de balk van de applicatie.
 | `data-insert` | op een knop in het formulier: zet de waarde waar de cursor staat, met `{sleutel}` ingevuld |
 | `data-autogrow` | op een tekstvak: het groeit mee tot zijn `max-height` |
 | `data-draft` | op een tekstvak: onthoudt wat je typt onder deze sleutel, tot het formulier vertrekt |
-| `data-count` | op een element: telt de tekens in het veld dat de selector aanwijst |
+| `data-count-for` | op een element: telt de tekens in het veld dat de selector aanwijst |
 | `data-count-max` | op datzelfde element: de grens, dan staat er "12 / 280" |
 
 Niet `data-composer` zonder meer: socialtail gebruikt dat al voor de opsteller
-van zijn berichten, en daar startte het dan het verkeerde script.
+van zijn berichten, en daar startte het dan het verkeerde script. Om dezelfde
+reden telt `data-count-for` en niet `data-count`: in socialtail staat dat al op
+de tellers van die opsteller, met de grens op het veld zelf.
 
 Het concept staat in `localStorage` van dit toestel, onder `hansui.concept.`
 en de waarde van `data-draft`. Staat er al tekst in het vak (na een

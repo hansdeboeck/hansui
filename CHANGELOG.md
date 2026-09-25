@@ -38,11 +38,11 @@ elke lijst die je afwerkt, van tickets tot bestellingen.
   en `.segment-danger`: twee of drie keuzes naast elkaar, voor links, knoppen
   en radioknoppen. En **`.kbd`** voor een toets.
 - **Gedrag**: `data-shortcut` (een toets die doet wat een klik doet),
-  `data-kbd-mod`, `data-autogrow`, `data-draft`, `data-count` met
+  `data-kbd-mod`, `data-autogrow`, `data-draft`, `data-count-for` met
   `data-count-max`, `data-composer-form` met `data-composer-placeholder`,
   `data-composer-note` en `data-composer-values`, `data-insert` en
-  `data-scroll-here`. Niet `data-composer` zonder meer: dat heeft socialtail
-  al voor de opsteller van zijn berichten.
+  `data-scroll-here`. Niet `data-composer` en niet `data-count` zonder meer:
+  die heeft socialtail al voor de opsteller van zijn berichten.
 - **`tests/browser/werkblad.html`**: een harnas voor de sneltoetsen, het
   antwoordvak en wat bij het laden in beeld staat.
 - Engelse vertalingen voor de nieuwe zinnen.

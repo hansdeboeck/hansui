@@ -37,7 +37,7 @@
 |   data-kbd-mod                 Ctrl in een toets wordt ⌘ op een Mac
 |   data-autogrow                een tekstvak dat meegroeit
 |   data-draft                   onthouden wat je typte, tot het vertrokken is
-|   data-count                   tekens tellen, met een grens
+|   data-count-for               tekens tellen, met een grens
 |   data-composer-*              het antwoordvak onder een gesprek
 |   data-insert                  een tekst invoegen waar de cursor staat
 |   data-scroll-here             bij het laden in beeld, in een lijst die zelf scrolt
@@ -3955,11 +3955,11 @@ function hansuiVergeetConcepten(form) {
 
 /*
 |------------------------------------------------------------------------------
-| Tekens tellen: data-count
+| Tekens tellen: data-count-for
 |------------------------------------------------------------------------------
 |
-| `data-count="#bericht"` op een element toont hoeveel tekens er in dat veld
-| staan, met `data-count-max="280"` erbij als "12 / 280", en met
+| `data-count-for="#bericht"` op een element toont hoeveel tekens er in dat
+| veld staan, met `data-count-max="280"` erbij als "12 / 280", en met
 | `data-danger` zodra het er te veel zijn. Leeg bij een leeg veld: een 0
 | zegt niets.
 |
@@ -3967,7 +3967,7 @@ function hansuiVergeetConcepten(form) {
 | Een netwerk dat anders telt (een link als 23), telt op de server na.
 */
 function hansuiTel(teller) {
-    const veld = document.querySelector(teller.getAttribute('data-count'));
+    const veld = document.querySelector(teller.getAttribute('data-count-for'));
     if (!veld) {
         return;
     }
@@ -3990,9 +3990,9 @@ document.addEventListener('input', (e) => {
         hansuiBewaarConcept(veld);
     }
 
-    document.querySelectorAll('[data-count]').forEach((teller) => {
+    document.querySelectorAll('[data-count-for]').forEach((teller) => {
         try {
-            if (veld.matches?.(teller.getAttribute('data-count'))) {
+            if (veld.matches?.(teller.getAttribute('data-count-for'))) {
                 hansuiTel(teller);
             }
         } catch (_) {
@@ -4221,7 +4221,7 @@ function hansuiInBeeld() {
 function hansuiWerkblad() {
     document.querySelectorAll('[data-draft]').forEach(hansuiHerstelConcept);
     document.querySelectorAll('textarea[data-autogrow]').forEach(hansuiGroei);
-    document.querySelectorAll('[data-count]').forEach((teller) => {
+    document.querySelectorAll('[data-count-for]').forEach((teller) => {
         try {
             hansuiTel(teller);
         } catch (_) {

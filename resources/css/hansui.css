@@ -3150,15 +3150,15 @@
         margin-left: auto;
     }
 
-    /* De teller van data-count; `data-danger` zet hansui.js zodra het te veel is. */
-    [data-count] {
+    /* De teller van data-count-for; `data-danger` zet hansui.js zodra het te veel is. */
+    [data-count-for] {
         padding-inline: 0.25rem;
         font-size: 0.75rem;
         font-variant-numeric: tabular-nums;
         color: var(--ink-faint);
     }
 
-    [data-count][data-danger] {
+    [data-count-for][data-danger] {
         font-weight: 600;
         color: var(--danger);
     }
