@@ -91,7 +91,11 @@ Voor menu's en meldingen `.context-menu` met `.context-sep`, `.context-label`,
 `.context-kbd` en `.context-danger`, en `.toast`; voor het voorbeeldvenster
 `.lightbox` en zijn onderdelen. Voor codes
 `.code-input` en `.code-display`. Voor grafieken
-`.chart` en zijn onderdelen.
+`.chart` en zijn onderdelen. Voor een werkblad `.panes` met `.pane`,
+`.pane-head`, `.pane-body`, `.pane-foot` en `.pane-empty`, `.list-row` en zijn
+onderdelen, `.thread` met `.thread-day` en `.message` met zijn onderdelen,
+`.composer` met zijn onderdelen, `.segmented` met `.segment` en zijn tonen, en
+`.kbd` voor een toets.
 
 `.check` op een `<label>` rond een vinkje en zijn tekst maakt er een rij van.
 
@@ -107,7 +111,9 @@ staat, loopt uit elkaar zodra er iets aan verandert.
 `<x-key-value>`, `<x-detail-list>`, `<x-detail-row>`, `<x-tabs>`,
 `<x-nav-link>`, `<x-footer>`, `<x-nav-dropdown>`, `<x-nav-mega-group>`,
 `<x-nav-mega-link>`, `<x-delta>`, `<x-chart.line>`, `<x-chart.columns>`,
-`<x-chart.bars>`, `<x-chart.heatmap>`, `<x-cropper>`, `<x-lightbox>` en `<x-steps>`. Ook bereikbaar als
+`<x-chart.bars>`, `<x-chart.heatmap>`, `<x-cropper>`, `<x-lightbox>`, `<x-steps>`,
+`<x-panes>`, `<x-list-row>`, `<x-message>`, `<x-thread-day>`, `<x-composer>`,
+`<x-ago>` en `<x-shortcuts>`. Ook bereikbaar als
 `<x-hansui::page>` wanneer een applicatie de korte naam zelf al gebruikt.
 
 `<x-card>` is een kaal vlak, `<x-section>` diezelfde kaart met een kopregel
@@ -122,6 +128,14 @@ een schermlezer. Geen wizard: er valt niets aan te klikken. De toestand staat
 in `data-step` op elke `.step` (met `.step-dot`, `.step-label` en
 `.step-hint`), en ook als teken en als verborgen tekst, zodat ze niet op kleur
 alleen leunt.
+
+`<x-avatar>` tekent een foto of de beginletter. Met `tint` krijgt die letter een
+kleur die bij de persoon blijft (uit de naam, of uit de tekst die je meegeeft,
+zoals een e-mailadres), en de slot `badge` zet er een bolletje rechtsonder op.
+
+`<x-ago>` zegt kort hoe lang geleden: "nu", "12 min", "3 u", "2 d", en na een
+week de datum. De volledige tijd staat in de `title`. Geef `zone` mee als de
+applicatie de tijdzone van de lezer kent.
 
 `<x-stat>` neemt `change` (een percentage) en `invert` voor het verschil met de
 vorige periode; dat tekent `<x-delta>`, dat ook los bestaat. Groen is beter,
@@ -144,6 +158,64 @@ voor de heatmap; beide met een eigen donkere reeks. Kies een kleur per
 entiteit en niet per rang, met `HansDeBoeck\HansUi\Chart::series($id)`: dan
 verandert een kanaal niet van kleur als een filter er een ander weghaalt.
 `Chart::scale()` en `Chart::tick()` geven mooie aswaarden, voor wie zelf tekent.
+
+**Een werkblad**, voor een lijst die je afwerkt: een inbox, tickets,
+bestellingen die klaargezet moeten worden. De lijst links, wat je opende in het
+midden en de details rechts, en elk scrolt op zich. Op een telefoon zijn het
+twee schermen: de lijst, of wat er open staat.
+
+```blade
+<x-panes :detail="$open !== null">
+    <x-slot:head class="flex items-center gap-3">…titel en knoppen…</x-slot:head>
+
+    @include('hansui::partials.flash')
+
+    <x-slot:list class="pane" aria-label="Gesprekken">
+        <div class="pane-body" data-bulk>
+            @foreach ($gesprekken as $g)
+                <x-list-row :href="route('inbox.show', $g)" :active="$g->is($open)" :strong="$g->wacht"
+                            :check="$g->id" :count="$g->berichten_count">
+                    <x-slot:avatar><x-avatar :name="$g->naam" :tint="$g->email"/></x-slot:avatar>
+                    <x-slot:title>{{ $g->naam }}</x-slot:title>
+                    <x-slot:time><x-ago :time="$g->updated_at"/></x-slot:time>
+                    {{ $g->laatsteZin }}
+                </x-list-row>
+            @endforeach
+        </div>
+    </x-slot:list>
+
+    <x-slot:main class="pane" aria-label="Gesprek">
+        <header class="pane-head p-4">…</header>
+        <div class="pane-body thread thread-end">
+            <x-thread-day :date="$bericht->created_at"/>
+            <x-message type="in" :name="$bericht->naam" :time="$bericht->created_at" :body="$bericht->tekst"/>
+        </div>
+        <x-composer :action="route('inbox.reply', $open)" :draft="'inbox.'.$open->id">
+            <x-slot:actions><button class="btn btn-primary btn-sm">Versturen</button></x-slot:actions>
+        </x-composer>
+    </x-slot:main>
+</x-panes>
+```
+
+| Component | Wat het is | Wat je meegeeft |
+|---|---|---|
+| `<x-panes>` | het werkblad; wat in de slot staat, komt tussen de kop en de panelen en blijft ook op een telefoon staan (meldingen) | `detail`, en de slots `head`, `list`, `main` en `aside` met hun eigen klassen |
+| `<x-list-row>` | een rij die een link is, met een vinkje over de avatar voor `data-bulk` | `href`, `title`, `active`, `strong`, `count`, `check`, `check-label`, `shortcut`, en de slots `avatar`, `time`, `subject`, `meta`; de slot zelf is het voorbeeld |
+| `<x-message>` | een bericht: `in`, `out`, `auto`, `failed` of `note`, als ballon of als kaart (`layout="card"`, voor een mail) | `type`, `layout`, `name`, `address`, `to`, `time`, `zone`, `body`, `label`, `error`, `tint`, en de slots `avatar`, `top`, `retry`; de slot komt na de tekst |
+| `<x-thread-day>` | een nieuwe dag: "Vandaag", "Gisteren", "maandag 3 maart" | `date`, `zone` |
+| `<x-composer>` | het antwoordvak: groeit mee, onthoudt, verstuurt met `Ctrl` + `Enter` | `action`, `method`, `name`, `id`, `label`, `placeholder`, `value`, `draft`, `values`, `rows`, `required`, `maxlength`, en de slots `head`, `below`, `tools`, `actions` |
+| `<x-shortcuts>` | het overzicht van de sneltoetsen, in een venster | `id`, `title`, `keys` (`['J' => 'Volgende']`) |
+
+De maten zijn tokens met een terugval: `--panes-offset` (wat boven en onder
+het werkblad staat, standaard 6.5rem), `--panes-list` (de lijst, 20rem en vanaf
+`xl` 23rem) en `--panes-aside` (de zijkolom, 17rem). De zijkolom staat er pas
+vanaf `2xl`; daaronder hoort dezelfde inhoud in een `<x-modal>` achter een
+knop.
+
+`.segmented` is een rij keuzes waarvan er een aanstaat: `.segment` op een link
+met `aria-current`, een knop met `aria-pressed` of een label rond een
+radioknop. `.segment-success`, `.segment-warning` en `.segment-danger` kleuren
+de keuze die aanstaat.
 
 **De flash-partial** is een view en geen component, want ze leest de sessie:
 
@@ -495,6 +567,50 @@ het formulier, anders onderaan het scherm. Een validatiefout toont de eerste
 melding daar en zet `aria-invalid` op het veld. `data-async-offline` is de
 tekst als de verbinding wegvalt. Na afloop `async:done`, met het antwoord in
 `detail`; `data-confirm` werkt er gewoon op.
+
+**Sneltoetsen.** Voor een scherm waar je veel na elkaar doet.
+
+| Attribuut | Wat het doet |
+|---|---|
+| `data-shortcut` | op een link, knop of veld: die toets (of die toetsen, gescheiden door een spatie) klikt erop, of zet de cursor in het veld |
+| `data-kbd-mod` | op een `<kbd>`: Ctrl wordt ⌘ op een Mac |
+
+Nooit terwijl je typt, nooit met `Ctrl`, `Cmd` of `Alt` erbij, en met een
+venster open alleen wat in dat venster staat. Wat in iets met `hidden` of
+`inert` staat, uitgeschakeld is of in een dicht venster zit, telt niet; wat
+alleen op een smal scherm uit beeld is, telt wel. Staan er twee met dezelfde
+toets, dan wint wat zichtbaar is en daarna het laatste in de pagina: wat een
+scherm zelf aanbiedt, wint van de balk van de applicatie.
+
+**Het antwoordvak.** Wat `<x-composer>` tekent, en wat ook los werkt.
+
+| Attribuut | Wat het doet |
+|---|---|
+| `data-composer-form` | op het formulier: `Ctrl`/`Cmd` + `Enter` in het tekstvak doet wat de zichtbare verstuurknop doet, `Escape` laat het vak los, en het vertrekt een keer |
+| `data-composer-placeholder` | op een radioknop erin: als hij aangaat, wordt dit de voorzettekst en staat de cursor in het vak |
+| `data-composer-note` | op de radioknop van een notitie: het vak kleurt zolang hij aanstaat |
+| `data-composer-values` | op het formulier: JSON met wat `{sleutel}` wordt in een ingevoegde tekst |
+| `data-insert` | op een knop in het formulier: zet de waarde waar de cursor staat, met `{sleutel}` ingevuld |
+| `data-autogrow` | op een tekstvak: het groeit mee tot zijn `max-height` |
+| `data-draft` | op een tekstvak: onthoudt wat je typt onder deze sleutel, tot het formulier vertrekt |
+| `data-count-for` | op een element: telt de tekens in het veld dat de selector aanwijst |
+| `data-count-max` | op datzelfde element: de grens, dan staat er "12 / 280" |
+
+Niet `data-composer` zonder meer: socialtail gebruikt dat al voor de opsteller
+van zijn berichten, en daar startte het dan het verkeerde script. Om dezelfde
+reden telt `data-count-for` en niet `data-count`: in socialtail staat dat al op
+de tellers van die opsteller, met de grens op het veld zelf.
+
+Het concept staat in `localStorage` van dit toestel, onder `hansui.concept.`
+en de waarde van `data-draft`. Staat er al tekst in het vak (na een
+validatiefout), dan wint die; een concept van meer dan twee weken oud komt niet
+meer terug. Voorbij de grens zet `hansui.js` zelf `data-danger` op de teller.
+
+**In beeld bij het laden.** `data-scroll-here` op een element in een lijst of
+een gesprek dat zelf scrolt: dat opent met dit element bovenaan in beeld (het
+laatste bericht), of met de waarde `center` in het midden, als het er nog niet
+stond (het gesprek dat open is, ook als het de dertigste rij is). De pagina
+zelf scrolt nooit.
 
 **Een melding onderaan.** Voor wie zelf iets wil melden:
 `window.dispatchEvent(new CustomEvent('toast', { detail: 'Bewaard' }))`, of

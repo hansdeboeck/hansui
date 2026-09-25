@@ -33,6 +33,14 @@
 |   data-hover-play              een video die speelt als je erover gaat
 |   data-lightbox*               een groot voorbeeld met vorige en volgende
 |   data-async                   een formulier bewaren zonder de pagina te verlaten
+|   data-shortcut                een toets die doet wat een klik doet
+|   data-kbd-mod                 Ctrl in een toets wordt ⌘ op een Mac
+|   data-autogrow                een tekstvak dat meegroeit
+|   data-draft                   onthouden wat je typte, tot het vertrokken is
+|   data-count-for               tekens tellen, met een grens
+|   data-composer-*              het antwoordvak onder een gesprek
+|   data-insert                  een tekst invoegen waar de cursor staat
+|   data-scroll-here             bij het laden in beeld, in een lijst die zelf scrolt
 |
 | De vier helpers onder "Gebaren" -- spoor, veer, projectie en rubberband --
 | zijn wat de zijbalk en het herordenen delen. Wie hier een gebaar bij bouwt,
@@ -3779,6 +3787,457 @@ document.addEventListener('submit', async (e) => {
         knoppen.forEach((k) => { k.disabled = false; });
     }
 });
+
+/*
+|------------------------------------------------------------------------------
+| Sneltoetsen: data-shortcut
+|------------------------------------------------------------------------------
+|
+| `data-shortcut="j"` op een link, knop of veld: die toets doet wat een klik
+| doet, of zet bij een tekstveld de cursor erin. Voor een lijst die je afwerkt
+| -- J en K bladeren, E handelt af, / zoekt -- en `?` op de knop die het
+| overzicht opent (<x-shortcuts>). Meer toetsen voor hetzelfde element scheid
+| je met een spatie.
+|
+| NOOIT TERWIJL JE TYPT, en nooit met Ctrl, Cmd of Alt erbij: die zijn van de
+| browser en van het besturingssysteem. Staat er een venster open, dan tellen
+| alleen de toetsen in dat venster.
+|
+| WAT ER NIET IS, TELT NIET: een element in iets met `hidden` of `inert`, een
+| uitgeschakelde knop, iets in een dicht venster. Wat alleen op een smal
+| scherm uit beeld is (een klasse als `hidden xl:flex`), telt wel: de toetsen
+| horen niet te veranderen met de breedte van het venster.
+|
+| Staan er twee met dezelfde toets, dan wint wat zichtbaar is, en daarna het
+| LAATSTE in de pagina: wat een scherm zelf aanbiedt, staat na de balk van de
+| applicatie, en hoort het van die balk te winnen.
+*/
+function hansuiToetsBeschikbaar(el) {
+    if (el.disabled || el.getAttribute('aria-disabled') === 'true' || el.closest('[hidden], [inert]')) {
+        return false;
+    }
+
+    const venster = el.closest('dialog');
+
+    return !venster || venster.open;
+}
+
+document.addEventListener('keydown', (e) => {
+    if (e.defaultPrevented || e.repeat || e.isComposing || e.ctrlKey || e.metaKey || e.altKey
+        || hansuiMenu.open || hansuiIsTypveld(e.target)) {
+        return;
+    }
+
+    const venster = [...document.querySelectorAll('dialog[open]')].pop();
+    const toets = e.key.toLowerCase();
+
+    const kandidaten = [...(venster || document).querySelectorAll('[data-shortcut]')].filter((el) =>
+        el.getAttribute('data-shortcut').split(/\s+/).some((k) => k !== '' && k.toLowerCase() === toets)
+        && hansuiToetsBeschikbaar(el));
+
+    if (kandidaten.length === 0) {
+        return;
+    }
+
+    const zichtbaar = kandidaten.filter((el) => el.getClientRects().length > 0);
+    const doel = (zichtbaar.length ? zichtbaar : kandidaten).pop();
+
+    e.preventDefault();
+
+    if (hansuiIsTypveld(doel)) {
+        doel.focus();
+    } else {
+        doel.click();
+    }
+});
+
+/*
+| `data-kbd-mod` op een <kbd> met Ctrl erin: op een Mac wordt dat ⌘. Dit
+| package luistert overal naar Ctrl EN Cmd, dus de hint hoort te zeggen wat
+| er op dit toestel onder de duim ligt.
+*/
+function hansuiModToets() {
+    const apple = /mac|iphone|ipad|ipod/i.test(navigator.userAgentData?.platform || navigator.platform || navigator.userAgent);
+    if (!apple) {
+        return;
+    }
+
+    document.querySelectorAll('[data-kbd-mod]').forEach((kbd) => {
+        kbd.textContent = kbd.textContent.replace(/\bCtrl\b/g, '⌘');
+    });
+}
+
+/*
+|------------------------------------------------------------------------------
+| Een tekstvak dat meegroeit: data-autogrow
+|------------------------------------------------------------------------------
+|
+| Het vak wordt zo hoog als wat erin staat, tot zijn max-height; daarna scrolt
+| het zelf. Een antwoord van drie regels hoort niet in een vak van een regel
+| te staan, en een leeg vak niet een half scherm in te nemen.
+*/
+function hansuiGroei(veld) {
+    // Een verborgen vak meet nul; dat zou het op nul zetten tot iemand typt.
+    if (veld.getClientRects().length === 0) {
+        return;
+    }
+
+    veld.style.height = 'auto';
+    veld.style.height = `${veld.scrollHeight + veld.offsetHeight - veld.clientHeight}px`;
+}
+
+/*
+|------------------------------------------------------------------------------
+| Onthouden tot het vertrokken is: data-draft
+|------------------------------------------------------------------------------
+|
+| `data-draft="gesprek.12"` op een tekstvak bewaart wat je typt in dit toestel,
+| onder die sleutel. Wie tussendoor een ander gesprek opent of de pagina
+| herlaadt, vindt zijn half antwoord terug. Weg zodra het formulier vertrekt.
+|
+| Staat er al tekst in het vak (oude invoer na een validatiefout), dan wint
+| die. Een concept van meer dan twee weken oud komt niet meer terug: dan is
+| het gesprek intussen wel door iemand anders beantwoord.
+*/
+const HANSUI_CONCEPT_DAGEN = 14;
+
+function hansuiConceptSleutel(veld) {
+    return `hansui.concept.${veld.getAttribute('data-draft')}`;
+}
+
+function hansuiBewaarConcept(veld) {
+    const sleutel = hansuiConceptSleutel(veld);
+
+    try {
+        if (veld.value.trim() === '') {
+            localStorage.removeItem(sleutel);
+        } else {
+            localStorage.setItem(sleutel, JSON.stringify({ tekst: veld.value, tijd: Date.now() }));
+        }
+    } catch (_) {
+        // Een privévenster of een volle opslag: dan onthouden we het niet, meer niet.
+    }
+}
+
+function hansuiHerstelConcept(veld) {
+    if (veld.value !== '') {
+        return;
+    }
+
+    const sleutel = hansuiConceptSleutel(veld);
+
+    try {
+        const concept = JSON.parse(localStorage.getItem(sleutel) || 'null');
+        if (!concept?.tekst) {
+            return;
+        }
+
+        if (Date.now() - (concept.tijd || 0) > HANSUI_CONCEPT_DAGEN * 864e5) {
+            localStorage.removeItem(sleutel);
+            return;
+        }
+
+        veld.value = concept.tekst;
+    } catch (_) {
+        // idem
+    }
+}
+
+function hansuiVergeetConcepten(form) {
+    form.querySelectorAll('[data-draft]').forEach((veld) => {
+        try {
+            localStorage.removeItem(hansuiConceptSleutel(veld));
+        } catch (_) {
+            // idem
+        }
+    });
+}
+
+/*
+|------------------------------------------------------------------------------
+| Tekens tellen: data-count-for
+|------------------------------------------------------------------------------
+|
+| `data-count-for="#bericht"` op een element toont hoeveel tekens er in dat
+| veld staan, met `data-count-max="280"` erbij als "12 / 280", en met
+| `data-danger` zodra het er te veel zijn. Leeg bij een leeg veld: een 0
+| zegt niets.
+|
+| Tekens zoals een mens ze telt, niet zoals JavaScript: een emoji is er een.
+| Een netwerk dat anders telt (een link als 23), telt op de server na.
+*/
+function hansuiTel(teller) {
+    const veld = document.querySelector(teller.getAttribute('data-count-for'));
+    if (!veld) {
+        return;
+    }
+
+    const max = Number(teller.getAttribute('data-count-max')) || 0;
+    const gebruikt = [...veld.value].length;
+
+    teller.textContent = gebruikt === 0 ? '' : (max ? `${gebruikt} / ${max}` : String(gebruikt));
+    teller.toggleAttribute('data-danger', max > 0 && gebruikt > max);
+}
+
+document.addEventListener('input', (e) => {
+    const veld = e.target;
+
+    if (veld.matches?.('textarea[data-autogrow]')) {
+        hansuiGroei(veld);
+    }
+
+    if (veld.matches?.('[data-draft]')) {
+        hansuiBewaarConcept(veld);
+    }
+
+    document.querySelectorAll('[data-count-for]').forEach((teller) => {
+        try {
+            if (veld.matches?.(teller.getAttribute('data-count-for'))) {
+                hansuiTel(teller);
+            }
+        } catch (_) {
+            // Een selector die niet klopt, telt niets.
+        }
+    });
+});
+
+/*
+|------------------------------------------------------------------------------
+| Het antwoordvak: data-composer-form
+|------------------------------------------------------------------------------
+|
+| Een <form data-composer-form> met een tekstvak erin (<x-composer> tekent het):
+|
+|   - Ctrl/Cmd + Enter in het vak doet wat een klik op de zichtbare
+|     verstuurknop doet; Escape laat het vak los, zodat de sneltoetsen van
+|     het scherm weer werken.
+|   - Het formulier vertrekt een keer, ook bij een dubbele klik of twee keer
+|     Ctrl + Enter.
+|   - Een radioknop met `data-composer-placeholder` zet, als hij aangaat, die
+|     tekst als voorzettekst in het vak en de cursor erin: "Schrijf een
+|     antwoord" of "Schrijf een notitie voor je team".
+|   - Een knop met `data-insert` zet zijn tekst waar de cursor staat, met
+|     `{sleutel}` ingevuld uit `data-composer-values` (JSON): een
+|     standaardantwoord met de voornaam van de klant erin.
+*/
+function hansuiComposerVeld(composer) {
+    return composer?.querySelector('textarea') || null;
+}
+
+function hansuiComposerStand(composer) {
+    const keuze = composer.querySelector('[data-composer-placeholder]:checked');
+    const veld = hansuiComposerVeld(composer);
+
+    if (keuze && veld) {
+        veld.placeholder = keuze.getAttribute('data-composer-placeholder');
+    }
+}
+
+/*
+| Invoegen waar de cursor staat. Heeft het vak nog nooit de focus gehad, dan
+| achteraan: een cursor die de browser op nul zette, is geen plaats die
+| iemand koos. Achter tekst die niet op een nieuwe regel eindigt, komt er een.
+*/
+function hansuiVoegIn(veld, tekst) {
+    const geraakt = veld.hansuiGeraakt === true;
+    const begin = geraakt ? (veld.selectionStart ?? veld.value.length) : veld.value.length;
+    const eind = geraakt ? (veld.selectionEnd ?? veld.value.length) : veld.value.length;
+    const voor = veld.value.slice(0, begin);
+    const lijm = voor !== '' && !voor.endsWith('\n') && begin === veld.value.length ? '\n' : '';
+
+    veld.value = voor + lijm + tekst + veld.value.slice(eind);
+    veld.focus();
+    veld.selectionStart = veld.selectionEnd = begin + lijm.length + tekst.length;
+    veld.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+document.addEventListener('focusin', (e) => {
+    if (e.target.matches?.('[data-composer-form] textarea')) {
+        e.target.hansuiGeraakt = true;
+    }
+});
+
+document.addEventListener('keydown', (e) => {
+    const veld = e.target.closest?.('[data-composer-form] textarea');
+    if (!veld) {
+        return;
+    }
+
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+
+        // De knop die je ziet: in de stand notitie is dat een andere dan in de stand antwoorden.
+        const form = veld.form;
+        const knoppen = [...form.querySelectorAll('button[type="submit"], button:not([type]), input[type="submit"]')];
+        const knop = knoppen.find((k) => k.getClientRects().length > 0 && !k.closest('[hidden]'));
+
+        if (veld.value.trim() === '') {
+            return;
+        }
+
+        if (knop && !knop.disabled) {
+            form.requestSubmit(knop);
+        } else if (knoppen.length === 0) {
+            form.requestSubmit();
+        }
+    } else if (e.key === 'Escape' && !e.defaultPrevented) {
+        veld.blur();
+    }
+});
+
+document.addEventListener('click', (e) => {
+    // Ook bij een klik op wat al aanstond: R in de stand antwoorden zet de cursor in het vak.
+    const stand = e.target.closest?.('[data-composer-placeholder]');
+    if (stand && stand.matches('input')) {
+        const composer = stand.closest('[data-composer-form]');
+        const veld = hansuiComposerVeld(composer);
+        if (composer && veld) {
+            hansuiComposerStand(composer);
+            veld.focus();
+
+            // Een klik op het label zet de focus daarna nog op de radioknop; dan terug.
+            setTimeout(() => {
+                if (document.activeElement === stand) {
+                    veld.focus();
+                }
+            }, 0);
+        }
+        return;
+    }
+
+    const knop = e.target.closest?.('[data-insert]');
+    if (!knop) {
+        return;
+    }
+
+    const composer = knop.closest('[data-composer-form]');
+    const veld = hansuiComposerVeld(composer);
+    if (!veld) {
+        return;
+    }
+
+    let waarden = {};
+    try {
+        waarden = JSON.parse(composer.getAttribute('data-composer-values') || '{}');
+    } catch (_) {
+        // Geen of kapotte waarden: dan blijft {sleutel} staan, en dat ziet wie verstuurt.
+    }
+
+    const tekst = knop.getAttribute('data-insert').replace(/\{(\w+)\}/g, (heel, sleutel) =>
+        Object.hasOwn(waarden, sleutel) ? String(waarden[sleutel]) : heel);
+
+    hansuiVoegIn(veld, tekst);
+    hansuiSluitDropdowns();
+});
+
+document.addEventListener('change', (e) => {
+    if (e.target.matches?.('[data-composer-placeholder]')) {
+        const composer = e.target.closest('[data-composer-form]');
+        if (composer) {
+            hansuiComposerStand(composer);
+        }
+    }
+});
+
+document.addEventListener('submit', (e) => {
+    const form = e.target;
+    if (e.defaultPrevented || !form.matches?.('form')) {
+        return;
+    }
+
+    if (form.matches('[data-composer-form]')) {
+        if (form.getAttribute('aria-busy') === 'true') {
+            e.preventDefault();
+            return;
+        }
+
+        form.setAttribute('aria-busy', 'true');
+    }
+
+    // Een formulier met data-async blijft staan; dat vergeet zijn concept pas als het aankwam.
+    if (!form.matches('[data-async]')) {
+        hansuiVergeetConcepten(form);
+    }
+});
+
+document.addEventListener('async:done', (e) => hansuiVergeetConcepten(e.target));
+
+// Terug naar een pagina uit het geheugen van de browser: dan is het formulier niet meer bezig.
+window.addEventListener('pageshow', (e) => {
+    if (e.persisted) {
+        document.querySelectorAll('form[data-composer-form][aria-busy]').forEach((form) => form.removeAttribute('aria-busy'));
+    }
+});
+
+/*
+|------------------------------------------------------------------------------
+| In beeld bij het laden: data-scroll-here
+|------------------------------------------------------------------------------
+|
+| Een lijst of een gesprek dat zelf scrolt, opent waar het om gaat: een
+| gesprek bij het laatste bericht (`data-scroll-here`, bovenaan in beeld), een
+| lijst bij het item dat open staat, ook als het de dertigste rij is
+| (`data-scroll-here="center"`, alleen als het niet al in beeld staat).
+|
+| Alleen binnen een omhulling die zelf scrolt. De pagina zelf blijft staan:
+| een scherm dat bij het laden verspringt, verliest wie net begon te lezen.
+*/
+function hansuiScrolhouder(el) {
+    for (let ouder = el.parentElement; ouder && ouder !== document.body; ouder = ouder.parentElement) {
+        const stijl = getComputedStyle(ouder).overflowY;
+        if ((stijl === 'auto' || stijl === 'scroll') && ouder.scrollHeight > ouder.clientHeight) {
+            return ouder;
+        }
+    }
+
+    return null;
+}
+
+function hansuiInBeeld() {
+    document.querySelectorAll('[data-scroll-here]').forEach((el) => {
+        const houder = hansuiScrolhouder(el);
+        if (!houder) {
+            return;
+        }
+
+        const top = el.getBoundingClientRect().top - houder.getBoundingClientRect().top + houder.scrollTop;
+
+        if (el.getAttribute('data-scroll-here') === 'center') {
+            const zichtbaar = top >= houder.scrollTop && top + el.offsetHeight <= houder.scrollTop + houder.clientHeight;
+            if (!zichtbaar) {
+                houder.scrollTop = Math.max(0, top - (houder.clientHeight - el.offsetHeight) / 2);
+            }
+        } else {
+            houder.scrollTop = Math.max(0, top - 16);
+        }
+    });
+}
+
+/*
+| Bij het laden: concepten terug, vakken op maat, tellers en voorzetteksten
+| juist, Ctrl als ⌘ op een Mac, en de lijst en het gesprek waar het om gaat.
+| In die volgorde: een teruggezet concept verandert de hoogte van het vak.
+*/
+function hansuiWerkblad() {
+    document.querySelectorAll('[data-draft]').forEach(hansuiHerstelConcept);
+    document.querySelectorAll('textarea[data-autogrow]').forEach(hansuiGroei);
+    document.querySelectorAll('[data-count-for]').forEach((teller) => {
+        try {
+            hansuiTel(teller);
+        } catch (_) {
+            // idem
+        }
+    });
+    document.querySelectorAll('[data-composer-form]').forEach(hansuiComposerStand);
+    hansuiModToets();
+    hansuiInBeeld();
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', hansuiWerkblad);
+} else {
+    hansuiWerkblad();
+}
 
 window.HansUI = Object.assign(window.HansUI || {}, {
     toast: hansuiToast,

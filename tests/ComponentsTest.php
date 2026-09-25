@@ -57,7 +57,7 @@ final class ComponentsTest extends TestCase
             'section' => ['<x-section title="Verdeling" subtitle="Per afdeling" :padding="false"><x-slot:actions>knop</x-slot:actions> Inhoud <x-slot:footer>voet</x-slot:footer></x-section>'],
             'stat' => ['<x-stat label="Leden" value="128" icon="people" tone="brand" hint="deze week" href="/leden"/><x-stat label="Saldo"><x-money :cents="1250"/></x-stat>'],
             'modal' => ['<x-modal id="rang" title="Nieuwe rang" size="lg" :open="true"><div class="modal-body">veld</div></x-modal>'],
-            'avatar' => ['<x-avatar name="Nina Bodart" size="lg"/><x-avatar name="Nina" src="/n.jpg"/>'],
+            'avatar' => ['<x-avatar name="Nina Bodart" size="lg"/><x-avatar name="Nina" src="/n.jpg"/><x-avatar name="Nina" :tint="true"><x-slot:badge style="background: #1877f2" title="Facebook">FB</x-slot:badge></x-avatar>'],
             'tabs' => ['<x-tabs :items="[[\'label\' => \'Jobs\', \'href\' => \'/jobs\', \'active\' => true, \'count\' => 4]]">terug</x-tabs>'],
             'choice' => ['<x-choice name="job" value="politie" label="Politie" icon="shield" hint="Rang 3" :checked="true"/>'],
             'alert' => ['<x-alert variant="warning" title="Let op" :dismissible="true">Dit kan niet terug.</x-alert><x-alert>Los.</x-alert>'],
@@ -69,6 +69,13 @@ final class ComponentsTest extends TestCase
             'cropper' => ['<x-cropper src="/foto.jpg" alt="Etalage" :ratios="[\'free\', \'1:1\', \'4:5\' => \'Instagram 4:5\']" ratio="4:5" name="uitsnede"/><x-cropper/>'],
             'steps' => ['<x-steps label="Voortgang" :items="[[\'label\' => \'DNS\', \'state\' => \'done\'], [\'label\' => \'Certificaat\', \'hint\' => \'Een paar minuten\', \'state\' => \'current\'], [\'label\' => \'Fout\', \'state\' => \'error\'], [\'label\' => \'Actief\']]"/><x-steps/>'],
             'lightbox' => ['<x-lightbox id="voorbeeld" group="fotos" label="Voorbeeld"><p>Paneel</p><x-slot:actions>knop</x-slot:actions></x-lightbox><x-lightbox id="kaal"/><x-lightbox id="leeg" :aside="true"/>'],
+            'panes' => ['<x-panes :detail="true"><x-slot:head class="flex">Inbox</x-slot:head><p>melding</p><x-slot:list class="pane" aria-label="Lijst">rijen</x-slot:list><x-slot:main class="pane">gesprek</x-slot:main><x-slot:aside class="pane">details</x-slot:aside></x-panes><x-panes><x-slot:list>rijen</x-slot:list><x-slot:main>leeg</x-slot:main></x-panes>'],
+            'list-row' => ['<x-list-row href="/gesprek/1" :active="true" :strong="true" :count="3" check="1" check-label="Kiezen: Nina" shortcut="j"><x-slot:avatar><x-avatar name="Nina Bodart" :tint="true"/></x-slot:avatar><x-slot:title>Nina Bodart</x-slot:title><x-slot:time class="text-red-700">5 min</x-slot:time><x-slot:subject>Levering</x-slot:subject> Waar blijft mijn pakje?<x-slot:meta>label</x-slot:meta></x-list-row><x-list-row href="/gesprek/2" title="Jan"/>'],
+            'message' => ['<x-message name="Nina" body="Hallo" time="2026-01-05 10:00"/><x-message type="out" name="Hans" body="Dag Nina"/><x-message type="auto" body="Ontvangen"/><x-message type="failed" name="Hans" body="Toch" error="Geen verbinding"><x-slot:retry><button>Opnieuw</button></x-slot:retry></x-message><x-message type="note" name="Hans" body="Bellen"/><x-message layout="card" name="Nina" address="nina@voorbeeld.be" to="hallo@winkel.be" body="Een mail"><x-slot:avatar><x-avatar name="Nina"/></x-slot:avatar><x-slot:top>sterren</x-slot:top> bijlagen</x-message><x-message layout="card" type="failed" name="Hans" error="Geweigerd"/>'],
+            'thread-day' => ['<x-thread-day date="2026-01-05 10:00" zone="Europe/Brussels"/>'],
+            'composer' => ['<x-composer action="/antwoord" draft="gesprek.1" :values="[\'naam\' => \'Nina\']" placeholder="Schrijf…" :maxlength="1000"><x-slot:head>kop</x-slot:head><x-slot:below>handtekening</x-slot:below><x-slot:tools>tools</x-slot:tools><x-slot:actions><button>Versturen</button></x-slot:actions></x-composer><x-composer action="/x" method="put" id="tweede"/>'],
+            'ago' => ['<x-ago time="2026-01-05 10:00" class="text-xs"/><x-ago/>'],
+            'shortcuts' => ['<x-shortcuts :keys="[\'J\' => \'Volgende\', \'Ctrl ↵\' => \'Versturen\']">Uitleg</x-shortcuts>'],
         ];
     }
 
