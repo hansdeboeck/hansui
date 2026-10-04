@@ -824,6 +824,7 @@ export class FlowEditor {
 
             if (output.label) {
                 const label = element('span', 'flow-port-label', output.label);
+                label.dataset.flowOutLabel = output.key;
                 label.style.top = `${top}px`;
                 card.append(label);
             }
@@ -1302,7 +1303,7 @@ export class FlowEditor {
             for (const output of this.outputsOf(node)) {
                 if (G.target(this.graph, node.id, output.key) === null) {
                     const point = G.outPoint(this.types, node, output.key);
-                    fragment.append(svg('path', { class: 'flow-stub-line', d: `M ${point.x + 7} ${point.y} H ${point.x + 34}` }));
+                    fragment.append(svg('path', { class: 'flow-stub-line', d: `M ${point.x + 7} ${point.y} H ${point.x + this.stubOffset(node, output)}` }));
                 }
             }
         }
@@ -1310,6 +1311,13 @@ export class FlowEditor {
         this.draft = svg('path', { class: 'flow-edge-draft', d: '' });
         fragment.append(this.draft);
         this.edgeLayer.replaceChildren(fragment);
+    }
+
+    /** Hoe ver de knop na een uitgang zonder vervolg staat: na haar naam, zodat die leesbaar blijft. */
+    stubOffset(node, output) {
+        const label = output.label ? this.nodeElementFor(node.id)?.querySelector(`[data-flow-out-label="${CSS.escape(output.key)}"]`) : null;
+
+        return Math.max(34, label ? 12 + label.offsetWidth + 8 : 0);
     }
 
     renderOverlay() {
@@ -1335,7 +1343,7 @@ export class FlowEditor {
                 button.dataset.flowStub = '';
                 button.dataset.from = node.id;
                 button.dataset.port = output.key;
-                button.style.transform = `translate(${point.x + 34}px, ${point.y - 12}px)`;
+                button.style.transform = `translate(${point.x + this.stubOffset(node, output)}px, ${point.y - 12}px)`;
                 button.setAttribute('aria-label', format(output.label ? this.strings.addAfterPort : this.strings.addAfter, { stap: `${this.numbers?.get(node.id) ?? ''}. ${type.label}`, uitgang: output.label }));
                 fragment.append(button);
             }

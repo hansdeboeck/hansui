@@ -63,6 +63,9 @@ waren. Wie `hansdeboeck/flows` gebruikte:
 - de imports wijzen naar `vendor/hansdeboeck/hansui/resources/js/flows.js` en
   `vendor/hansdeboeck/hansui/resources/css/flows.css`.
 
+Een bewaarde flow houdt haar plaatsen; Schikken zet de kolommen nu 360 uit
+elkaar (was 300), zodat de naam van een tak en de knop erna ertussen passen.
+
 Had je een view van het pakket overschreven (`resources/views/vendor/flows`),
 dan is dat nu `resources/views/components/flow-editor.blade.php`, zoals bij
 elke component van HansUI.

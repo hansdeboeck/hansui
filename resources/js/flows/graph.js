@@ -20,7 +20,7 @@
 | en doen niet mee met de wandeling.
 */
 
-export const COLUMN = 320;
+export const COLUMN = 360;
 export const ROW = 150;
 export const NODE_WIDTH = 240;
 export const NODE_HEIGHT = 76;

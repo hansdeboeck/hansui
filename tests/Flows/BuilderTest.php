@@ -28,7 +28,7 @@ final class BuilderTest extends ZonderLaravel
         $this->assertSame(['start', 'n1', 'n2', 'n3'], [$start, $check, $yes, $no]);
         $this->assertSame('n3', $graph->target('n1', 'no'));
         $this->assertSame(['amount' => 1, 'unit' => 'days'], $graph->node('n3')?->config, 'De standaard van de soort.');
-        $this->assertSame(640, $graph->node('n3')?->x);
+        $this->assertSame(720, $graph->node('n3')?->x);
         $this->assertSame(150, $graph->node('n3')?->y);
         $this->assertTrue($graph->isComplete());
     }

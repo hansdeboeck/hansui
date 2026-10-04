@@ -645,7 +645,7 @@
         border-color: var(--line-strong);
     }
 
-    /* Tussen twee kolommen is er 80px: een lange naam (een collega, een pijplijn) wordt afgekort, de hele staat in de title van de uitgang. */
+    /* Tussen twee kolommen is er 120px: de naam van een uitgang, en daarna de knop om er iets aan te hangen. Een lange naam (een collega, een pijplijn) wordt afgekort; de hele staat in de title van de uitgang. */
     .flow-port-label {
         position: absolute;
         left: calc(100% + 0.75rem);

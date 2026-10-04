@@ -958,7 +958,8 @@ wat meer tegelijk gekozen is; `data-trace` (`visited` of `current`) en
 `data-trace-status` op een stap van een weg; `data-node` op een stap, met
 `data-tone`, `data-start`, `data-issue`, `data-dragging` terwijl ze versleept
 wordt, `data-drop` (`ok` of `no`) terwijl er een verbinding boven hangt en
-`data-refused` even als die niet kan; `data-flow-out` op een uitgang;
+`data-refused` even als die niet kan; `data-flow-out` op een uitgang, en
+`data-flow-out-label` op haar naam (de knop erna staat na die naam);
 `data-edge` op een verbinding, met `data-selected` als ze gekozen is, en
 `data-flow-edge-actions` met `data-flow-edge-insert` en `data-flow-edge-remove`
 erop; in het paneel `data-flow-form-for`, `data-flow-field`,
@@ -1005,7 +1006,7 @@ gooit, gaat door naar wie de walker riep.
     "version": 1,
     "nodes": [
         { "id": "start", "type": "trigger", "config": { "event": "deal.won" }, "x": 0, "y": 0 },
-        { "id": "n1", "type": "task", "config": { "title": "Bellen" }, "x": 320, "y": 0 }
+        { "id": "n1", "type": "task", "config": { "title": "Bellen" }, "x": 360, "y": 0 }
     ],
     "edges": [
         { "from": "start", "port": "out", "to": "n1" }

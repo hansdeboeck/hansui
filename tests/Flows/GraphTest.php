@@ -246,9 +246,9 @@ final class GraphTest extends ZonderLaravel
     {
         $graph = self::takken()->withPositions(['c' => [5, 5]]);
 
-        $this->assertSame([320, 0], [$graph->arranged()->node('c')?->x, $graph->arranged()->node('c')?->y]);
+        $this->assertSame([360, 0], [$graph->arranged()->node('c')?->x, $graph->arranged()->node('c')?->y]);
         $this->assertSame([5, 5], [$graph->arranged(all: false)->node('c')?->x, $graph->arranged(all: false)->node('c')?->y]);
-        $this->assertSame([640, 150], [$graph->arranged(all: false)->node('b')?->x, $graph->arranged(all: false)->node('b')?->y]);
+        $this->assertSame([720, 150], [$graph->arranged(all: false)->node('b')?->x, $graph->arranged(all: false)->node('b')?->y]);
     }
 
     #[Test]
@@ -264,7 +264,7 @@ final class GraphTest extends ZonderLaravel
         $this->assertSame(['high', 'urgent', 'other'], array_map(fn (Edge $edge) => $edge->port, $graph->outgoing('s')));
         $this->assertSame('a', $graph->next('s')?->id, 'Zonder uitgang de eerste tak.');
         $this->assertSame(['start', 's', 'a', 'b', 'c'], $graph->reachable());
-        $this->assertSame([[0, 0], [320, 0], [640, 0], [640, 150], [640, 300]], array_values(Layout::positions($graph)));
+        $this->assertSame([[0, 0], [360, 0], [720, 0], [720, 150], [720, 300]], array_values(Layout::positions($graph)));
 
         // Een tak die niet gekozen is, heeft geen uitgang; een tak die wegvalt, verliest zijn verbinding.
         $this->assertGooit(InvalidGraph::class, 'has no output "low"', fn () => $graph->connect('s', 'low', 'c'));
@@ -341,7 +341,7 @@ final class GraphTest extends ZonderLaravel
         $this->assertSame(['start', '12', '7', '9', '30', '41'], self::ids($los->ordered()));
         $this->assertArrayHasKey('41', $los->issuesByNode());
         $this->assertTrue($los->arranged()->node('41')?->hasPosition());
-        $this->assertSame(960, $graph->arranged()->node('9')?->x);
+        $this->assertSame(1080, $graph->arranged()->node('9')?->x);
         $this->assertSame(10, $graph->withPositions(['12' => [10, 20]])->node('12')?->x);
         $this->assertSame('7', $graph->withoutNode('12')->next('start')?->id);
 

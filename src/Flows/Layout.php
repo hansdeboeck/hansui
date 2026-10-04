@@ -22,7 +22,7 @@ namespace HansDeBoeck\HansUi\Flows;
 final class Layout
 {
     /** De breedte van een kolom: een stap (240) en de ruimte voor de verbinding. */
-    public const COLUMN = 320;
+    public const COLUMN = 360;
 
     /** De hoogte van een rij: een stap (76) en lucht. */
     public const ROW = 150;
