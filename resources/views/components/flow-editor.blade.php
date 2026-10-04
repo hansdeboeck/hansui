@@ -46,7 +46,7 @@
     De slot `overview` is een tweede weergave naast de flow, voor wat de
     pagina anders onder de editor zou zetten (de laatste keren, de cijfers):
 
-        <x-slot:overview :label="__('Uitvoeringen')" hash="uitvoeringen">...</x-slot:overview>
+        <x-slot:overview label="Uitvoeringen" hash="uitvoeringen">...</x-slot:overview>
 
     In de balk komt dan een keuze tussen de flow en het overzicht; het
     overzicht neemt de plaats van het werkvlak in en scrolt zelf. `hash` is
