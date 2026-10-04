@@ -56,7 +56,7 @@ final class Builder
     public function connect(string $from, string $to, ?string $port = null): self
     {
         $type = $this->types->require($this->nodes[$from]['type'] ?? throw new InvalidArgumentException(sprintf('There is no node "%s".', $from)));
-        $port ??= $type->firstOutput() ?? throw new InvalidArgumentException(sprintf('Node "%s" has no outputs.', $from));
+        $port ??= $type->firstOutput($this->nodes[$from]['config']) ?? throw new InvalidArgumentException(sprintf('Node "%s" has no outputs.', $from));
 
         $this->edges[$from."\0".$port] = ['from' => $from, 'port' => $port, 'to' => $to];
 

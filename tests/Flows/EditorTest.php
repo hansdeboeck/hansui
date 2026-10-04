@@ -10,6 +10,7 @@ use HansDeBoeck\HansUi\Flows\Builder;
 use HansDeBoeck\HansUi\Flows\Graph;
 use HansDeBoeck\HansUi\Flows\Messages;
 use HansDeBoeck\HansUi\Flows\Node;
+use HansDeBoeck\HansUi\Flows\NodeType;
 use HansDeBoeck\HansUi\Tests\TestCase;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ViewErrorBag;
@@ -213,6 +214,45 @@ final class EditorTest extends TestCase
 
         $this->assertSame('Overzicht', trim((string) $kaal->query('//button[@data-flow-view="overview"]')->item(0)?->textContent));
         $this->assertSame('overzicht', $kaal->query('//div[@data-flow-overview]')->item(0)?->getAttribute('data-flow-overview'));
+    }
+
+    #[Test]
+    public function heeft_notities_een_balk_voor_de_weg_en_proefdraaien_als_de_applicatie_een_url_geeft(): void
+    {
+        $html = $this->teken('test="/automatisaties/7/proef"', '<x-slot:example><select name="deal_id"><option value="12">Zonnepanelen</option></select></x-slot:example>');
+        $xpath = $this->xpath($html);
+        $formulier = $xpath->query('//form[@data-flow-test-panel]')->item(0);
+
+        $this->assertSame(1, $xpath->query('//div[@data-flow-world]/div[@data-flow-stickies]')->length);
+        $this->assertSame(1, $xpath->query('//button[@data-flow-sticky-add]')->length);
+        $this->assertSame(1, $xpath->query('//div[@data-flow-trace-bar][@hidden]//button[@data-flow-trace-close]')->length);
+
+        // Proefdraaien: een knop, en een formulier met het token en de velden van de applicatie.
+        $this->assertInstanceOf(\DOMElement::class, $formulier);
+        $this->assertSame('/automatisaties/7/proef', $formulier->getAttribute('action'));
+        $this->assertTrue($formulier->hasAttribute('hidden'));
+        $this->assertSame(1, $xpath->query('//form[@data-flow-test-panel]//input[@name="_token"]')->length);
+        $this->assertSame(1, $xpath->query('//form[@data-flow-test-panel]//select[@name="deal_id"]')->length);
+        $this->assertSame(1, $xpath->query('//button[@data-flow-test-open][@aria-controls="'.$formulier->getAttribute('id').'"]')->length);
+
+        // Zonder url geen knop; wie alleen kijkt, zet geen notities.
+        $this->assertStringNotContainsString('data-flow-test-open', $this->teken());
+        $this->assertStringNotContainsString('data-flow-sticky-add', $this->teken(':readonly="true"'));
+        $this->assertStringContainsString('data-flow-stickies', $this->teken(':readonly="true"'));
+    }
+
+    #[Test]
+    public function geeft_takken_en_notities_mee_aan_de_editor(): void
+    {
+        $soorten = self::soorten()->add(new NodeType('split', 'Splitsen', icon: 'route', outputs: ['other' => 'Anders'], branches: 'values'));
+        $graaf = Graph::fromArray(self::flow([['start', 'trigger', ['event' => 'x']], ['s', 'split', ['values' => ['high']]]], [['start', 'out', 's']]) + ['stickies' => [['id' => 's1', 'text' => 'Eerst bellen', 'x' => 0, 'y' => 200]]], $soorten);
+        $xpath = $this->xpath($this->teken('', '', $graaf));
+        $wortel = $this->wortel($xpath);
+        $soort = collect(json_decode((string) $wortel?->getAttribute('data-flow-types'), true))->firstWhere('key', 'split');
+        $waarde = (string) $xpath->query('//input[@data-flow-input]')->item(0)?->getAttribute('value');
+
+        $this->assertSame('values', $soort['branches']);
+        $this->assertSame('Eerst bellen', json_decode($waarde, true)['stickies'][0]['text']);
     }
 
     #[Test]

@@ -57,10 +57,36 @@ final class NodeTypeTest extends ZonderLaravel
             'hint' => 'Waar het begint.',
             'max' => 1,
             'defaults' => ['event' => 'deal.won'],
+            'branches' => null,
         ], json_decode((string) json_encode($type), true));
 
         // Zonder standaard is het een leeg object, geen lijst.
         $this->assertSame('{}', json_encode((new NodeType('task', 'Taak'))->toArray()['defaults']));
+    }
+
+    #[Test]
+    public function haalt_takken_uit_de_config_voor_de_vaste_uitgangen(): void
+    {
+        $split = new NodeType('split', 'Splitsen', outputs: ['other' => 'Anders'], branches: 'values');
+
+        $this->assertSame(['high' => '', 'urgent' => '', 'other' => 'Anders'], $split->outputsFor(['values' => ['high', 'urgent']]));
+        $this->assertSame(['other' => 'Anders'], $split->outputsFor([]), 'Zonder keuze blijft alleen de vaste uitgang.');
+        $this->assertSame('high', $split->firstOutput(['values' => ['high']]));
+        $this->assertSame('other', $split->firstOutput());
+        $this->assertTrue($split->hasOutput('urgent', ['values' => ['urgent']]));
+        $this->assertFalse($split->hasOutput('urgent'));
+        $this->assertSame('values', $split->toArray()['branches']);
+
+        // Wat geen naam voor een uitgang is, een dubbele, de vaste of een vijfde tak telt niet.
+        $this->assertSame(
+            ['a' => '', 'b-2' => '', 'c' => '', 'd' => '', 'other' => 'Anders'],
+            $split->outputsFor(['values' => ['a', '12', 'Hoog', 'a', 'other', ['x'], 'b-2', 'c', 'd', 'e']]),
+        );
+
+        $end = new NodeType('route', 'Route', outputs: [], branches: 'values');
+
+        $this->assertTrue($end->isEnd());
+        $this->assertFalse($end->isEnd(['values' => ['a']]));
     }
 
     /** @return array<string, array{Closure, string}> */
@@ -71,6 +97,7 @@ final class NodeTypeTest extends ZonderLaravel
             'een kleur in plaats van een rol' => [fn () => new NodeType('task', 'Taak', tone: 'purple'), 'not a tone'],
             'een uitgang met een spatie' => [fn () => new NodeType('task', 'Taak', outputs: ['ja nee' => '']), 'not a valid output'],
             'een maximum van nul' => [fn () => new NodeType('task', 'Taak', max: 0), 'at least 1'],
+            'takken met een ongeldige sleutel' => [fn () => new NodeType('split', 'Splitsen', branches: 'De waarden'), 'not a valid config key'],
         ];
     }
 

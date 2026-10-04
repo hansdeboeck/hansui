@@ -28,6 +28,23 @@ beide applicaties gekopieerd stond; een wijziging moest dus twee keer.
   pagina anders onder de editor zou zetten. In de balk komt een keuze (Flow,
   Uitvoeringen), het overzicht scrolt zelf, en `#overzicht` (of de `hash`)
   staat in de url.
+- **Een splitsing met meer takken**: een `NodeType` met `branches` (de sleutel
+  in de config met de takken) krijgt een uitgang per tak, hoogstens vier, en
+  de vaste uitgangen erna (Anders). Een tak die verdwijnt, neemt haar
+  verbinding mee; `outputsFor($config)` en `hasOutput($port, $config)` kennen
+  ze, de graaf en de wandeling ook.
+- **Notities op het canvas** (`stickies` in de json, hoogstens 50): ze doen
+  niet mee met de wandeling of de controles.
+- **Meer stappen tegelijk**: Shift + klik, Shift + slepen voor een kader en
+  Ctrl+A. Samen verplaatsen, verwijderen, kopiëren, knippen en plakken, ook
+  in een andere flow (het klembord draagt json met een merkteken).
+- **De weg van een uitvoering**: een knop met `data-flow-trace` toont welke
+  stappen een uitvoering nam, waar ze staat en wat er bij elke stap gebeurde.
+- **Een versie laden** met `data-flow-load`, als een wijziging die je
+  terugdraait met Ctrl+Z.
+- **Proefdraaien**: de prop `test` (een url) en de slot `example`. De server
+  rekent de weg uit zonder iets te doen, en de editor toont ze zoals een
+  uitvoering.
 - `tests/js` met de tests van de graaf in de browser, tegen dezelfde
   `tests/fixtures/flows-layout.json` als `Layout`; `composer test` draait ze
   mee (`node --test`, zonder afhankelijkheden).

@@ -145,6 +145,9 @@ export class FlowEditor {
         this.live = root.querySelector('[data-flow-live]');
         this.zoomLabel = root.querySelector('[data-flow-zoom-label]');
         this.overview = root.querySelector('[data-flow-overview]');
+        this.stickyLayer = root.querySelector('[data-flow-stickies]');
+        this.traceBar = root.querySelector('[data-flow-trace-bar]');
+        this.testPanel = root.querySelector('[data-flow-test-panel]');
 
         this.templates = new Map([...root.querySelectorAll('template[data-flow-form]')].map((template) => [template.dataset.flowForm, template]));
         this.icons = new Map([...root.querySelectorAll('template[data-flow-icon]')].map((template) => [template.dataset.flowIcon, template]));
@@ -155,6 +158,12 @@ export class FlowEditor {
         // Een flow uit code heeft geen plaatsen; een flow met een paar nieuwe stappen krijgt alleen die erbij.
         if (this.graph.nodes.some((node) => node.x === null || node.y === null)) {
             this.graph = G.arrange(this.graph, this.types, this.graph.nodes.every((node) => node.x === null));
+            this.sync();
+        }
+
+        // Een notitie zonder plaats komt onder de stappen.
+        if ((this.graph.stickies ?? []).some((sticky) => sticky.x === null || sticky.y === null)) {
+            this.graph = this.placeStickies(this.graph);
             this.sync();
         }
 
@@ -174,6 +183,9 @@ export class FlowEditor {
         this.view = { x: 0, y: 0, scale: 1 };
         this.formCache = new Map();
         this.summaryCache = new Map();
+        this.labelCache = new Map();
+        this.panelSticky = null;
+        this.trace = null;
 
         this.bind();
         this.measureFill();
@@ -260,6 +272,7 @@ export class FlowEditor {
         this.burst = null;
         this.record();
         this.graph = graph;
+        this.clearTrace({ render: false });
         this.changed();
 
         if (message) {
@@ -290,6 +303,20 @@ export class FlowEditor {
     afterHistory(message) {
         this.burst = null;
         this.summaryCache.clear();
+        this.labelCache.clear();
+        this.clearTrace({ render: false });
+
+        if (this.panelSticky && !this.sticky(this.panelSticky)) {
+            this.closePanel();
+        }
+
+        if (this.selection?.sticky && !this.sticky(this.selection.sticky)) {
+            this.selection = null;
+        }
+
+        if (this.selection?.many) {
+            this.selection = null;
+        }
 
         if (this.selection?.node && !this.node(this.selection.node)) {
             this.selection = null;
@@ -303,9 +330,15 @@ export class FlowEditor {
 
         if (this.panelNode) {
             this.selection?.node ? this.openPanel(this.selection.node) : this.closePanel();
+        } else if (this.panelSticky) {
+            this.openStickyPanel(this.panelSticky);
         }
 
         this.announce(message);
+    }
+
+    sticky(id) {
+        return (this.graph.stickies ?? []).find((sticky) => sticky.id === id) ?? null;
     }
 
     edge(key) {
@@ -421,11 +454,21 @@ export class FlowEditor {
         const hidden = (field) => Boolean(field.closest('[hidden]'));
         const fields = this.fields(form);
 
+        const nameOf = (field) => (raw ? field.name : (field.dataset.flowName ?? field.name));
+        const keyOf = (field) => (raw ? nameOf(field).replace(/\[\]$/, '') : field.dataset.flowField);
+
         // Twee velden met dezelfde naam (een tekst en een keuzelijst voor dezelfde waarde): wat te zien is, wint.
+        // Ook voor een lijst: de vinkjes van een deel dat verborgen is, tellen dan niet mee.
+        const shown = new Set(fields.filter((field) => !hidden(field)).map(keyOf));
+
         for (const field of [...fields.filter(hidden), ...fields.filter((field) => !hidden(field))]) {
-            const name = raw ? field.name : (field.dataset.flowName ?? field.name);
-            const key = raw ? name.replace(/\[\]$/, '') : field.dataset.flowField;
+            const name = nameOf(field);
+            const key = keyOf(field);
             const many = name.endsWith('[]');
+
+            if (hidden(field) && shown.has(key)) {
+                continue;
+            }
 
             if (field.type === 'checkbox') {
                 if (many) {
@@ -600,10 +643,63 @@ export class FlowEditor {
         return value.length > 80 ? `${value.slice(0, 79)}…` : value;
     }
 
+    // ---- Uitgangen ------------------------------------------------------------
+
+    /**
+     * De uitgangen van een stap, met hun label. Een tak uit de config (een
+     * splitsing op een veld) heeft geen label in de soort: het is de tekst
+     * bij die waarde in het formulier van de stap.
+     */
+    outputsOf(node) {
+        const fixed = new Set((this.type(node).outputs ?? []).map((output) => output.key));
+        const labels = this.branchLabels(node);
+
+        return G.outputs(this.types, node).map((output) => (fixed.has(output.key)
+            ? output
+            : { ...output, label: labels.get(output.key) || output.key }));
+    }
+
+    branchLabels(node) {
+        const type = this.type(node);
+
+        if (!type.branches) {
+            return new Map();
+        }
+
+        const key = JSON.stringify(node.config ?? {});
+        const cached = this.labelCache.get(node.id);
+
+        if (cached && cached.key === key) {
+            return cached.labels;
+        }
+
+        const labels = new Map();
+        const form = this.templates.has(node.type) ? this.buildForm(node) : null;
+
+        for (const field of form ? this.fields(form) : []) {
+            if (field.dataset.flowField !== type.branches) {
+                continue;
+            }
+
+            if (field.tagName === 'SELECT') {
+                for (const option of field.options) {
+                    labels.set(option.value, option.dataset.flowSummaryText ?? option.textContent.trim());
+                }
+            } else if (field.type === 'checkbox' || field.type === 'radio') {
+                labels.set(field.value, field.dataset.flowSummaryText ?? field.closest('label')?.textContent.trim() ?? field.value);
+            }
+        }
+
+        this.labelCache.set(node.id, { key, labels });
+
+        return labels;
+    }
+
     // ---- Tekenen --------------------------------------------------------------
 
     render() {
         this.issueMap = this.issues();
+        this.renderStickies();
         this.renderNodes();
         this.renderEdges();
         this.renderOverlay();
@@ -667,7 +763,7 @@ export class FlowEditor {
         const issues = this.issueMap?.get(node.id) ?? [];
         const summary = this.summary(node);
         const number = this.numbers?.get(node.id) ?? '';
-        const selected = this.selection?.node === node.id;
+        const selected = this.isPicked('node', node.id);
 
         const card = element('div', 'flow-node');
         card.dataset.node = node.id;
@@ -684,6 +780,17 @@ export class FlowEditor {
 
         if (issues.length) {
             card.dataset.issue = '';
+        }
+
+        if (this.selection?.many && selected) {
+            card.dataset.picked = '';
+        }
+
+        const outputs = this.outputsOf(node);
+        const height = G.nodeHeight(this.types, node);
+
+        if (height !== G.NODE_HEIGHT) {
+            card.style.height = `${height}px`;
         }
 
         const text = element('span', 'flow-node-text', [
@@ -703,8 +810,8 @@ export class FlowEditor {
             card.append(element('span', 'flow-port flow-port-in'));
         }
 
-        type.outputs.forEach((output, index) => {
-            const top = (G.NODE_HEIGHT * (index + 1)) / (type.outputs.length + 1);
+        outputs.forEach((output, index) => {
+            const top = (height * (index + 1)) / (outputs.length + 1);
             const port = element('span', 'flow-port flow-port-out');
             port.dataset.flowOut = output.key;
             port.style.top = `${top}px`;
@@ -717,6 +824,20 @@ export class FlowEditor {
             }
         });
 
+        // De weg van een uitvoering: waar ze langs kwam, waar ze nu staat, en wat er gebeurde.
+        if (this.trace) {
+            if (node.id === this.trace.current) {
+                card.dataset.trace = 'current';
+                card.dataset.traceStatus = this.trace.status || 'waiting';
+            } else if (this.trace.nodes.includes(node.id)) {
+                card.dataset.trace = 'visited';
+            }
+
+            if (this.trace.notes.has(node.id)) {
+                card.append(element('span', 'flow-node-trace', this.trace.notes.get(node.id)));
+            }
+        }
+
         return card;
     }
 
@@ -726,6 +847,422 @@ export class FlowEditor {
 
         if (node && card) {
             card.style.transform = `translate(${node.x}px, ${node.y}px)`;
+        }
+    }
+
+    // ---- Notities ---------------------------------------------------------------
+
+    renderStickies() {
+        if (!this.stickyLayer) {
+            return;
+        }
+
+        const focused = document.activeElement?.closest?.('[data-sticky]')?.dataset.sticky;
+        this.stickyLayer.replaceChildren(...(this.graph.stickies ?? []).map((sticky) => this.stickyElement(sticky)));
+
+        if (focused) {
+            this.stickyElementFor(focused)?.focus({ preventScroll: true });
+        }
+    }
+
+    stickyElementFor(id) {
+        return this.stickyLayer?.querySelector(`[data-sticky="${CSS.escape(id)}"]`) ?? null;
+    }
+
+    stickyElement(sticky) {
+        const text = sticky.text.trim();
+        const note = element('div', 'flow-sticky', element('span', 'flow-sticky-text', text || this.strings.stickyEmpty));
+        const picked = this.isPicked('sticky', sticky.id);
+
+        note.dataset.sticky = sticky.id;
+        note.tabIndex = 0;
+        note.setAttribute('role', 'button');
+        note.setAttribute('aria-pressed', picked ? 'true' : 'false');
+        note.setAttribute('aria-label', `${this.strings.sticky}: ${text || this.strings.stickyEmpty}`);
+        note.style.transform = `translate(${sticky.x ?? 0}px, ${sticky.y ?? 0}px)`;
+        note.toggleAttribute('data-empty', !text);
+        note.toggleAttribute('data-picked', Boolean(this.selection?.many) && picked);
+
+        return note;
+    }
+
+    moveStickyElement(id) {
+        const sticky = this.sticky(id);
+        const note = this.stickyElementFor(id);
+
+        if (sticky && note) {
+            note.style.transform = `translate(${sticky.x}px, ${sticky.y}px)`;
+        }
+    }
+
+    /** Een notitie is veranderd: alleen zij opnieuw, de rest staat er al. */
+    stickyChanged(id) {
+        this.dirty = true;
+        this.sync();
+        this.input?.dispatchEvent(new Event('change', { bubbles: true }));
+
+        const old = this.stickyElementFor(id);
+        const sticky = this.sticky(id);
+
+        if (old && sticky) {
+            old.replaceWith(this.stickyElement(sticky));
+        }
+
+        this.renderHistoryButtons();
+        this.root.dispatchEvent(new CustomEvent('flows:change', { bubbles: true, detail: { editor: this, graph: this.graph } }));
+    }
+
+    /** Notities zonder plaats: onder de stappen, naast elkaar. */
+    placeStickies(graph) {
+        const box = G.bounds({ ...graph, stickies: [] }, this.types);
+        let x = box ? box.minX : 0;
+        const y = box ? box.maxY + 60 : 0;
+
+        return {
+            ...graph,
+            stickies: graph.stickies.map((sticky) => {
+                if (sticky.x !== null && sticky.y !== null) {
+                    return sticky;
+                }
+
+                const placed = { ...sticky, x, y };
+                x += G.STICKY_WIDTH + 24;
+
+                return placed;
+            }),
+        };
+    }
+
+    addSticky() {
+        if (this.readonly) {
+            return;
+        }
+
+        if ((this.graph.stickies ?? []).length >= G.MAX_STICKIES) {
+            this.announce(this.strings.stickyMax);
+
+            return;
+        }
+
+        const area = this.visibleArea();
+        const rect = this.canvas.getBoundingClientRect();
+        const center = this.toWorld(rect.left + (area.left + area.right) / 2, rect.top + (area.top + area.bottom) / 2);
+        const id = G.nextStickyId(this.graph);
+
+        this.commit(G.addSticky(this.graph, { id, text: '', x: G.snap(center.x - G.STICKY_WIDTH / 2), y: G.snap(center.y - G.NODE_HEIGHT / 2) }), this.strings.stickyAdded);
+        this.select({ sticky: id }, { panel: true, focus: true });
+    }
+
+    removeSticky(id) {
+        if (this.readonly || !this.sticky(id)) {
+            return;
+        }
+
+        this.commit(G.removeSticky(this.graph, id), this.strings.stickyRemoved);
+        this.select(null);
+        this.canvas.focus({ preventScroll: true });
+    }
+
+    /** Alles wat gekozen is weghalen, in een keer terug te draaien. De start blijft. */
+    removePicked() {
+        if (this.readonly) {
+            return;
+        }
+
+        const picked = this.picked();
+        let graph = this.graph;
+        let count = 0;
+
+        for (const id of picked.nodes) {
+            const node = G.findNode(graph, id);
+
+            if (node && !this.type(node).start) {
+                graph = G.removeNode(graph, this.types, id);
+                count++;
+            }
+        }
+
+        for (const id of picked.stickies) {
+            if ((graph.stickies ?? []).some((sticky) => sticky.id === id)) {
+                graph = G.removeSticky(graph, id);
+                count++;
+            }
+        }
+
+        if (count) {
+            this.commit(graph, format(this.strings.removedMany, { aantal: count }));
+        } else if (picked.nodes.length) {
+            this.announce(this.strings.startStays);
+        }
+
+        this.select(null);
+        this.canvas.focus({ preventScroll: true });
+    }
+
+    // ---- Kopiëren en plakken ------------------------------------------------------
+
+    /** Het klembord krijgt json met een merkteken, zodat plakken in een andere flow (of app) het herkent. */
+    onCopy(event, cut = false) {
+        if (!this.canvas.contains(event.target) && event.target !== this.root) {
+            return;
+        }
+
+        const picked = this.picked();
+        const clip = G.extract(this.graph, this.types, picked.nodes, picked.stickies);
+
+        if (!clip.nodes.length && !clip.stickies.length) {
+            return;
+        }
+
+        event.clipboardData?.setData('text/plain', JSON.stringify({ 'hansui-flow': 1, ...clip }));
+        event.preventDefault();
+
+        if (cut && !this.readonly) {
+            this.removePicked();
+            this.announce(this.strings.cut);
+        } else {
+            this.announce(this.strings.copied);
+        }
+    }
+
+    onPaste(event) {
+        if (this.readonly || (!this.canvas.contains(event.target) && event.target !== this.root)) {
+            return;
+        }
+
+        const clip = json(event.clipboardData?.getData('text/plain') ?? '', null);
+
+        if (clip?.['hansui-flow'] !== 1) {
+            return;
+        }
+
+        event.preventDefault();
+
+        // In beeld: wat geplakt wordt, begint linksboven in wat het canvas nu toont.
+        const box = G.bounds(G.parse({ nodes: (clip.nodes ?? []).map((node) => ({ ...node, type: 'x' })), stickies: clip.stickies ?? [] }));
+        const area = this.visibleArea();
+        const rect = this.canvas.getBoundingClientRect();
+        const corner = this.toWorld(rect.left + area.left + 40, rect.top + area.top + 40);
+        const result = G.paste(this.graph, this.types, clip, { dx: box ? G.snap(corner.x - box.minX) : 0, dy: box ? G.snap(corner.y - box.minY) : 0, after: this.highest });
+
+        if (!result.nodes.length && !result.stickies.length) {
+            this.announce(this.strings.nothingPasted);
+
+            return;
+        }
+
+        let graph = result.graph;
+
+        if (graph.nodes.some((node) => node.x === null || node.y === null)) {
+            graph = G.arrange(graph, this.types, false);
+        }
+
+        this.highest = result.highest;
+        this.commit(graph, format(this.strings.pasted, { aantal: result.nodes.length + result.stickies.length }));
+        this.select(result.nodes.length + result.stickies.length > 1
+            ? { many: { nodes: result.nodes, stickies: result.stickies } }
+            : (result.nodes.length ? { node: result.nodes[0] } : { sticky: result.stickies[0] }));
+    }
+
+    // ---- De weg van een uitvoering ------------------------------------------------
+
+    /**
+     * De weg tonen die een uitvoering nam (of zou nemen, na proefdraaien):
+     * {nodes: [...], current, status, label, detail, notes: {id: zin}}.
+     */
+    showTrace(trace) {
+        if (!trace || typeof trace !== 'object') {
+            return;
+        }
+
+        const isNoteMap = trace.notes && typeof trace.notes === 'object' && !Array.isArray(trace.notes);
+
+        this.trace = {
+            nodes: (Array.isArray(trace.nodes) ? trace.nodes : []).map(String),
+            current: trace.current === null || trace.current === undefined ? null : String(trace.current),
+            status: String(trace.status ?? ''),
+            label: String(trace.label ?? ''),
+            detail: String(trace.detail ?? ''),
+            notes: new Map(isNoteMap ? Object.entries(trace.notes).map(([id, note]) => [id, String(note)]) : []),
+        };
+
+        this.closePalette({ restore: false });
+        this.closeTest();
+        this.select(null);
+        this.showView('flow');
+        this.root.toggleAttribute('data-flow-tracing', true);
+        this.render();
+        this.renderTraceBar();
+
+        const focus = this.trace.current ?? this.trace.nodes[this.trace.nodes.length - 1];
+
+        if (focus && this.node(focus)) {
+            this.ensureVisible(focus);
+        }
+
+        this.announce(this.traceText());
+    }
+
+    clearTrace({ render = true } = {}) {
+        if (!this.trace) {
+            return;
+        }
+
+        this.trace = null;
+        this.root.removeAttribute('data-flow-tracing');
+        this.renderTraceBar();
+
+        if (render) {
+            this.render();
+            this.announce(this.strings.traceClosed);
+        }
+    }
+
+    traceText() {
+        return this.trace ? [this.trace.label, this.trace.detail].filter(Boolean).join(' · ') : '';
+    }
+
+    renderTraceBar() {
+        if (!this.traceBar) {
+            return;
+        }
+
+        this.traceBar.hidden = !this.trace;
+        const text = this.traceBar.querySelector('[data-flow-trace-text]');
+
+        if (text) {
+            text.textContent = this.traceText();
+        }
+
+        if (this.trace) {
+            this.traceBar.dataset.status = this.trace.status || 'waiting';
+        }
+    }
+
+    // ---- Een versie laden -----------------------------------------------------------
+
+    /** Een eerdere versie in de editor, zoals elke wijziging terug te draaien en pas bewaard met Bewaren. */
+    loadGraph(value, label = '') {
+        if (this.readonly) {
+            return;
+        }
+
+        let graph = G.parse(value);
+        const known = new Set(graph.nodes.filter((node) => this.types.has(node.type)).map((node) => node.id));
+
+        graph = { ...graph, nodes: graph.nodes.filter((node) => known.has(node.id)), edges: graph.edges.filter((edge) => known.has(edge.from) && known.has(edge.to)) };
+
+        if (!G.startOf(graph, this.types)) {
+            return;
+        }
+
+        if (graph.nodes.some((node) => node.x === null || node.y === null)) {
+            graph = G.arrange(graph, this.types, graph.nodes.every((node) => node.x === null));
+        }
+
+        this.closePalette({ restore: false });
+        this.select(null);
+        this.serverIssues.clear();
+        this.summaryCache.clear();
+        this.labelCache.clear();
+        this.highest = Math.max(this.highest, ...graph.nodes.map((node) => Number(node.id.match(/^n(\d+)$/)?.[1] ?? 0)));
+        this.commit(graph, label ? format(this.strings.loadedFrom, { versie: label }) : this.strings.loaded);
+        this.showView('flow');
+        this.fit();
+    }
+
+    // ---- Proefdraaien ---------------------------------------------------------------
+
+    openTest(anchor = null) {
+        if (!this.testPanel) {
+            return;
+        }
+
+        this.closePalette({ restore: false });
+        this.testPanel.hidden = false;
+        this.testButton()?.setAttribute('aria-expanded', 'true');
+
+        const root = this.stage.getBoundingClientRect();
+        const width = this.testPanel.offsetWidth;
+        const x = anchor ? anchor.left - root.left : 16;
+        const y = anchor ? anchor.bottom - root.top + 8 : 64;
+
+        this.testPanel.style.left = `${clamp(x, 12, Math.max(12, root.width - width - 12))}px`;
+        this.testPanel.style.top = `${clamp(y, 12, Math.max(12, root.height - this.testPanel.offsetHeight - 12))}px`;
+
+        const first = this.testPanel.querySelector('input:not([type=hidden]), select, textarea, button[type=submit]');
+        first?.focus({ preventScroll: true });
+    }
+
+    closeTest({ restore = false } = {}) {
+        if (!this.testPanel || this.testPanel.hidden) {
+            return;
+        }
+
+        this.testPanel.hidden = true;
+        this.testButton()?.setAttribute('aria-expanded', 'false');
+
+        if (restore) {
+            this.testButton()?.focus({ preventScroll: true });
+        }
+    }
+
+    testButton() {
+        return this.root.querySelector('[data-flow-test-open]');
+    }
+
+    /**
+     * De flow zoals ze nu in de editor staat (ook als ze niet bewaard is) en
+     * het gekozen voorbeeld naar de applicatie; die antwoordt met de weg, en
+     * er gebeurt niets.
+     */
+    async runTest(event) {
+        event.preventDefault();
+
+        const form = this.testPanel;
+        const run = form.querySelector('[data-flow-test-run]');
+        const error = form.querySelector('[data-flow-test-error]');
+        const data = new FormData(form);
+        const label = run?.textContent;
+
+        data.set('flow', G.serialize(this.graph));
+
+        if (run) {
+            run.disabled = true;
+            run.setAttribute('aria-busy', 'true');
+            run.textContent = this.strings.testBusy;
+        }
+
+        if (error) {
+            error.hidden = true;
+        }
+
+        try {
+            const response = await fetch(form.action, {
+                method: 'POST',
+                body: data,
+                credentials: 'same-origin',
+                headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            });
+            const body = await response.json().catch(() => null);
+
+            if (!response.ok || !body || !Array.isArray(body.nodes)) {
+                throw new Error(body?.message ?? '');
+            }
+
+            this.closeTest();
+            this.showTrace(body);
+        } catch (problem) {
+            if (error) {
+                error.textContent = problem?.message || this.strings.testFailed;
+                error.hidden = false;
+            }
+        } finally {
+            if (run) {
+                run.disabled = false;
+                run.removeAttribute('aria-busy');
+                run.textContent = label;
+            }
         }
     }
 
@@ -740,11 +1277,15 @@ export class FlowEditor {
                 continue;
             }
 
-            const d = G.edgePath(G.outPoint(this.types, from, edge.port), G.inPoint(to));
+            const d = G.edgePath(G.outPoint(this.types, from, edge.port), G.inPoint(to, this.types));
             const group = svg('g', { class: 'flow-edge', 'data-edge': `${edge.from}:${edge.port}` });
 
             if (this.selection?.edge === `${edge.from}:${edge.port}`) {
                 group.setAttribute('data-selected', '');
+            }
+
+            if (this.trace && this.trace.nodes.some((id, index) => id === edge.from && this.trace.nodes[index + 1] === edge.to)) {
+                group.setAttribute('data-trace', '');
             }
 
             group.append(svg('path', { class: 'flow-edge-hit', d }), svg('path', { class: 'flow-edge-line', d }));
@@ -753,7 +1294,7 @@ export class FlowEditor {
 
         // Een uitgang zonder vervolg: een stippellijn naar de knop om er iets aan te hangen.
         for (const node of this.graph.nodes) {
-            for (const output of this.type(node).outputs) {
+            for (const output of this.outputsOf(node)) {
                 if (G.target(this.graph, node.id, output.key) === null) {
                     const point = G.outPoint(this.types, node, output.key);
                     fragment.append(svg('path', { class: 'flow-stub-line', d: `M ${point.x + 7} ${point.y} H ${point.x + 34}` }));
@@ -778,7 +1319,7 @@ export class FlowEditor {
         for (const node of this.graph.nodes) {
             const type = this.type(node);
 
-            for (const output of type.outputs) {
+            for (const output of this.outputsOf(node)) {
                 if (G.target(this.graph, node.id, output.key) !== null) {
                     continue;
                 }
@@ -799,7 +1340,7 @@ export class FlowEditor {
         const edge = key ? this.edge(key) : null;
 
         if (edge) {
-            const middle = G.edgeMiddle(G.outPoint(this.types, this.node(edge.from), edge.port), G.inPoint(this.node(edge.to)));
+            const middle = G.edgeMiddle(G.outPoint(this.types, this.node(edge.from), edge.port), G.inPoint(this.node(edge.to), this.types));
             const insert = element('button', '', this.chromeIcon('plus'));
             insert.type = 'button';
             insert.dataset.flowEdgeInsert = key;
@@ -822,8 +1363,18 @@ export class FlowEditor {
     }
 
     renderSelection() {
+        const many = Boolean(this.selection?.many);
+
         for (const card of this.nodeLayer.querySelectorAll('[data-node]')) {
-            card.setAttribute('aria-pressed', this.selection?.node === card.dataset.node ? 'true' : 'false');
+            const picked = this.isPicked('node', card.dataset.node);
+            card.setAttribute('aria-pressed', picked ? 'true' : 'false');
+            card.toggleAttribute('data-picked', many && picked);
+        }
+
+        for (const note of this.stickyLayer?.querySelectorAll('[data-sticky]') ?? []) {
+            const picked = this.isPicked('sticky', note.dataset.sticky);
+            note.setAttribute('aria-pressed', picked ? 'true' : 'false');
+            note.toggleAttribute('data-picked', many && picked);
         }
 
         for (const group of this.edgeLayer.querySelectorAll('[data-edge]')) {
@@ -924,7 +1475,7 @@ export class FlowEditor {
 
     /** Alles in beeld, niet groter dan ware grootte. */
     fit() {
-        const box = G.bounds(this.graph);
+        const box = G.bounds(this.graph, this.types);
         const area = this.visibleArea();
         this.fitted = this.canvas.clientWidth > 0;
 
@@ -991,7 +1542,7 @@ export class FlowEditor {
         const left = this.view.x + node.x * scale;
         const top = this.view.y + node.y * scale;
         const right = left + (G.NODE_WIDTH + 60) * scale;
-        const bottom = top + G.NODE_HEIGHT * scale;
+        const bottom = top + G.nodeHeight(this.types, node) * scale;
         let dx = 0;
         let dy = 0;
 
@@ -1024,13 +1575,59 @@ export class FlowEditor {
         this.selection = selection;
         this.hoverEdge = null;
 
-        if (selection?.node && (panel || this.panelNode)) {
+        if (selection?.node && (panel || this.panelNode || this.panelSticky)) {
             this.openPanel(selection.node, { focus });
-        } else if (!selection?.node) {
+        } else if (selection?.sticky && (panel || this.panelNode || this.panelSticky)) {
+            this.openStickyPanel(selection.sticky, { focus });
+        } else if (!selection?.node && !selection?.sticky) {
             this.closePanel();
         }
 
         this.renderSelection();
+
+        if (selection?.many) {
+            this.announce(format(this.strings.picked, { aantal: selection.many.nodes.length + selection.many.stickies.length }));
+        }
+    }
+
+    /** Wat gekozen is, als twee lijsten: stappen en notities. */
+    picked() {
+        if (this.selection?.many) {
+            return { nodes: [...this.selection.many.nodes], stickies: [...this.selection.many.stickies] };
+        }
+
+        return { nodes: this.selection?.node ? [this.selection.node] : [], stickies: this.selection?.sticky ? [this.selection.sticky] : [] };
+    }
+
+    isPicked(kind, id) {
+        if (this.selection?.many) {
+            return (kind === 'node' ? this.selection.many.nodes : this.selection.many.stickies).includes(id);
+        }
+
+        return kind === 'node' ? this.selection?.node === id : this.selection?.sticky === id;
+    }
+
+    /** Shift+klik: iets bij de keuze zetten of eruit halen. */
+    togglePick(kind, id) {
+        const picked = this.picked();
+        const list = kind === 'node' ? picked.nodes : picked.stickies;
+        const index = list.indexOf(id);
+
+        index === -1 ? list.push(id) : list.splice(index, 1);
+
+        const count = picked.nodes.length + picked.stickies.length;
+
+        if (count === 0) {
+            this.select(null);
+        } else if (count === 1) {
+            this.select(picked.nodes.length ? { node: picked.nodes[0] } : { sticky: picked.stickies[0] });
+        } else {
+            this.select({ many: picked });
+        }
+    }
+
+    selectAll() {
+        this.select({ many: { nodes: this.graph.nodes.map((node) => node.id), stickies: (this.graph.stickies ?? []).map((sticky) => sticky.id) } });
     }
 
     // ---- Het paneel ------------------------------------------------------------
@@ -1069,6 +1666,10 @@ export class FlowEditor {
 
         const notes = (this.notes.get(id) ?? []).map((note) => element('p', 'flow-panel-note', String(note)));
 
+        if (this.trace?.notes.has(id)) {
+            notes.unshift(element('p', 'flow-panel-note flow-panel-trace', this.trace.notes.get(id)));
+        }
+
         const form = this.buildForm(node);
 
         if (form && this.readonly) {
@@ -1093,6 +1694,7 @@ export class FlowEditor {
             parts.push(element('div', 'flow-panel-foot', [duplicate, remove]));
         }
 
+        this.panelSticky = null;
         this.panel.replaceChildren(...parts);
         this.panel.setAttribute('aria-labelledby', titleId);
         this.panel.hidden = false;
@@ -1115,8 +1717,72 @@ export class FlowEditor {
         }
     }
 
+    /** Een notitie in het paneel: haar tekst, en weghalen. */
+    openStickyPanel(id, { focus = false } = {}) {
+        const sticky = this.sticky(id);
+
+        if (!sticky) {
+            this.closePanel();
+
+            return;
+        }
+
+        const titleId = `flow${this.uid}-panel-title`;
+        const fieldId = `flow${this.uid}-sticky-text`;
+        this.panelNode = null;
+        this.panelSticky = id;
+
+        const close = element('button', 'flow-tool', this.chromeIcon('close'));
+        close.type = 'button';
+        close.dataset.flowClose = '';
+        close.setAttribute('aria-label', this.strings.close);
+        close.title = this.strings.close;
+
+        const title = element('p', 'flow-panel-title', this.strings.sticky);
+        title.id = titleId;
+
+        const head = element('div', 'flow-panel-head', [element('span', 'flow-node-icon', this.chromeIcon('note')), element('div', 'flow-panel-heading', title), close]);
+        head.dataset.tone = 'warn';
+
+        const label = element('label', 'label', this.strings.stickyLabel);
+        label.htmlFor = fieldId;
+
+        const text = element('textarea', 'input flow-sticky-field');
+        text.id = fieldId;
+        text.rows = 6;
+        text.maxLength = 1000;
+        text.value = sticky.text;
+        text.dataset.flowStickyText = '';
+        text.setAttribute('form', `flow${this.uid}-none`);
+        text.disabled = this.readonly;
+
+        const parts = [head, element('div', 'flow-panel-body', [label, text])];
+
+        if (!this.readonly) {
+            const remove = element('button', 'btn btn-danger-outline btn-sm', [this.chromeIcon('trash'), element('span', '', this.strings.remove)]);
+            remove.type = 'button';
+            remove.dataset.flowStickyRemove = id;
+            parts.push(element('div', 'flow-panel-foot', remove));
+        }
+
+        this.panel.replaceChildren(...parts);
+        this.panel.setAttribute('aria-labelledby', titleId);
+        this.panel.hidden = false;
+
+        if (focus) {
+            const fine = window.matchMedia?.('(pointer: fine)').matches ?? true;
+            (fine && !this.readonly ? text : close).focus({ preventScroll: true });
+        }
+    }
+
     /** Het paneel bijwerken na een wijziging buiten het formulier (verbinden, terugdraaien). */
     refreshPanel() {
+        if (this.panelSticky && !this.sticky(this.panelSticky)) {
+            this.closePanel();
+
+            return;
+        }
+
         if (!this.panelNode) {
             return;
         }
@@ -1152,11 +1818,12 @@ export class FlowEditor {
     }
 
     closePanel() {
-        if (this.panelNode === null && this.panel.hidden) {
+        if (this.panelNode === null && this.panelSticky === null && this.panel.hidden) {
             return;
         }
 
         this.panelNode = null;
+        this.panelSticky = null;
         this.burst = null;
         this.panel.hidden = true;
         this.panel.replaceChildren();
@@ -1164,18 +1831,18 @@ export class FlowEditor {
 
     /** "Daarna": per uitgang kiezen wat erna komt, zonder te slepen. */
     nextSection(node) {
-        const type = this.type(node);
+        const outputs = this.outputsOf(node);
 
-        if (!type.outputs.length) {
+        if (!outputs.length) {
             return null;
         }
 
         const order = G.ordered(this.graph, this.types);
-        const several = type.outputs.length > 1;
+        const several = outputs.length > 1;
         const section = element('div', 'flow-next', several ? element('p', 'flow-next-title', this.strings.next) : null);
         section.dataset.flowNextSection = '';
 
-        for (const output of type.outputs) {
+        for (const output of outputs) {
             const current = G.target(this.graph, node.id, output.key);
             const select = element('select', 'input');
             select.dataset.flowNext = `${node.id}:${output.key}`;
@@ -1233,7 +1900,32 @@ export class FlowEditor {
             const config = this.settle(form);
             this.graph = G.updateNode(this.graph, id, { config });
             this.serverIssues.delete(id);
-            this.changed({ only: id });
+
+            // Een splitsing met een tak meer of minder: andere uitgangen, dus alles opnieuw tekenen.
+            if (this.type(this.node(id)).branches) {
+                this.labelCache.delete(id);
+                this.graph = G.prunePorts(this.graph, this.types, id);
+                this.changed();
+            } else {
+                this.changed({ only: id });
+            }
+
+            return;
+        }
+
+        const text = event.target.closest('[data-flow-sticky-text]');
+
+        if (text && this.panelSticky) {
+            const id = this.panelSticky;
+            const key = `sticky:${id}`;
+
+            if (this.burst !== key) {
+                this.record();
+                this.burst = key;
+            }
+
+            this.graph = G.updateSticky(this.graph, id, { text: text.value.slice(0, 1000) });
+            this.stickyChanged(id);
 
             return;
         }
@@ -1440,8 +2132,8 @@ export class FlowEditor {
     addFromToolbar(anchor) {
         const selected = this.selection?.node ? this.node(this.selection.node) : null;
 
-        if (selected && this.type(selected).outputs.length) {
-            const outputs = this.type(selected).outputs;
+        if (selected && this.outputsOf(selected).length) {
+            const outputs = this.outputsOf(selected);
             const free = outputs.find((output) => G.target(this.graph, selected.id, output.key) === null) ?? outputs[0];
             this.openPalette({ from: selected.id, port: free.key, anchor });
 
@@ -1451,7 +2143,7 @@ export class FlowEditor {
         let current = G.startOf(this.graph, this.types);
 
         while (current) {
-            const first = this.type(current).outputs[0];
+            const first = this.outputsOf(current)[0];
 
             if (!first) {
                 break;
@@ -1504,7 +2196,11 @@ export class FlowEditor {
     }
 
     removeSelection() {
-        if (this.selection?.node) {
+        if (this.selection?.many) {
+            this.removePicked();
+        } else if (this.selection?.sticky) {
+            this.removeSticky(this.selection.sticky);
+        } else if (this.selection?.node) {
             this.remove(this.selection.node);
         } else if (this.selection?.edge) {
             const edge = this.edge(this.selection.edge);
@@ -1530,13 +2226,6 @@ export class FlowEditor {
         }
     }
 
-    /**
-     * Volledig scherm: de editor over het hele venster, met css, zodat het
-     * overal werkt (ook op een iPhone en in een ingesloten pagina, waar de
-     * browser een element niet volledig scherm zet). Waar het mag, verdwijnen
-     * ook de balken van de browser: dan het hele document en niet de editor,
-     * zodat een venster van de applicatie (een dialog) erboven blijft.
-     */
     /**
      * De flow, of het overzicht ernaast (slot overview): wat de pagina anders
      * onder de editor zette. Het overzicht staat in de url (#overzicht), zodat
@@ -1573,6 +2262,13 @@ export class FlowEditor {
         }
     }
 
+    /**
+     * Volledig scherm: de editor over het hele venster, met css, zodat het
+     * overal werkt (ook op een iPhone en in een ingesloten pagina, waar de
+     * browser een element niet volledig scherm zet). Waar het mag, verdwijnen
+     * ook de balken van de browser: dan het hele document en niet de editor,
+     * zodat een venster van de applicatie (een dialog) erboven blijft.
+     */
     toggleFullscreen(on = !this.root.hasAttribute('data-fullscreen')) {
         this.root.toggleAttribute('data-fullscreen', on);
         document.documentElement.toggleAttribute('data-flow-fullscreen', on);
@@ -1652,6 +2348,12 @@ export class FlowEditor {
             }
         });
 
+        this.root.addEventListener('copy', (event) => this.onCopy(event));
+        this.root.addEventListener('cut', (event) => this.onCopy(event, true));
+        this.root.addEventListener('paste', (event) => this.onPaste(event));
+
+        this.testPanel?.addEventListener('submit', (event) => this.runTest(event));
+
         if (this.root.hasAttribute('data-flow-fill')) {
             window.addEventListener('resize', () => this.measureFill());
             window.addEventListener('load', () => this.measureFill());
@@ -1692,6 +2394,25 @@ export class FlowEditor {
     }
 
     onClick(event) {
+        // De weg van een uitvoering of een versie: een knop of link ergens in de editor (in het overzicht).
+        const traced = event.target.closest('[data-flow-trace]');
+
+        if (traced && this.root.contains(traced)) {
+            event.preventDefault();
+            this.showTrace(json(traced.dataset.flowTrace, null));
+
+            return;
+        }
+
+        const version = event.target.closest('[data-flow-load]');
+
+        if (version && this.root.contains(version)) {
+            event.preventDefault();
+            this.loadGraph(version.dataset.flowLoad, version.dataset.flowLoadLabel ?? '');
+
+            return;
+        }
+
         const target = event.target.closest('button');
 
         if (!target || !this.root.contains(target)) {
@@ -1718,6 +2439,16 @@ export class FlowEditor {
             this.toggleFullscreen();
         } else if ('flowView' in data) {
             this.showView(data.flowView);
+        } else if ('flowStickyAdd' in data) {
+            this.addSticky();
+        } else if ('flowStickyRemove' in data) {
+            this.removeSticky(data.flowStickyRemove);
+        } else if ('flowTraceClose' in data) {
+            this.clearTrace();
+        } else if ('flowTestOpen' in data) {
+            this.testPanel?.hidden ? this.openTest(target.getBoundingClientRect()) : this.closeTest();
+        } else if ('flowTestClose' in data) {
+            this.closeTest({ restore: true });
         } else if ('flowIssuesButton' in data) {
             this.firstIssue();
         } else if ('flowStub' in data) {
@@ -1739,8 +2470,9 @@ export class FlowEditor {
             }
         } else if ('flowClose' in data) {
             const id = this.panelNode;
+            const sticky = this.panelSticky;
             this.closePanel();
-            this.nodeElementFor(id)?.focus({ preventScroll: true });
+            (id ? this.nodeElementFor(id) : this.stickyElementFor(sticky))?.focus({ preventScroll: true });
         } else if ('flowRemove' in data) {
             this.remove(data.flowRemove);
         } else if ('flowDuplicate' in data) {
@@ -1762,18 +2494,25 @@ export class FlowEditor {
         }
 
         if (event.key === 'Escape') {
-            if (!this.palette.hidden) {
+            if (this.testPanel && !this.testPanel.hidden) {
+                event.preventDefault();
+                this.closeTest({ restore: true });
+            } else if (!this.palette.hidden) {
                 event.preventDefault();
                 this.closePalette();
-            } else if (this.gesture?.kind === 'connect') {
+            } else if (this.gesture?.kind === 'connect' || this.gesture?.kind === 'band') {
                 this.cancelGesture();
-            } else if (this.panelNode) {
+            } else if (this.panelNode || this.panelSticky) {
                 event.preventDefault();
                 const id = this.panelNode;
+                const sticky = this.panelSticky;
                 this.closePanel();
-                this.nodeElementFor(id)?.focus({ preventScroll: true });
+                (id ? this.nodeElementFor(id) : this.stickyElementFor(sticky))?.focus({ preventScroll: true });
             } else if (this.selection) {
                 this.select(null);
+            } else if (this.trace) {
+                event.preventDefault();
+                this.clearTrace();
             } else if (this.root.hasAttribute('data-fullscreen')) {
                 event.preventDefault();
                 this.toggleFullscreen(false);
@@ -1807,6 +2546,21 @@ export class FlowEditor {
         const key = event.key.toLowerCase();
         const onCanvas = event.target === this.root || this.canvas.contains(event.target);
         const card = event.target.closest('[data-node]');
+        const note = event.target.closest('[data-sticky]');
+
+        if (note && (event.key === 'Enter' || event.key === ' ')) {
+            event.preventDefault();
+            this.select({ sticky: note.dataset.sticky }, { panel: true, focus: true });
+
+            return;
+        }
+
+        if (mod && key === 'a' && onCanvas) {
+            event.preventDefault();
+            this.selectAll();
+
+            return;
+        }
 
         if (key === 'f' && !mod && !event.altKey && (onCanvas || event.target === this.root)) {
             event.preventDefault();
@@ -1844,9 +2598,40 @@ export class FlowEditor {
             return;
         }
 
-        if ((event.key === 'Delete' || event.key === 'Backspace') && onCanvas && (card || this.selection)) {
+        if ((event.key === 'Delete' || event.key === 'Backspace') && onCanvas && (card || note || this.selection)) {
             event.preventDefault();
-            card ? this.remove(card.dataset.node) : this.removeSelection();
+
+            if (this.selection?.many) {
+                this.removePicked();
+            } else if (card) {
+                this.remove(card.dataset.node);
+            } else if (note) {
+                this.removeSticky(note.dataset.sticky);
+            } else {
+                this.removeSelection();
+            }
+
+            return;
+        }
+
+        if (note && event.key.startsWith('Arrow')) {
+            event.preventDefault();
+            const step = event.shiftKey ? 50 : 10;
+            const sticky = this.sticky(note.dataset.sticky);
+            const dx = event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0;
+            const dy = event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0;
+            const burst = `move:sticky:${sticky.id}`;
+
+            if (this.burst !== burst) {
+                this.record();
+                this.burst = burst;
+            }
+
+            this.graph = G.updateSticky(this.graph, sticky.id, { x: sticky.x + dx, y: sticky.y + dy });
+            this.moveStickyElement(sticky.id);
+            this.dirty = true;
+            this.sync();
+            this.renderHistoryButtons();
 
             return;
         }
@@ -1899,7 +2684,7 @@ export class FlowEditor {
     }
 
     onWheel(event) {
-        if (event.target.closest('[data-flow-panel], [data-flow-palette]')) {
+        if (event.target.closest('[data-flow-panel], [data-flow-palette], [data-flow-test-panel]')) {
             return;
         }
 
@@ -1923,7 +2708,7 @@ export class FlowEditor {
             return;
         }
 
-        if (event.target.closest('button, input, select, textarea, a, [data-flow-panel], [data-flow-palette], .flow-toolbar, .flow-zoom')) {
+        if (event.target.closest('button, input, select, textarea, a, [data-flow-panel], [data-flow-palette], [data-flow-test-panel], [data-flow-trace-bar], .flow-toolbar, .flow-zoom')) {
             return;
         }
 
@@ -1943,20 +2728,38 @@ export class FlowEditor {
             this.closePalette({ restore: false });
         }
 
+        this.closeTest();
+
         const port = event.target.closest('[data-flow-out]');
         const card = event.target.closest('[data-node]');
+        const note = event.target.closest('[data-sticky]');
         const edge = event.target.closest('[data-edge]');
-        const start = { startX: event.clientX, startY: event.clientY, moved: false, pointer: event.pointerId };
+        const start = { startX: event.clientX, startY: event.clientY, moved: false, pointer: event.pointerId, shift: event.shiftKey };
 
         this.canvas.setPointerCapture?.(event.pointerId);
 
         if (this.readonly) {
-            this.gesture = { ...start, kind: 'pan', node: card?.dataset.node ?? null, edge: card ? null : edge?.dataset.edge ?? null, origin: { x: this.view.x, y: this.view.y } };
+            this.gesture = { ...start, kind: 'pan', node: card?.dataset.node ?? null, sticky: card ? null : note?.dataset.sticky ?? null, edge: card || note ? null : edge?.dataset.edge ?? null, origin: { x: this.view.x, y: this.view.y } };
         } else if (port && card) {
             this.gesture = { ...start, kind: 'connect', from: card.dataset.node, port: port.dataset.flowOut };
-        } else if (card) {
-            const node = this.node(card.dataset.node);
-            this.gesture = { ...start, kind: 'drag', id: node.id, origin: { x: node.x, y: node.y }, before: this.graph };
+        } else if (card || note) {
+            // Wat gekozen is, beweegt samen: wie een van de gekozen stappen sleept, sleept ze allemaal.
+            const kind = card ? 'node' : 'sticky';
+            const id = card ? card.dataset.node : note.dataset.sticky;
+            const group = this.selection?.many && this.isPicked(kind, id) ? this.picked() : { nodes: card ? [id] : [], stickies: card ? [] : [id] };
+
+            this.gesture = {
+                ...start,
+                kind: 'drag',
+                target: kind,
+                id,
+                nodes: new Map(group.nodes.map((key) => [key, { x: this.node(key)?.x ?? 0, y: this.node(key)?.y ?? 0 }])),
+                stickies: new Map(group.stickies.map((key) => [key, { x: this.sticky(key)?.x ?? 0, y: this.sticky(key)?.y ?? 0 }])),
+                before: this.graph,
+            };
+        } else if (event.shiftKey) {
+            // Shift en slepen op een lege plek: een kader trekken rond wat je wil kiezen.
+            this.gesture = { ...start, kind: 'band' };
         } else {
             this.gesture = { ...start, kind: 'pan', edge: edge?.dataset.edge ?? null, origin: { x: this.view.x, y: this.view.y } };
         }
@@ -1991,7 +2794,13 @@ export class FlowEditor {
             this.hoverEdge = null;
 
             if (gesture.kind === 'drag') {
-                this.nodeElementFor(gesture.id)?.toggleAttribute('data-dragging', true);
+                for (const id of gesture.nodes.keys()) {
+                    this.nodeElementFor(id)?.toggleAttribute('data-dragging', true);
+                }
+
+                for (const id of gesture.stickies.keys()) {
+                    this.stickyElementFor(id)?.toggleAttribute('data-dragging', true);
+                }
             }
         }
 
@@ -2000,18 +2809,79 @@ export class FlowEditor {
             this.view.y = gesture.origin.y + dy;
             this.applyView();
         } else if (gesture.kind === 'drag') {
-            this.graph = G.updateNode(this.graph, gesture.id, {
-                x: Math.round(gesture.origin.x + dx / this.view.scale),
-                y: Math.round(gesture.origin.y + dy / this.view.scale),
-            });
-            this.moveNodeElement(gesture.id);
-            this.renderEdges();
-            this.renderOverlay();
+            const mx = dx / this.view.scale;
+            const my = dy / this.view.scale;
+
+            for (const [id, origin] of gesture.nodes) {
+                this.graph = G.updateNode(this.graph, id, { x: Math.round(origin.x + mx), y: Math.round(origin.y + my) });
+                this.moveNodeElement(id);
+            }
+
+            for (const [id, origin] of gesture.stickies) {
+                this.graph = G.updateSticky(this.graph, id, { x: Math.round(origin.x + mx), y: Math.round(origin.y + my) });
+                this.moveStickyElement(id);
+            }
+
+            if (gesture.nodes.size) {
+                this.renderEdges();
+                this.renderOverlay();
+            }
+        } else if (gesture.kind === 'band') {
+            this.drawBand(gesture, event.clientX, event.clientY);
         } else if (gesture.kind === 'connect') {
             const from = G.outPoint(this.types, this.node(gesture.from), gesture.port);
             const to = this.toWorld(event.clientX, event.clientY);
             this.draft?.setAttribute('d', G.edgePath(from, to));
             this.markDrop(event.clientX, event.clientY, gesture);
+        }
+    }
+
+    /** Het kader van een selectie, in het werkvlak (schermpunten, niet het canvas dat schuift). */
+    drawBand(gesture, clientX, clientY) {
+        if (!this.band) {
+            this.band = element('div', 'flow-band');
+            this.band.setAttribute('aria-hidden', 'true');
+            this.stage.append(this.band);
+        }
+
+        const root = this.stage.getBoundingClientRect();
+        const left = Math.min(gesture.startX, clientX) - root.left;
+        const top = Math.min(gesture.startY, clientY) - root.top;
+
+        this.band.style.transform = `translate(${left}px, ${top}px)`;
+        this.band.style.width = `${Math.abs(clientX - gesture.startX)}px`;
+        this.band.style.height = `${Math.abs(clientY - gesture.startY)}px`;
+        gesture.endX = clientX;
+        gesture.endY = clientY;
+    }
+
+    /** Wat binnen het kader valt (ook deels), wordt gekozen. */
+    finishBand(gesture) {
+        this.band?.remove();
+        this.band = null;
+
+        if (!gesture.moved || gesture.endX === undefined) {
+            return;
+        }
+
+        const a = this.toWorld(gesture.startX, gesture.startY);
+        const b = this.toWorld(gesture.endX, gesture.endY);
+        const box = { left: Math.min(a.x, b.x), top: Math.min(a.y, b.y), right: Math.max(a.x, b.x), bottom: Math.max(a.y, b.y) };
+        const inside = (x, y, width, height) => x < box.right && x + width > box.left && y < box.bottom && y + height > box.top;
+
+        const nodes = this.graph.nodes.filter((node) => inside(node.x, node.y, G.NODE_WIDTH, G.nodeHeight(this.types, node))).map((node) => node.id);
+        const stickies = (this.graph.stickies ?? []).filter((sticky) => {
+            const element = this.stickyElementFor(sticky.id);
+
+            return inside(sticky.x, sticky.y, G.STICKY_WIDTH, element ? element.offsetHeight : G.NODE_HEIGHT);
+        }).map((sticky) => sticky.id);
+
+        if (nodes.length + stickies.length > 1) {
+            this.select({ many: { nodes, stickies } });
+        } else if (nodes.length || stickies.length) {
+            this.select(nodes.length ? { node: nodes[0] } : { sticky: stickies[0] });
+        } else {
+            this.select(null);
         }
     }
 
@@ -2050,15 +2920,20 @@ export class FlowEditor {
         this.gesture = null;
         this.draft?.setAttribute('d', '');
 
-        for (const card of this.nodeLayer.querySelectorAll('[data-drop], [data-dragging]')) {
-            card.removeAttribute('data-drop');
-            card.removeAttribute('data-dragging');
+        for (const item of this.root.querySelectorAll('[data-drop], [data-dragging]')) {
+            item.removeAttribute('data-drop');
+            item.removeAttribute('data-dragging');
         }
 
         if (cancelled) {
             if (gesture.kind === 'drag' && gesture.moved) {
                 this.graph = gesture.before;
                 this.render();
+            }
+
+            if (gesture.kind === 'band') {
+                this.band?.remove();
+                this.band = null;
             }
 
             return;
@@ -2071,18 +2946,32 @@ export class FlowEditor {
 
             if (gesture.node) {
                 this.select({ node: gesture.node }, { panel: true });
+            } else if (gesture.sticky) {
+                this.select({ sticky: gesture.sticky }, { panel: true });
             } else {
                 gesture.edge ? this.select({ edge: gesture.edge }) : this.select(null);
             }
+        } else if (gesture.kind === 'band') {
+            this.finishBand(gesture);
         } else if (gesture.kind === 'drag') {
             if (gesture.moved) {
-                const node = this.node(gesture.id);
-                this.graph = G.updateNode(this.graph, gesture.id, { x: G.snap(node.x), y: G.snap(node.y) });
+                for (const id of gesture.nodes.keys()) {
+                    const node = this.node(id);
+                    this.graph = G.updateNode(this.graph, id, { x: G.snap(node.x), y: G.snap(node.y) });
+                }
+
+                for (const id of gesture.stickies.keys()) {
+                    const sticky = this.sticky(id);
+                    this.graph = G.updateSticky(this.graph, id, { x: G.snap(sticky.x), y: G.snap(sticky.y) });
+                }
+
                 this.burst = null;
                 this.record(gesture.before);
                 this.changed();
+            } else if (gesture.shift) {
+                this.togglePick(gesture.target, gesture.id);
             } else {
-                this.select({ node: gesture.id }, { panel: true });
+                this.select(gesture.target === 'node' ? { node: gesture.id } : { sticky: gesture.id }, { panel: true });
             }
         } else if (gesture.kind === 'connect') {
             this.finishConnect(gesture, event);

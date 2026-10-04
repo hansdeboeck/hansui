@@ -57,9 +57,9 @@ final class Walker
             }
 
             $type = $this->graph->types()->require($current->type);
-            $port = $step->port ?? $type->firstOutput();
+            $port = $step->port ?? $type->firstOutput($current->config);
 
-            if ($port !== null && ! $type->hasOutput($port)) {
+            if ($port !== null && ! $type->hasOutput($port, $current->config)) {
                 return new Walk(Walk::FAILED, $visited, $current->id, reason: sprintf('Node "%s" has no output "%s".', $current->id, $port));
             }
 

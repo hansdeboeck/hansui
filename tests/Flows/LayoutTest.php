@@ -37,7 +37,7 @@ final class LayoutTest extends ZonderLaravel
     #[DataProvider('schikkingen')]
     public function schikt_zoals_de_browser(array $soorten, array $geval): void
     {
-        $register = new NodeTypes(array_map(fn (array $soort) => new NodeType($soort['key'], $soort['key'], outputs: $soort['outputs'], start: $soort['start']), $soorten));
+        $register = new NodeTypes(array_map(fn (array $soort) => new NodeType($soort['key'], $soort['key'], outputs: $soort['outputs'], start: $soort['start'], branches: $soort['branches'] ?? null), $soorten));
         $graph = Graph::fromArray(self::flow($geval['nodes'], $geval['edges']), $register);
 
         $this->assertSame($geval['positions'], Layout::positions($graph));

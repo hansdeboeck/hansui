@@ -1,11 +1,12 @@
 {
-    "_": "Wat src/Layout.php en resources/js/graph.js allebei moeten uitkomen, en de volgorde van reachable() en ordered(). De PHP-tests en de node-tests lezen dit bestand.",
+    "_": "Wat src/Flows/Layout.php en resources/js/flows/graph.js allebei moeten uitkomen, en de volgorde van reachable() en ordered(). De PHP-tests en de node-tests lezen dit bestand.",
     "types": [
         { "key": "trigger", "outputs": ["out"], "start": true },
         { "key": "condition", "outputs": ["yes", "no"], "start": false },
         { "key": "task", "outputs": ["out"], "start": false },
         { "key": "wait", "outputs": ["out"], "start": false },
-        { "key": "stop", "outputs": [], "start": false }
+        { "key": "stop", "outputs": [], "start": false },
+        { "key": "split", "outputs": ["other"], "start": false, "branches": "values" }
     ],
     "cases": [
         {
@@ -63,6 +64,14 @@
             "positions": { "start": [0, 0], "12": [300, 0], "7": [600, 0], "30": [600, 150], "9": [900, 0], "41": [0, 300] },
             "reachable": ["start", "12", "7", "9", "30"],
             "ordered": ["start", "12", "7", "9", "30", "41"]
+        },
+        {
+            "name": "een splitsing op een veld: elke tak een rij lager, Anders onderaan, en wat geen naam is telt niet",
+            "nodes": [["start", "trigger"], ["s", "split", { "values": ["high", "urgent", "Geen naam"] }], ["a", "task"], ["b", "task"], ["c", "task"]],
+            "edges": [["start", "out", "s"], ["s", "high", "a"], ["s", "urgent", "b"], ["s", "other", "c"]],
+            "positions": { "start": [0, 0], "s": [300, 0], "a": [600, 0], "b": [600, 150], "c": [600, 300] },
+            "reachable": ["start", "s", "a", "b", "c"],
+            "ordered": ["start", "s", "a", "b", "c"]
         }
     ]
 }

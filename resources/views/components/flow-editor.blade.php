@@ -10,6 +10,7 @@
     'readonly' => false,
     'fill' => false,
     'flush' => false,
+    'test' => null,
 ])
 
 {{--
@@ -52,6 +53,15 @@
     overzicht neemt de plaats van het werkvlak in en scrolt zelf. `hash` is
     het stuk van de url dat het overzicht toont (standaard #overzicht), zodat
     een link of de knop Terug er weer uitkomt.
+
+    `test` is een url om proef te draaien: de editor stuurt de flow zoals ze
+    nu staat en wat in de slot `example` gekozen is (een deal, een contact),
+    en toont de weg die de applicatie terugstuurt. Er gebeurt niets.
+
+    Een knop of link met data-flow-trace (json: nodes, current, status, label,
+    detail, notes) toont de weg van een uitvoering; een met data-flow-load (de
+    json van een flow) laadt een eerdere versie, terug te draaien en pas
+    bewaard met Bewaren. Notities op het canvas staan in de json als stickies.
 
     In de slot staan de formulieren van de stappen, een <template> per soort.
     Wat erin moet, staat in de README.
@@ -107,6 +117,23 @@
         'unknownOption' => __('Bestaat niet meer (:waarde)'),
         'fullscreenOn' => __('Volledig scherm. Escape zet het terug.'),
         'fullscreenOff' => __('Niet meer volledig scherm.'),
+        'sticky' => __('Notitie'),
+        'stickyEmpty' => __('Lege notitie'),
+        'stickyLabel' => __('Tekst'),
+        'stickyAdded' => __('Notitie toegevoegd'),
+        'stickyRemoved' => __('Notitie verwijderd'),
+        'stickyMax' => __('Er kunnen geen notities meer bij.'),
+        'picked' => __(':aantal gekozen'),
+        'removedMany' => __(':aantal weggehaald'),
+        'copied' => __('Gekopieerd'),
+        'cut' => __('Geknipt'),
+        'pasted' => __(':aantal geplakt'),
+        'nothingPasted' => __('Er was niets om in deze flow te plakken.'),
+        'loaded' => __('Deze versie staat in de editor. Bewaar om ze te houden.'),
+        'loadedFrom' => __('De versie van :versie staat in de editor. Bewaar om ze te houden.'),
+        'traceClosed' => __('Weer de hele flow.'),
+        'testBusy' => __('Bezig…'),
+        'testFailed' => __('Proefdraaien lukte niet. Probeer het nog eens.'),
     ];
 
     $uid = 'flow-'.\Illuminate\Support\Str::random(6);
@@ -164,6 +191,7 @@
     <div class="flow-stage" id="{{ $uid }}-stage" data-flow-stage>
         <div class="flow-canvas" data-flow-canvas tabindex="-1" role="region" aria-label="{{ $label ?? __('Flow') }}" aria-describedby="{{ $uid }}-help">
             <div class="flow-world" data-flow-world>
+                <div class="flow-stickies" data-flow-stickies></div>
                 <svg class="flow-edges" data-flow-edges aria-hidden="true"></svg>
                 <div class="flow-nodes" data-flow-nodes></div>
                 <div class="flow-overlay" data-flow-overlay></div>
@@ -183,12 +211,24 @@
                     <span>{{ __('Stap toevoegen') }}</span>
                 </button>
 
+                <button type="button" class="btn btn-secondary btn-sm flow-sticky-button" data-flow-sticky-add aria-label="{{ __('Notitie toevoegen') }}" title="{{ __('Notitie toevoegen') }}">
+                    @include('hansui::partials.flow-icon', ['name' => 'note'])
+                    <span>{{ __('Notitie') }}</span>
+                </button>
+
                 <span class="flow-tools">
                     <button type="button" class="flow-tool" data-flow-undo disabled aria-label="{{ __('Ongedaan maken') }}" title="{{ __('Ongedaan maken') }} (Ctrl+Z)">@include('hansui::partials.flow-icon', ['name' => 'undo'])</button>
                     <button type="button" class="flow-tool" data-flow-redo disabled aria-label="{{ __('Opnieuw doen') }}" title="{{ __('Opnieuw doen') }} (Ctrl+Shift+Z)">@include('hansui::partials.flow-icon', ['name' => 'redo'])</button>
                     <button type="button" class="flow-tool" data-flow-arrange aria-label="{{ __('Schikken') }}" title="{{ __('Schikken') }}">@include('hansui::partials.flow-icon', ['name' => 'arrange'])</button>
                 </span>
             @endunless
+
+            @if ($test)
+                <button type="button" class="btn btn-secondary btn-sm" data-flow-test-open aria-expanded="false" aria-controls="{{ $uid }}-test">
+                    @include('hansui::partials.flow-icon', ['name' => 'play'])
+                    <span>{{ __('Proefdraaien') }}</span>
+                </button>
+            @endif
 
             <button type="button" class="flow-issue-button" data-flow-issues-button hidden>
                 @include('hansui::partials.flow-icon', ['name' => 'warning'])
@@ -204,7 +244,30 @@
             <button type="button" class="flow-tool" data-flow-fullscreen aria-label="{{ __('Volledig scherm') }}" title="{{ __('Volledig scherm') }}">@include('hansui::partials.flow-icon', ['name' => 'fullscreen'])</button>
         </div>
 
+        {{-- De weg van een uitvoering, of van proefdraaien: wat het is, en terug naar de hele flow. --}}
+        <div class="flow-trace" data-flow-trace-bar hidden role="status">
+            @include('hansui::partials.flow-icon', ['name' => 'route'])
+            <span class="flow-trace-text" data-flow-trace-text></span>
+            <button type="button" class="flow-tool" data-flow-trace-close aria-label="{{ __('Terug naar de hele flow') }}" title="{{ __('Terug naar de hele flow') }}">@include('hansui::partials.flow-icon', ['name' => 'close'])</button>
+        </div>
+
         <aside class="flow-panel" data-flow-panel hidden></aside>
+
+        @if ($test)
+            <form class="flow-test" id="{{ $uid }}-test" action="{{ $test }}" method="POST" data-flow-test-panel hidden aria-labelledby="{{ $uid }}-test-title">
+                @csrf
+                <div class="flow-test-head">
+                    <p class="flow-panel-title" id="{{ $uid }}-test-title">{{ __('Proefdraaien') }}</p>
+                    <button type="button" class="flow-tool" data-flow-test-close aria-label="{{ __('Sluiten') }}" title="{{ __('Sluiten') }}">@include('hansui::partials.flow-icon', ['name' => 'close'])</button>
+                </div>
+                <p class="flow-panel-hint">{{ __('Kies een voorbeeld: je ziet welke weg het zou nemen, zonder dat er iets gebeurt.') }}</p>
+                @isset($example)
+                    <div class="flow-test-fields">{{ $example }}</div>
+                @endisset
+                <p class="flow-test-error" data-flow-test-error role="alert" hidden></p>
+                <button type="submit" class="btn btn-primary btn-sm" data-flow-test-run>{{ __('Proefdraaien') }}</button>
+            </form>
+        @endif
 
         <div class="flow-palette" data-flow-palette hidden role="dialog" aria-label="{{ __('Stap toevoegen') }}">
             <div class="flow-palette-search">
@@ -232,7 +295,7 @@
         <template data-flow-icon="{{ $type->key }}"><x-dynamic-component :component="$icon" :name="$type->icon" size="flow-icon"/></template>
     @endforeach
 
-    @foreach (['plus', 'close', 'warning', 'trash', 'copy'] as $chrome)
+    @foreach (['plus', 'close', 'warning', 'trash', 'copy', 'note'] as $chrome)
         <template data-flow-chrome="{{ $chrome }}">@include('hansui::partials.flow-icon', ['name' => $chrome])</template>
     @endforeach
 

@@ -677,6 +677,33 @@ $types = new NodeTypes([
   melding.
 - `max` beperkt hoe vaak een soort in een flow mag staan; `group` en `hint`
   zijn voor het palet.
+- `branches` maakt een splitsing met meer takken: elke waarde in die sleutel
+  van de config wordt een uitgang, voor de vaste uitgangen (hoogstens
+  `NodeType::MAX_BRANCHES`, nu vier). Een waarde moet een geldige naam voor
+  een uitgang zijn (kleine letters, cijfers, `_` of `-`, beginnend met een
+  letter); de editor toont als label de tekst bij die waarde in het
+  formulier. Wie de uitgangen van een stap wil, vraagt ze met haar config:
+  `$type->outputsFor($node->config)` of `$graph->outputsOf($id)`.
+
+```php
+new NodeType('split', __('Splitsen'), icon: 'route', outputs: ['other' => __('Anders')], branches: 'values');
+```
+
+```blade
+<template data-flow-form="split">
+    <x-field name="field" :label="__('Op')">
+        <select id="field" name="field" class="input"><option value="priority">{{ __('Prioriteit') }}</option></select>
+    </x-field>
+    <fieldset data-flow-when="field:priority">
+        <label class="check"><input type="checkbox" name="values[]" value="high"> {{ __('Hoog') }}</label>
+        <label class="check"><input type="checkbox" name="values[]" value="urgent"> {{ __('Dringend') }}</label>
+    </fieldset>
+</template>
+```
+
+Een tak die uit de keuze valt, verliest zijn verbinding, in de editor en in
+`Graph::withNode()`. Van twee velden met dezelfde naam telt wat te zien is,
+ook voor een lijst: de vinkjes van een verborgen deel tellen dan niet mee.
 
 ### Een flow lezen en bewaren
 
@@ -747,6 +774,7 @@ De zinnen voor een gebruiker gaan door `__()`, met het Nederlands als sleutel:
 | Wat je meegeeft | Wat het doet |
 |---|---|
 | `graph` | de flow, met haar soorten |
+| `test` | een url om proef te draaien (zie hieronder); zonder is er geen knop Proefdraaien |
 | `name`, `form` | het verborgen veld met de flow, en het id van het formulier dat het verstuurt: zet de editor **buiten** dat formulier (een formulier in een formulier bestaat niet) |
 | `issues` | wat de server zelf vond, per stap; wat de editor kan zien (een leeg verplicht veld, een stap die nergens aan hangt), rekent hij live |
 | `notes` | zinnen per stap voor in het paneel (een geheim om een webhook te controleren, een uitleg) |
@@ -759,6 +787,7 @@ De zinnen voor een gebruiker gaan door `__()`, met het Nederlands als sleutel:
 | slot `header` | een balk bovenaan, voor wat de pagina anders boven de editor zou zetten (de weg terug, de naam, Bewaren); de editor zet er zelf Volledig scherm achter |
 | slot `notices` | onder die balk, alleen als er iets in staat: een melding, wat er nog ontbreekt |
 | slot `overview` | een tweede weergave naast de flow, voor wat de pagina anders onder de editor zou zetten (de laatste keren, de cijfers); met `label` (standaard Overzicht) en `hash` (standaard `overzicht`) |
+| slot `example` | de velden om een voorbeeld te kiezen bij Proefdraaien (een deal, een contact) |
 | de slot zelf | de formulieren van de stappen, een `<template>` per soort |
 
 Na een validatiefout toont de editor wat de gebruiker had (`old()`), als dat
@@ -797,6 +826,9 @@ In de editor:
 | Terugdraaien | Ctrl+Z en Ctrl+Shift+Z |
 | Kijken | slepen op het canvas, scrollen, Ctrl+scrollen of knijpen om te zoomen, 0 om alles te tonen |
 | Volledig scherm | de knop, of F; Escape zet het terug |
+| Meer tegelijk kiezen | Shift+klik, Shift en slepen op een lege plek (een kader), of Ctrl+A; samen slepen of weghalen |
+| Kopiëren en plakken | Ctrl+C, Ctrl+X en Ctrl+V, ook naar een andere flow; de start gaat niet mee |
+| Een notitie | de knop Notitie; slepen, en een klik opent haar tekst |
 
 Een lus kan niet: een verbinding die er een zou maken, weigert de editor voor
 ze getekend is. Op een smal scherm zijn het paneel en het palet een blad
@@ -841,6 +873,38 @@ de stap, en schrijft elke wijziging terug.
 - Ids krijgen een voorvoegsel en namen een eigen naam met een `form` dat
   nergens bestaat: wat in het paneel staat, wordt nooit zelf verstuurd.
 
+### Notities, de weg van een uitvoering, versies en proefdraaien
+
+**Notities** staan in de json naast de stappen (`stickies`, zie het formaat):
+een applicatie die de json bewaart, heeft er niets voor te doen; een die haar
+stappen als rijen bewaart, bewaart ze apart (`$graph->stickies()`,
+`$graph->withStickies()`). Ze doen niet mee met de wandeling of de controles.
+
+**De weg van een uitvoering**: een knop of link in de editor (meestal in het
+overzicht) met `data-flow-trace` en json. De editor toont dan de flow, wat ze
+niet deed gedempt, de verbindingen van de weg in de kleur van info, de stap
+waar ze nu staat met een ring (rood voor `failed` en `stopped`, groen voor
+`done`), en bovenaan een balk met `label` en `detail` en een knop terug naar
+de hele flow (of Escape). `notes` is een zin per stap, onder de stap en in
+haar paneel.
+
+```blade
+<button type="button" data-flow-trace="{{ json_encode(['nodes' => ['start', 'n1', 'n3'], 'current' => 'n3', 'status' => 'waiting', 'label' => 'Offerte 2026-014', 'detail' => 'wacht tot 9 okt.', 'notes' => ['n1' => 'Ja: € 12.000']]) }}">…</button>
+```
+
+**Een versie laden**: een knop met `data-flow-load` (de json van een flow) en
+`data-flow-load-label` (zoals "4 okt. 17:20"). De editor zet die flow erin
+als een wijziging: terug te draaien met Ctrl+Z, en pas bewaard met Bewaren.
+Een soort die niet meer bestaat, valt weg. De versies zelf houdt de
+applicatie bij.
+
+**Proefdraaien**: met `test` (een url) en de slot `example` staat er een knop
+Proefdraaien. De editor stuurt met een POST de flow zoals ze nu in de editor
+staat (`flow`, ook als ze niet bewaard is), de velden uit `example` en het
+CSRF-token, en verwacht dezelfde json als `data-flow-trace` terug. Een fout
+(een 422 met `message`) staat in het venster. Er gebeurt niets: de applicatie
+rekent de weg uit zonder een taak te maken of een mail te sturen.
+
 Wie het formulier wil aanpassen voor het getoond wordt (opties wegfilteren
 naargelang de start), luistert op `flows:form`; elke wijziging is een
 `flows:change`, en een editor die klaar is, stuurt `flows:ready`:
@@ -859,6 +923,13 @@ document.addEventListener('flows:form', (event) => {
 | Attribuut | Wat het is |
 |---|---|
 | `data-flow-editor` | de omhulling; draagt `data-flow-types`, `data-flow-strings`, `data-flow-issues`, `data-flow-notes` en `data-flow-badges` (json), en naargelang de props `data-flow-readonly`, `data-flow-fill`, `data-flow-flush` en `data-flow-header` |
+| `data-flow-stickies` | de laag met de notities, in `data-flow-world` |
+| `data-flow-sticky-add` | de knop Notitie |
+| `data-flow-trace` | een knop of link die de weg van een uitvoering toont (json, zie hierboven) |
+| `data-flow-trace-bar` | de balk bovenaan bij een weg, met `data-flow-trace-text` en de knop `data-flow-trace-close` |
+| `data-flow-load` | een knop die een versie laadt (json), met `data-flow-load-label` |
+| `data-flow-test-open` | de knop Proefdraaien |
+| `data-flow-test-panel` | het formulier van Proefdraaien, met `data-flow-test-close`, `data-flow-test-error` en de knop `data-flow-test-run` |
 | `data-flow-input` | het verborgen veld met de flow |
 | `data-flow-stage` | het werkvlak: alles onder de balk, wat erin zweeft rekent vanaf hier |
 | `data-flow-canvas` | wat verschuift en zoomt, met `data-flow-world` erin, en daarin `data-flow-edges` (de svg), `data-flow-nodes` en `data-flow-overlay` |
@@ -880,7 +951,11 @@ document.addEventListener('flows:form', (event) => {
 Wat de editor zelf zet en wat je dus niet in een view schrijft, maar wel kan
 opmaken: `data-flow-ready` en `data-flow-filled` op de omhulling als hij er
 is en tot onderaan loopt, `data-fullscreen` erop in volledig scherm en
-`data-flow-fullscreen` dan op `<html>`; `data-node` op een stap, met
+`data-flow-fullscreen` dan op `<html>`, `data-flow-tracing` als er een weg
+getoond wordt; `data-sticky` op een notitie, met `data-empty`, en in haar
+paneel `data-flow-sticky-text` en `data-flow-sticky-remove`; `data-picked` op
+wat meer tegelijk gekozen is; `data-trace` (`visited` of `current`) en
+`data-trace-status` op een stap van een weg; `data-node` op een stap, met
 `data-tone`, `data-start`, `data-issue`, `data-dragging` terwijl ze versleept
 wordt, `data-drop` (`ok` of `no`) terwijl er een verbinding boven hangt en
 `data-refused` even als die niet kan; `data-flow-out` op een uitgang;
@@ -942,6 +1017,10 @@ Een id is 1 tot 40 letters, cijfers, `_` of `-`: een applicatie die stappen als
 rijen bewaart, gebruikt het id van de rij, en geeft een stap uit de editor
 (`n4`) na het bewaren dat id met `renamed()`. Een positie mag ontbreken;
 `arranged()` en de editor zetten ze dan zelf.
+
+Notities staan erbij als `"stickies": [{"id": "s1", "text": "…", "x": 0, "y":
+200}]`, hoogstens vijftig van elk duizend tekens; een flow zonder notities
+schrijft de sleutel niet.
 
 Wat niet kan, en met reden:
 

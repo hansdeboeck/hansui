@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use HansDeBoeck\HansUi\Flows\Builder;
 use HansDeBoeck\HansUi\Flows\Graph;
 use HansDeBoeck\HansUi\Flows\Node;
+use HansDeBoeck\HansUi\Flows\NodeType;
 use HansDeBoeck\HansUi\Flows\Step;
 use HansDeBoeck\HansUi\Flows\Walk;
 use HansDeBoeck\HansUi\Flows\Walker;
@@ -107,6 +108,25 @@ final class WalkerTest extends ZonderLaravel
     public function laat_een_fout_van_de_applicatie_door(): void
     {
         $this->assertGooit(RuntimeException::class, 'Kapot', fn () => (new Walker(self::campagne()))->from('n1', fn () => throw new RuntimeException('Kapot')));
+    }
+
+    #[Test]
+    public function volgt_een_tak_uit_de_config(): void
+    {
+        $soorten = self::soorten()->add(new NodeType('split', 'Splitsen', outputs: ['other' => 'Anders'], branches: 'values'));
+        $flow = new Builder($soorten);
+        $split = $flow->then($flow->add('trigger', ['event' => 'ticket.created']), 'split', ['values' => ['high', 'urgent']]);
+        $flow->then($split, 'task', ['title' => 'Hoog'], port: 'high');
+        $flow->then($split, 'task', ['title' => 'Dringend'], port: 'urgent');
+        $flow->then($split, 'task', ['title' => 'Gewoon'], port: 'other');
+        $walker = new Walker($flow->graph());
+
+        $kies = fn (string $port) => fn (Node $node) => $node->type === 'split' ? Step::next($port) : Step::next();
+
+        $this->assertSame(['n1', 'n3'], $walker->from('n1', $kies('urgent'))->visited);
+        $this->assertSame(['n1', 'n4'], $walker->from('n1', $kies('other'))->visited);
+        $this->assertSame(['n1', 'n2'], $walker->from('n1', fn () => Step::next())->visited, 'Zonder uitgang de eerste tak.');
+        $this->assertStringContainsString('no output "low"', (string) $walker->from('n1', $kies('low'))->reason);
     }
 
     #[Test]

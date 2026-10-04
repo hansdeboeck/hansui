@@ -13,12 +13,23 @@
 |
 | layout() rekent precies wat src/Flows/Layout.php rekent; tests/fixtures/flows-layout.json
 | houdt beide gelijk.
+|
+| TAKKEN UIT DE CONFIG: een soort met `branches` (zie NodeType.php) heeft een
+| uitgang per waarde in config[branches], voor haar vaste uitgangen; outputs()
+| is de enige plaats die dat weet. NOTITIES (stickies) staan naast de stappen
+| en doen niet mee met de wandeling.
 */
 
 export const COLUMN = 300;
 export const ROW = 150;
 export const NODE_WIDTH = 240;
 export const NODE_HEIGHT = 76;
+export const MAX_BRANCHES = 4;
+export const MAX_STICKIES = 50;
+export const STICKY_WIDTH = 220;
+
+const PORT = /^[a-z][a-z0-9_-]{0,19}$/;
+const ID = /^[A-Za-z0-9_-]{1,40}$/;
 
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const coordinate = (value) => (typeof value === 'number' && Number.isFinite(value) ? Math.round(value) : null);
@@ -52,15 +63,28 @@ export function parse(value) {
         .filter((edge) => !ports.has(`${edge.from}\0${edge.port}`) && ports.add(`${edge.from}\0${edge.port}`))
         .map((edge) => ({ from: edge.from, port: edge.port, to: edge.to }));
 
-    return { version: 1, nodes, edges };
+    const notes = new Set();
+    const stickies = (Array.isArray(data?.stickies) ? data.stickies : [])
+        .filter((sticky) => isObject(sticky) && typeof sticky.id === 'string' && ID.test(sticky.id) && !notes.has(sticky.id) && notes.add(sticky.id))
+        .slice(0, MAX_STICKIES)
+        .map((sticky) => ({ id: sticky.id, text: typeof sticky.text === 'string' ? sticky.text.slice(0, 1000) : '', x: coordinate(sticky.x), y: coordinate(sticky.y) }));
+
+    return { version: 1, nodes, edges, stickies };
 }
 
 export function serialize(graph) {
-    return JSON.stringify({
+    const data = {
         version: 1,
         nodes: graph.nodes.map((node) => ({ id: node.id, type: node.type, config: node.config, x: node.x, y: node.y })),
         edges: graph.edges.map((edge) => ({ from: edge.from, port: edge.port, to: edge.to })),
-    });
+    };
+
+    // Zonder notities ook geen lege lijst: een flow die niemand aanraakte, blijft dezelfde json.
+    if (graph.stickies?.length) {
+        data.stickies = graph.stickies.map((sticky) => ({ id: sticky.id, text: sticky.text, x: sticky.x, y: sticky.y }));
+    }
+
+    return JSON.stringify(data);
 }
 
 /** De soorten per sleutel; een Map blijft een Map. */
@@ -76,8 +100,49 @@ export function findNode(graph, id) {
     return graph.nodes.find((node) => node.id === id) ?? null;
 }
 
+/**
+ * De uitgangen van een stap: die uit haar config (branches), dan die van
+ * haar soort. Een uitgang uit de config heeft geen label: de editor leest
+ * het uit het formulier.
+ */
 export function outputs(types, node) {
-    return typeMap(types).get(node?.type)?.outputs ?? [];
+    const type = typeMap(types).get(node?.type);
+
+    if (!type) {
+        return [];
+    }
+
+    if (!type.branches) {
+        return type.outputs ?? [];
+    }
+
+    const fixed = type.outputs ?? [];
+    const values = Array.isArray(node.config?.[type.branches]) ? node.config[type.branches] : [];
+    const branches = [];
+
+    for (const value of values) {
+        if (branches.length < MAX_BRANCHES && typeof value === 'string' && PORT.test(value)
+            && !fixed.some((output) => output.key === value) && !branches.some((output) => output.key === value)) {
+            branches.push({ key: value, label: '' });
+        }
+    }
+
+    return [...branches, ...fixed];
+}
+
+/** Hoe hoog een stap is: met veel uitgangen hoger, zodat ze niet op elkaar staan. */
+export function nodeHeight(types, node) {
+    const count = outputs(types, node).length;
+
+    return count > 3 ? 24 * (count + 1) : NODE_HEIGHT;
+}
+
+/** Verbindingen van uitgangen die een stap niet meer heeft (een tak die wegviel), weg. */
+export function prunePorts(graph, types, id) {
+    const keys = new Set(outputs(types, findNode(graph, id)).map((output) => output.key));
+    const edges = graph.edges.filter((edge) => edge.from !== id || keys.has(edge.port));
+
+    return edges.length === graph.edges.length ? graph : { ...graph, edges };
 }
 
 export function isStart(types, node) {
@@ -400,7 +465,7 @@ export function issues(graph, types, { required = () => [], strings = {} } = {})
     for (const node of ordered(graph, map)) {
         const type = map.get(node.type);
 
-        if (start && node.id === start.id && outgoing(graph, map, node.id).length === 0 && (type?.outputs ?? []).length > 0) {
+        if (start && node.id === start.id && outgoing(graph, map, node.id).length === 0 && outputs(map, node).length > 0) {
             add(node.id, strings.startAlone ?? 'Nog geen volgende stap.');
         }
 
@@ -419,8 +484,8 @@ export function issues(graph, types, { required = () => [], strings = {} } = {})
 // ---- Meetkunde ---------------------------------------------------------------
 
 /** Waar een verbinding binnenkomt: links, halverwege. */
-export function inPoint(node) {
-    return { x: node.x, y: node.y + NODE_HEIGHT / 2 };
+export function inPoint(node, types = null) {
+    return { x: node.x, y: node.y + (types ? nodeHeight(types, node) : NODE_HEIGHT) / 2 };
 }
 
 /** Waar een uitgang vertrekt: rechts, de uitgangen gelijk verdeeld over de hoogte. */
@@ -428,7 +493,7 @@ export function outPoint(types, node, port) {
     const list = outputs(types, node);
     const index = Math.max(0, list.findIndex((output) => output.key === port));
 
-    return { x: node.x + NODE_WIDTH, y: node.y + (NODE_HEIGHT * (index + 1)) / (list.length + 1) };
+    return { x: node.x + NODE_WIDTH, y: node.y + (nodeHeight(types, node) * (index + 1)) / (list.length + 1) };
 }
 
 /** Een zachte bocht van een uitgang naar een ingang, ook als die links ligt. */
@@ -448,19 +513,24 @@ export function edgeMiddle(from, to) {
     };
 }
 
-/** De rechthoek rond alle stappen. */
-export function bounds(graph) {
-    const placed = graph.nodes.filter((node) => node.x !== null && node.y !== null);
+/** De rechthoek rond alle stappen en notities (een notitie telt als een stap breed en hoog). */
+export function bounds(graph, types = null) {
+    const boxes = [
+        ...graph.nodes.filter((node) => node.x !== null && node.y !== null)
+            .map((node) => [node.x, node.y, node.x + NODE_WIDTH, node.y + (types ? nodeHeight(types, node) : NODE_HEIGHT)]),
+        ...(graph.stickies ?? []).filter((sticky) => sticky.x !== null && sticky.y !== null)
+            .map((sticky) => [sticky.x, sticky.y, sticky.x + STICKY_WIDTH, sticky.y + NODE_HEIGHT]),
+    ];
 
-    if (!placed.length) {
+    if (!boxes.length) {
         return null;
     }
 
     return {
-        minX: Math.min(...placed.map((node) => node.x)),
-        minY: Math.min(...placed.map((node) => node.y)),
-        maxX: Math.max(...placed.map((node) => node.x + NODE_WIDTH)),
-        maxY: Math.max(...placed.map((node) => node.y + NODE_HEIGHT)),
+        minX: Math.min(...boxes.map((box) => box[0])),
+        minY: Math.min(...boxes.map((box) => box[1])),
+        maxX: Math.max(...boxes.map((box) => box[2])),
+        maxY: Math.max(...boxes.map((box) => box[3])),
     };
 }
 
@@ -480,4 +550,110 @@ export function freeSpot(graph, x, y, ignore = null) {
 
 export function snap(value, grid = 10) {
     return Math.round(value / grid) * grid;
+}
+
+// ---- Notities ----------------------------------------------------------------
+
+/** Een id voor een notitie dat nog vrij is: s1, s2, ... */
+export function nextStickyId(graph) {
+    const used = new Set((graph.stickies ?? []).map((sticky) => sticky.id));
+    let number = 0;
+    let id;
+
+    do {
+        id = `s${++number}`;
+    } while (used.has(id));
+
+    return id;
+}
+
+export function addSticky(graph, sticky) {
+    return { ...graph, stickies: [...(graph.stickies ?? []), { id: sticky.id, text: sticky.text ?? '', x: sticky.x ?? null, y: sticky.y ?? null }] };
+}
+
+export function updateSticky(graph, id, changes) {
+    return { ...graph, stickies: (graph.stickies ?? []).map((sticky) => (sticky.id === id ? { ...sticky, ...changes } : sticky)) };
+}
+
+export function removeSticky(graph, id) {
+    return { ...graph, stickies: (graph.stickies ?? []).filter((sticky) => sticky.id !== id) };
+}
+
+// ---- Kopiëren en plakken -------------------------------------------------------
+
+/**
+ * Wat gekozen is, om te kopiëren: de stappen (de start niet: die is er maar
+ * een), de verbindingen tussen hen, en de notities.
+ */
+export function extract(graph, types, nodeIds, stickyIds = []) {
+    const map = typeMap(types);
+    const ids = new Set(nodeIds.filter((id) => {
+        const node = findNode(graph, id);
+
+        return node && !map.get(node.type)?.start;
+    }));
+    const notes = new Set(stickyIds);
+
+    return {
+        nodes: graph.nodes.filter((node) => ids.has(node.id)).map((node) => structuredClone(node)),
+        edges: graph.edges.filter((edge) => ids.has(edge.from) && ids.has(edge.to)).map((edge) => ({ ...edge })),
+        stickies: (graph.stickies ?? []).filter((sticky) => notes.has(sticky.id)).map((sticky) => ({ ...sticky })),
+    };
+}
+
+/**
+ * Een kopie in een graaf zetten: nieuwe ids, een eind verschoven, de
+ * verbindingen ertussen mee. Een soort die deze flow niet kent, of waarvan
+ * er al genoeg zijn, valt weg. Geeft de nieuwe graaf en de nieuwe ids.
+ */
+export function paste(graph, types, clip, { dx = 40, dy = 40, after = 0 } = {}) {
+    const map = typeMap(types);
+    const counts = new Map();
+
+    for (const node of graph.nodes) {
+        counts.set(node.type, (counts.get(node.type) ?? 0) + 1);
+    }
+
+    let next = graph;
+    let highest = after;
+    const renamed = new Map();
+    const nodes = [];
+    const stickies = [];
+
+    for (const node of clip?.nodes ?? []) {
+        const type = map.get(node?.type);
+        const count = counts.get(node?.type) ?? 0;
+
+        if (!type || type.start || (type.max && count >= type.max)) {
+            continue;
+        }
+
+        const id = nextId(next, 'n', highest);
+        highest = Number(id.slice(1));
+        counts.set(node.type, count + 1);
+        renamed.set(node.id, id);
+        next = addNode(next, { id, type: node.type, config: isObject(node.config) ? structuredClone(node.config) : {}, x: coordinate(node.x) === null ? null : coordinate(node.x) + dx, y: coordinate(node.y) === null ? null : coordinate(node.y) + dy });
+        nodes.push(id);
+    }
+
+    for (const edge of clip?.edges ?? []) {
+        const from = renamed.get(edge?.from);
+        const to = renamed.get(edge?.to);
+
+        if (from && to && outputs(map, findNode(next, from)).some((output) => output.key === edge.port) && target(next, from, edge.port) === null) {
+            next = connect(next, from, edge.port, to);
+        }
+    }
+
+    for (const sticky of clip?.stickies ?? []) {
+        if ((next.stickies ?? []).length >= MAX_STICKIES || !isObject(sticky)) {
+            continue;
+        }
+
+        const id = nextStickyId(next);
+        next = addSticky(next, { id, text: typeof sticky.text === 'string' ? sticky.text.slice(0, 1000) : '', x: coordinate(sticky.x) === null ? null : coordinate(sticky.x) + dx, y: coordinate(sticky.y) === null ? null : coordinate(sticky.y) + dy });
+        stickies.push(id);
+    }
+
+    return { graph: next, nodes, stickies, highest };
 }

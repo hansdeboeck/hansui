@@ -7,7 +7,10 @@ namespace HansDeBoeck\HansUi\Tests\Flows;
 use HansDeBoeck\HansUi\Flows\Edge;
 use HansDeBoeck\HansUi\Flows\Graph;
 use HansDeBoeck\HansUi\Flows\InvalidGraph;
+use HansDeBoeck\HansUi\Flows\Layout;
 use HansDeBoeck\HansUi\Flows\Node;
+use HansDeBoeck\HansUi\Flows\NodeType;
+use HansDeBoeck\HansUi\Flows\Sticky;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -246,6 +249,82 @@ final class GraphTest extends ZonderLaravel
         $this->assertSame([300, 0], [$graph->arranged()->node('c')?->x, $graph->arranged()->node('c')?->y]);
         $this->assertSame([5, 5], [$graph->arranged(all: false)->node('c')?->x, $graph->arranged(all: false)->node('c')?->y]);
         $this->assertSame([600, 150], [$graph->arranged(all: false)->node('b')?->x, $graph->arranged(all: false)->node('b')?->y]);
+    }
+
+    #[Test]
+    public function een_splitsing_heeft_de_uitgangen_uit_haar_config(): void
+    {
+        $soorten = self::soorten()->add(new NodeType('split', 'Splitsen', icon: 'route', outputs: ['other' => 'Anders'], branches: 'values'));
+        $graph = Graph::fromArray(self::flow(
+            [['start', 'trigger', ['event' => 'ticket.created']], ['s', 'split', ['field' => 'priority', 'values' => ['high', 'urgent']]], ['a', 'task', ['title' => 'Bellen']], ['b', 'task', ['title' => 'Mailen']], ['c', 'wait']],
+            [['start', 'out', 's'], ['s', 'high', 'a'], ['s', 'urgent', 'b'], ['s', 'other', 'c']],
+        ), $soorten);
+
+        $this->assertSame(['high' => '', 'urgent' => '', 'other' => 'Anders'], $graph->outputsOf('s'));
+        $this->assertSame(['high', 'urgent', 'other'], array_map(fn (Edge $edge) => $edge->port, $graph->outgoing('s')));
+        $this->assertSame('a', $graph->next('s')?->id, 'Zonder uitgang de eerste tak.');
+        $this->assertSame(['start', 's', 'a', 'b', 'c'], $graph->reachable());
+        $this->assertSame([[0, 0], [300, 0], [600, 0], [600, 150], [600, 300]], array_values(Layout::positions($graph)));
+
+        // Een tak die niet gekozen is, heeft geen uitgang; een tak die wegvalt, verliest zijn verbinding.
+        $this->assertGooit(InvalidGraph::class, 'has no output "low"', fn () => $graph->connect('s', 'low', 'c'));
+
+        $minder = $graph->withNode(new Node('s', 'split', ['field' => 'priority', 'values' => ['high']]));
+
+        $this->assertNull($minder->target('s', 'urgent'));
+        $this->assertSame('a', $minder->target('s', 'high'));
+        $this->assertSame('c', $minder->target('s', 'other'));
+        $this->assertArrayHasKey('b', $minder->issuesByNode(), 'Wat aan de tak hing, hangt nu los.');
+
+        // Een stap weghalen sluit aan langs de eerste tak.
+        $this->assertSame('a', $graph->withoutNode('s')->target('start', 'out'));
+    }
+
+    #[Test]
+    public function bewaart_notities_op_het_canvas_naast_de_stappen(): void
+    {
+        $data = self::flow([['start', 'trigger', ['event' => 'deal.won']], ['a', 'task', ['title' => 'Bellen']]], [['start', 'out', 'a']]);
+        $data['stickies'] = [['id' => 's1', 'text' => "Eerst bellen,\ndan mailen.", 'x' => 12.4, 'y' => 200]];
+        $graph = Graph::fromArray($data, self::soorten());
+
+        $this->assertSame([['id' => 's1', 'text' => "Eerst bellen,\ndan mailen.", 'x' => 12, 'y' => 200]], array_map(fn (Sticky $sticky) => $sticky->toArray(), $graph->stickies()));
+        $this->assertSame($graph->toArray(), Graph::fromJson($graph->toJson(), self::soorten())->toArray());
+
+        // Ze gaan mee met elke wijziging, en wegen niet mee in wat nog niet af is.
+        $this->assertCount(1, $graph->withNode(new Node('b', 'wait'))->connect('a', 'out', 'b')->stickies());
+        $this->assertCount(1, $graph->withoutNode('a')->stickies());
+        $this->assertCount(1, $graph->arranged()->stickies());
+        $this->assertCount(1, $graph->renamed(['a' => '7'])->stickies());
+        $this->assertSame([], $graph->issuesByNode());
+
+        // Een flow zonder notities schrijft er geen: wat al bewaard is, verandert niet.
+        $zonder = $graph->withStickies([]);
+
+        $this->assertArrayNotHasKey('stickies', $zonder->toArray());
+        $this->assertSame('Nieuw', $zonder->withStickies([new Sticky('s2', 'Nieuw', 0, 0)])->stickies()[0]->text);
+    }
+
+    /** @return array<string, array{array<mixed>, string}> */
+    public static function ongeldigeNotities(): array
+    {
+        $flow = fn (array $stickies) => ['nodes' => [['id' => 'start', 'type' => 'trigger']], 'stickies' => $stickies];
+
+        return [
+            'geen lijst' => [$flow(['s1' => ['id' => 's1']]), '"stickies" of a flow must be a list'],
+            'geen id' => [$flow([['text' => 'x']]), 'Sticky 0 has no valid id'],
+            'een id twee keer' => [$flow([['id' => 's1'], ['id' => 's1']]), 'used twice'],
+            'te lang' => [$flow([['id' => 's1', 'text' => str_repeat('a', 1001)]]), 'longer than 1000'],
+            'geen tekst' => [$flow([['id' => 's1', 'text' => ['a']]]), 'is not text'],
+            'te veel' => [$flow(array_map(fn (int $i) => ['id' => 's'.$i], range(1, 51))), 'at most 50 stickies'],
+        ];
+    }
+
+    /** @param  array<mixed>  $data */
+    #[Test]
+    #[DataProvider('ongeldigeNotities')]
+    public function weigert_notities_die_niet_kloppen(array $data, string $reden): void
+    {
+        $this->assertGooit(InvalidGraph::class, $reden, fn () => Graph::fromArray($data, self::soorten()));
     }
 
     #[Test]

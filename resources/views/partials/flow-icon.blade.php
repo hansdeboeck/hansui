@@ -11,6 +11,15 @@
         @case('plus')
             <path d="M12 5v14M5 12h14"/>
             @break
+        @case('note')
+            <path d="M5 4h14a1 1 0 0 1 1 1v9l-6 6H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z"/><path d="M14 20v-5a1 1 0 0 1 1-1h5M8 9h8M8 13h4"/>
+            @break
+        @case('play')
+            <path d="M7 5.5v13a1 1 0 0 0 1.5.86l11-6.5a1 1 0 0 0 0-1.72l-11-6.5A1 1 0 0 0 7 5.5Z"/>
+            @break
+        @case('route')
+            <circle cx="6" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><path d="M8 18h7a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h7"/>
+            @break
         @case('close')
             <path d="M18 6 6 18M6 6l12 12"/>
             @break

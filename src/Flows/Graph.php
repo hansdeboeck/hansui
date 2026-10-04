@@ -15,7 +15,11 @@ use stdClass;
 |
 |   {"version": 1,
 |    "nodes": [{"id": "start", "type": "trigger", "config": {...}, "x": 0, "y": 0}, ...],
-|    "edges": [{"from": "start", "port": "out", "to": "n2"}, ...]}
+|    "edges": [{"from": "start", "port": "out", "to": "n2"}, ...],
+|    "stickies": [{"id": "s1", "text": "...", "x": 0, "y": 200}]}
+|
+| `stickies` zijn notities op het canvas (Sticky): ze mogen ontbreken, en
+| een flow zonder schrijft ze niet, zodat wat al bewaard is niet verandert.
 |
 | WAT ONGELDIG IS, KOMT ER NIET IN. Een graaf bestaat alleen als hij klopt:
 | bekende soorten, unieke ids, verbindingen tussen stappen die er zijn en uit
@@ -39,6 +43,9 @@ final class Graph implements Countable, JsonSerializable
     /** Hoe groot de json hoogstens is, met alle teksten erin. */
     public const MAX_BYTES = 262_144;
 
+    /** Hoeveel notities een flow hoogstens heeft. */
+    public const MAX_STICKIES = 50;
+
     private const ID = '/^[A-Za-z0-9_-]{1,40}$/';
 
     private const COORDINATE = 1_000_000;
@@ -48,11 +55,13 @@ final class Graph implements Countable, JsonSerializable
     /**
      * @param  array<string, Node>  $nodes
      * @param  array<string, Edge>  $edges  per "van\0uitgang"
+     * @param  array<string, Sticky>  $stickies
      */
     private function __construct(
         private readonly NodeTypes $types,
         private readonly array $nodes,
         private readonly array $edges,
+        private readonly array $stickies = [],
     ) {
         foreach ($nodes as $node) {
             if ($types->require($node->type)->start) {
@@ -129,7 +138,23 @@ final class Graph implements Countable, JsonSerializable
             $edges[$key] = $edge;
         }
 
-        $graph = new self($types, $nodes, $edges);
+        $stickies = [];
+
+        foreach (self::listOf($data['stickies'] ?? [], 'stickies') as $index => $raw) {
+            $sticky = self::readSticky($raw, $index);
+
+            if (isset($stickies[$sticky->id])) {
+                throw new InvalidGraph(sprintf('Sticky id "%s" is used twice.', $sticky->id));
+            }
+
+            $stickies[$sticky->id] = $sticky;
+        }
+
+        if (count($stickies) > self::MAX_STICKIES) {
+            throw new InvalidGraph(sprintf('A flow has at most %d stickies; this one has %d.', self::MAX_STICKIES, count($stickies)));
+        }
+
+        $graph = new self($types, $nodes, $edges, $stickies);
         $graph->assertCounts();
         $graph->assertAcyclic();
 
@@ -153,6 +178,12 @@ final class Graph implements Countable, JsonSerializable
     public function edges(): array
     {
         return array_values($this->edges);
+    }
+
+    /** @return list<Sticky> de notities op het canvas */
+    public function stickies(): array
+    {
+        return array_values($this->stickies);
     }
 
     public function count(): int
@@ -187,10 +218,10 @@ final class Graph implements Countable, JsonSerializable
         return ($this->edges[$id."\0".$port] ?? null)?->to;
     }
 
-    /** De stap na een uitgang; zonder uitgang de eerste van de soort. */
+    /** De stap na een uitgang; zonder uitgang de eerste van de stap. */
     public function next(string $id, ?string $port = null): ?Node
     {
-        $port ??= $this->typeOf($id)?->firstOutput();
+        $port ??= $this->typeOf($id)?->firstOutput($this->nodes[$id]->config);
 
         if ($port === null) {
             return null;
@@ -201,7 +232,18 @@ final class Graph implements Countable, JsonSerializable
         return $target === null ? null : $this->nodes[$target];
     }
 
-    /** @return list<Edge> de verbindingen uit een stap, in de volgorde van de uitgangen van de soort */
+    /**
+     * De uitgangen van een stap: die van haar soort, en voor een soort met
+     * takken (NodeType::$branches) ook die uit haar config.
+     *
+     * @return array<string, string> uitgang => label
+     */
+    public function outputsOf(string $id): array
+    {
+        return $this->typeOf($id)?->outputsFor($this->nodes[$id]->config) ?? [];
+    }
+
+    /** @return list<Edge> de verbindingen uit een stap, in de volgorde van haar uitgangen */
     public function outgoing(string $id): array
     {
         $type = $this->typeOf($id);
@@ -212,7 +254,7 @@ final class Graph implements Countable, JsonSerializable
 
         $edges = [];
 
-        foreach (array_keys($type->outputs) as $port) {
+        foreach (array_keys($type->outputsFor($this->nodes[$id]->config)) as $port) {
             if (isset($this->edges[$id."\0".$port])) {
                 $edges[] = $this->edges[$id."\0".$port];
             }
@@ -294,7 +336,7 @@ final class Graph implements Countable, JsonSerializable
         foreach ($this->ordered() as $node) {
             $type = $this->types->require($node->type);
 
-            if ($node->id === $this->start && $this->outgoing($node->id) === [] && ! $type->isEnd()) {
+            if ($node->id === $this->start && $this->outgoing($node->id) === [] && ! $type->isEnd($node->config)) {
                 $issues[] = new Issue($node->id, Messages::get('Nog geen volgende stap.'));
             }
 
@@ -337,13 +379,34 @@ final class Graph implements Countable, JsonSerializable
 
     // ---- Wijzigen (elke keer een nieuwe graaf, opnieuw gecontroleerd) ----------
 
-    /** Een stap toevoegen, of een met hetzelfde id vervangen. */
+    /**
+     * Een stap toevoegen, of een met hetzelfde id vervangen. Een splitsing
+     * die een tak minder heeft gekregen, verliest de verbinding van die tak.
+     */
     public function withNode(Node $node): self
     {
         $nodes = $this->nodes;
         $nodes[$node->id] = $node;
+        $ports = $this->types->get($node->type)?->outputsFor($node->config);
+        $edges = $ports === null ? $this->edges : array_filter($this->edges, fn (Edge $edge) => $edge->from !== $node->id || isset($ports[$edge->port]));
 
-        return $this->rebuild($nodes, $this->edges);
+        return $this->rebuild($nodes, $edges);
+    }
+
+    /**
+     * De notities vervangen.
+     *
+     * @param  list<Sticky|array<string, mixed>>  $stickies
+     */
+    public function withStickies(array $stickies): self
+    {
+        $raw = array_map(fn (Sticky|array $sticky) => $sticky instanceof Sticky ? $sticky->toArray() : $sticky, $stickies);
+
+        return self::fromArray([
+            'nodes' => $this->rawNodes($this->nodes),
+            'edges' => array_values(array_map(fn (Edge $edge) => $edge->toArray(), $this->edges)),
+            'stickies' => array_values($raw),
+        ], $this->types);
     }
 
     /**
@@ -358,7 +421,7 @@ final class Graph implements Countable, JsonSerializable
         }
 
         $incoming = $this->incoming($id);
-        $first = $this->typeOf($id)?->firstOutput();
+        $first = $this->typeOf($id)?->firstOutput($this->nodes[$id]->config);
         $after = $first === null ? null : $this->target($id, $first);
 
         $nodes = $this->nodes;
@@ -427,7 +490,7 @@ final class Graph implements Countable, JsonSerializable
             $nodes[$id] = isset($positions[$id]) ? $node->at((int) $positions[$id][0], (int) $positions[$id][1]) : $node;
         }
 
-        return new self($this->types, $nodes, $this->edges);
+        return new self($this->types, $nodes, $this->edges, $this->stickies);
     }
 
     /** Netjes geschikt, van links naar rechts (Layout); met $all false alleen wat nog geen plaats had. */
@@ -444,14 +507,20 @@ final class Graph implements Countable, JsonSerializable
 
     // ---- Schrijven -----------------------------------------------------------
 
-    /** @return array{version: int, nodes: list<array<string, mixed>>, edges: list<array{from: string, port: string, to: string}>} */
+    /** @return array<string, mixed> version, nodes, edges, en stickies als er zijn */
     public function toArray(): array
     {
-        return [
+        $array = [
             'version' => self::VERSION,
             'nodes' => array_values(array_map(fn (Node $node) => $node->toArray(), $this->nodes)),
             'edges' => array_values(array_map(fn (Edge $edge) => $edge->toArray(), $this->edges)),
         ];
+
+        if ($this->stickies !== []) {
+            $array['stickies'] = array_values(array_map(fn (Sticky $sticky) => $sticky->toArray(), $this->stickies));
+        }
+
+        return $array;
     }
 
     public function toJson(int $flags = 0): string
@@ -474,9 +543,19 @@ final class Graph implements Countable, JsonSerializable
     private function rebuild(array $nodes, array $edges): self
     {
         return self::fromArray([
-            'nodes' => array_values(array_map(fn (Node $node) => ['id' => $node->id, 'type' => $node->type, 'config' => $node->config, 'x' => $node->x, 'y' => $node->y], $nodes)),
+            'nodes' => $this->rawNodes($nodes),
             'edges' => array_values(array_map(fn (Edge $edge) => $edge->toArray(), $edges)),
+            'stickies' => array_values(array_map(fn (Sticky $sticky) => $sticky->toArray(), $this->stickies)),
         ], $this->types);
+    }
+
+    /**
+     * @param  array<string, Node>  $nodes
+     * @return list<array<string, mixed>>
+     */
+    private function rawNodes(array $nodes): array
+    {
+        return array_values(array_map(fn (Node $node) => ['id' => $node->id, 'type' => $node->type, 'config' => $node->config, 'x' => $node->x, 'y' => $node->y], $nodes));
     }
 
     /** @param  array<string, true>  $order */
@@ -629,7 +708,7 @@ final class Graph implements Countable, JsonSerializable
             throw new InvalidGraph(sprintf('Edge %d leads to node "%s", which does not exist.', $index, $to));
         }
 
-        if (! $types->require($nodes[$from]->type)->hasOutput($port)) {
+        if (! $types->require($nodes[$from]->type)->hasOutput($port, $nodes[$from]->config)) {
             throw new InvalidGraph(sprintf('Node "%s" has no output "%s".', $from, $port));
         }
 
@@ -642,6 +721,27 @@ final class Graph implements Countable, JsonSerializable
         }
 
         return new Edge($from, $port, $to);
+    }
+
+    private static function readSticky(mixed $raw, int $index): Sticky
+    {
+        if (! is_array($raw)) {
+            throw new InvalidGraph(sprintf('Sticky %d is not an object.', $index));
+        }
+
+        $id = $raw['id'] ?? null;
+
+        if (! is_string($id) || ! preg_match(self::ID, $id)) {
+            throw new InvalidGraph(sprintf('Sticky %d has no valid id: use 1 to 40 letters, digits, "_" or "-".', $index));
+        }
+
+        $text = $raw['text'] ?? '';
+
+        if (! is_string($text) || mb_strlen($text) > Sticky::MAX_TEXT) {
+            throw new InvalidGraph(sprintf('The text of sticky "%s" is not text, or longer than %d characters.', $id, Sticky::MAX_TEXT));
+        }
+
+        return new Sticky($id, $text, self::coordinate($raw['x'] ?? null, $id), self::coordinate($raw['y'] ?? null, $id));
     }
 
     /** @param  array<mixed>  $config */

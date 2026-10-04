@@ -23,10 +23,23 @@ use JsonSerializable;
 | 'Titel']`. De editor leest hetzelfde uit het formulier (`required`); de
 | server controleert het opnieuw, want wat in een browser gebeurt, is een
 | voorstel.
+|
+| TAKKEN UIT DE CONFIG (`branches`): een splitsing op de waarde van een veld
+| heeft een uitgang per gekozen waarde, en die staan in haar config, niet in
+| de soort. `branches: 'values'` maakt van elke waarde in config['values']
+| een uitgang, voor de vaste (zoals `other`). Hoogstens MAX_BRANCHES, zodat
+| een stap met al haar uitgangen nog in een rij past; een waarde die geen
+| geldige naam voor een uitgang is, telt niet. Wie de uitgangen van een stap
+| wil kennen, vraagt ze dus met haar config: outputsFor().
 */
 final class NodeType implements JsonSerializable
 {
     public const TONES = ['neutral', 'info', 'ok', 'warn', 'danger', 'brand'];
+
+    /** Hoeveel uitgangen een stap hoogstens uit haar config haalt (zie `branches`). */
+    public const MAX_BRANCHES = 4;
+
+    private const PORT = '/^[a-z][a-z0-9_-]{0,19}$/';
 
     /** @var array<string, string> uitgang => label ('' voor de enige uitgang zonder naam) */
     public readonly array $outputs;
@@ -51,6 +64,7 @@ final class NodeType implements JsonSerializable
         array $required = [],
         public readonly ?int $max = null,
         public readonly array $defaults = [],
+        public readonly ?string $branches = null,
     ) {
         if (! preg_match('/^[a-z][a-z0-9_.-]{0,39}$/', $key)) {
             throw new InvalidArgumentException(sprintf('"%s" is not a valid node type key: use lower case letters, digits, "_", "." or "-".', $key));
@@ -64,30 +78,65 @@ final class NodeType implements JsonSerializable
             throw new InvalidArgumentException(sprintf('The maximum of node type "%s" must be at least 1.', $key));
         }
 
+        if ($branches !== null && ! preg_match('/^[a-z][a-z0-9_]{0,39}$/', $branches)) {
+            throw new InvalidArgumentException(sprintf('"%s" is not a valid config key for the branches of node type "%s".', $branches, $key));
+        }
+
         $this->outputs = self::named($outputs, '');
         $this->required = self::named($required, null);
 
         foreach (array_keys($this->outputs) as $port) {
-            if (! preg_match('/^[a-z][a-z0-9_-]{0,19}$/', $port)) {
+            if (! preg_match(self::PORT, $port)) {
                 throw new InvalidArgumentException(sprintf('"%s" is not a valid output of node type "%s".', $port, $key));
             }
         }
     }
 
-    public function hasOutput(string $port): bool
+    /**
+     * De uitgangen van een stap van deze soort: eerst die uit haar config
+     * (branches), dan de vaste. Een uitgang uit de config heeft geen label;
+     * de editor leest het uit het formulier.
+     *
+     * @param  array<string, mixed>  $config
+     * @return array<string, string>
+     */
+    public function outputsFor(array $config = []): array
     {
-        return array_key_exists($port, $this->outputs);
+        if ($this->branches === null) {
+            return $this->outputs;
+        }
+
+        $branches = [];
+
+        foreach ((array) ($config[$this->branches] ?? []) as $value) {
+            if (count($branches) < self::MAX_BRANCHES && is_string($value) && preg_match(self::PORT, $value) && ! isset($this->outputs[$value])) {
+                $branches[$value] = '';
+            }
+        }
+
+        return $branches + $this->outputs;
     }
 
-    /** De eerste uitgang: waar een nieuwe stap vanzelf aan hangt. */
-    public function firstOutput(): ?string
+    /** @param  array<string, mixed>  $config  de config van de stap, voor een soort met takken */
+    public function hasOutput(string $port, array $config = []): bool
     {
-        return array_key_first($this->outputs);
+        return array_key_exists($port, $this->outputsFor($config));
     }
 
-    public function isEnd(): bool
+    /**
+     * De eerste uitgang: waar een nieuwe stap vanzelf aan hangt.
+     *
+     * @param  array<string, mixed>  $config
+     */
+    public function firstOutput(array $config = []): ?string
     {
-        return $this->outputs === [];
+        return array_key_first($this->outputsFor($config));
+    }
+
+    /** @param  array<string, mixed>  $config */
+    public function isEnd(array $config = []): bool
+    {
+        return $this->outputsFor($config) === [];
     }
 
     /** @return array<string, mixed> wat de editor van deze soort kent */
@@ -104,6 +153,7 @@ final class NodeType implements JsonSerializable
             'hint' => $this->hint,
             'max' => $this->start ? 1 : $this->max,
             'defaults' => (object) $this->defaults,
+            'branches' => $this->branches,
         ];
     }
 

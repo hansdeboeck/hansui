@@ -17,7 +17,7 @@ import { format, summarize, whenMatches } from '../../resources/js/flows/editor.
 
 const fixture = JSON.parse(readFileSync(new URL('../fixtures/flows-layout.json', import.meta.url), 'utf8'));
 
-const asTypes = (types) => types.map((type) => ({ key: type.key, label: type.key, start: type.start, outputs: type.outputs.map((key) => ({ key, label: '' })) }));
+const asTypes = (types) => types.map((type) => ({ key: type.key, label: type.key, start: type.start, branches: type.branches ?? null, outputs: type.outputs.map((key) => ({ key, label: '' })) }));
 
 const graphOf = (nodes, edges = []) => G.parse({
     nodes: nodes.map(([id, type, config]) => ({ id, type, config: config ?? {} })),
@@ -170,4 +170,88 @@ test('vat een stap samen uit een patroon, en laat een leeg deel weg', () => {
     values.workdays = 'op werkdagen';
     assert.equal(summarize('{amount} {unit}[, {workdays}]', display), '2 dagen, op werkdagen');
     assert.equal(summarize('{title} · {to}', display), 'Bellen {naam} · ', 'wat een veld toont, wordt niet opnieuw ingevuld');
+});
+
+test('haalt de takken van een splitsing uit haar config, voor de vaste uitgangen', () => {
+    const split = (values) => ({ id: 's', type: 'split', config: { values }, x: 0, y: 0 });
+
+    assert.deepEqual(G.outputs(types, split(['high', 'urgent'])).map((output) => output.key), ['high', 'urgent', 'other']);
+    assert.deepEqual(G.outputs(types, split([])).map((output) => output.key), ['other']);
+    assert.deepEqual(
+        G.outputs(types, split(['a', '12', 'Hoog', 'a', 'other', 'b-2', 'c', 'd', 'e'])).map((output) => output.key),
+        ['a', 'b-2', 'c', 'd', 'other'],
+        'geen naam, dubbel, de vaste of een vijfde tak telt niet',
+    );
+
+    // Met veel uitgangen is een stap hoger, en de uitgangen staan verdeeld over die hoogte.
+    assert.equal(G.nodeHeight(types, split(['a'])), G.NODE_HEIGHT);
+    assert.equal(G.nodeHeight(types, split(['a', 'b', 'c', 'd'])), 24 * 6);
+    assert.deepEqual(G.outPoint(types, split(['a', 'b', 'c', 'd']), 'other'), { x: G.NODE_WIDTH, y: 24 * 5 });
+    assert.deepEqual(G.inPoint(split(['a', 'b', 'c', 'd']), types), { x: 0, y: 72 });
+});
+
+test('een tak die wegvalt, verliest zijn verbinding', () => {
+    let graph = graphOf(
+        [['start', 'trigger'], ['s', 'split', { values: ['high', 'urgent'] }], ['a', 'task'], ['b', 'task'], ['c', 'task']],
+        [['start', 'out', 's'], ['s', 'high', 'a'], ['s', 'urgent', 'b'], ['s', 'other', 'c']],
+    );
+
+    assert.equal(G.canConnect(graph, types, 's', 'low', 'c'), 'port');
+    assert.equal(G.prunePorts(graph, types, 's'), graph, 'niets weg te halen: dezelfde graaf');
+
+    graph = G.prunePorts(G.updateNode(graph, 's', { config: { values: ['high'] } }), types, 's');
+
+    assert.equal(G.target(graph, 's', 'urgent'), null);
+    assert.equal(G.target(graph, 's', 'high'), 'a');
+    assert.equal(G.target(graph, 's', 'other'), 'c');
+});
+
+test('leest en schrijft notities, en schrijft er geen als er geen zijn', () => {
+    const graph = G.parse({
+        nodes: [{ id: 'start', type: 'trigger' }],
+        stickies: [
+            { id: 's1', text: 'Eerst bellen', x: 10.4, y: 300 },
+            { id: 's1', text: 'dubbel' },
+            { id: 'een notitie', text: 'geen geldig id' },
+            { text: 'zonder id' },
+            { id: 's2', text: ['geen tekst'] },
+        ],
+    });
+
+    assert.deepEqual(graph.stickies, [{ id: 's1', text: 'Eerst bellen', x: 10, y: 300 }, { id: 's2', text: '', x: null, y: null }]);
+    assert.deepEqual(JSON.parse(G.serialize(graph)).stickies, graph.stickies);
+    assert.equal('stickies' in JSON.parse(G.serialize(G.parse({ nodes: [] }))), false);
+
+    let next = G.addSticky(graph, { id: G.nextStickyId(graph), text: 'Nieuw', x: 0, y: 0 });
+    assert.deepEqual(next.stickies.map((sticky) => sticky.id), ['s1', 's2', 's3']);
+
+    next = G.removeSticky(G.updateSticky(next, 's3', { text: 'Anders' }), 's1');
+    assert.deepEqual(next.stickies.map((sticky) => `${sticky.id}:${sticky.text}`), ['s2:', 's3:Anders']);
+    assert.deepEqual(G.bounds(G.parse({ nodes: [], stickies: [{ id: 's1', x: 100, y: 50 }] })), { minX: 100, minY: 50, maxX: 100 + G.STICKY_WIDTH, maxY: 50 + G.NODE_HEIGHT });
+});
+
+test('kopieert stappen met hun verbindingen, en plakt ze met nieuwe ids', () => {
+    const graph = G.arrange(G.addSticky(branching(), { id: 's1', text: 'Notitie', x: 0, y: 400 }), types);
+    const clip = G.extract(graph, types, ['start', 'c', 'a', 'm'], ['s1']);
+
+    assert.deepEqual(clip.nodes.map((node) => node.id), ['c', 'a', 'm'], 'de start gaat niet mee');
+    assert.deepEqual(clip.edges.map((edge) => `${edge.from}:${edge.port}:${edge.to}`), ['c:yes:a', 'a:out:m'], 'alleen wat tussen de gekozen stappen ligt');
+
+    const pasted = G.paste(graph, types, clip, { dx: 40, dy: 40, after: 5 });
+
+    assert.deepEqual(pasted.nodes, ['n6', 'n7', 'n8']);
+    assert.deepEqual(pasted.stickies, ['s2']);
+    assert.equal(pasted.highest, 8);
+    assert.equal(G.target(pasted.graph, 'n6', 'yes'), 'n7');
+    assert.equal(G.target(pasted.graph, 'n7', 'out'), 'n8');
+    assert.equal(G.target(pasted.graph, 'n6', 'no'), null);
+    assert.deepEqual([G.findNode(pasted.graph, 'n6').x, G.findNode(pasted.graph, 'n6').y], [G.findNode(graph, 'c').x + 40, G.findNode(graph, 'c').y + 40]);
+    assert.equal(pasted.graph.nodes.length, graph.nodes.length + 3);
+
+    // Een soort die deze flow niet kent of waarvan er al genoeg zijn, valt weg; een start ook.
+    const foreign = G.paste(graph, types, { nodes: [{ id: 'x', type: 'robot' }, { id: 'y', type: 'trigger' }, { id: 'z', type: 'task', config: ['geen object'] }], edges: [{ from: 'x', port: 'out', to: 'z' }] });
+
+    assert.deepEqual(foreign.nodes, ['n6']);
+    assert.deepEqual(G.findNode(foreign.graph, 'n6').config, {});
+    assert.deepEqual(G.paste(graph, types, null).nodes, []);
 });
