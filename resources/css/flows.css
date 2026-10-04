@@ -346,9 +346,10 @@
         color: var(--ink);
     }
 
+    /* Onder de balk met de knoppen, niet erover: wie de weg ziet, kan nog proefdraaien of terugdraaien. */
     .flow-trace {
         position: absolute;
-        top: 0.75rem;
+        top: 3.75rem;
         left: 50%;
         z-index: 25;
         display: flex;
@@ -644,13 +645,17 @@
         border-color: var(--line-strong);
     }
 
+    /* Tussen twee kolommen is er 80px: een lange naam (een collega, een pijplijn) wordt afgekort, de hele staat in de title van de uitgang. */
     .flow-port-label {
         position: absolute;
         left: calc(100% + 0.75rem);
+        max-width: 4rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
         transform: translateY(calc(-100% - 2px));
         font-size: 0.6875rem;
         font-weight: 700;
-        line-height: 1;
+        line-height: 1.1;
         color: var(--ink-faint);
         white-space: nowrap;
         pointer-events: none;
@@ -1212,9 +1217,6 @@
             display: none;
         }
 
-        .flow-trace {
-            top: 3.75rem;
-        }
     }
 
     @media (prefers-reduced-motion: reduce) {

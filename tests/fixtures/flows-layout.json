@@ -13,7 +13,7 @@
             "name": "een rechte reeks",
             "nodes": [["start", "trigger"], ["n1", "task"], ["n2", "wait"], ["n3", "task"]],
             "edges": [["start", "out", "n1"], ["n1", "out", "n2"], ["n2", "out", "n3"]],
-            "positions": { "start": [0, 0], "n1": [300, 0], "n2": [600, 0], "n3": [900, 0] },
+            "positions": { "start": [0, 0], "n1": [320, 0], "n2": [640, 0], "n3": [960, 0] },
             "reachable": ["start", "n1", "n2", "n3"],
             "ordered": ["start", "n1", "n2", "n3"]
         },
@@ -21,7 +21,7 @@
             "name": "twee takken: ja blijft op de rij, nee gaat een rij lager",
             "nodes": [["start", "trigger"], ["c", "condition"], ["a", "task"], ["a2", "task"], ["b", "task"]],
             "edges": [["start", "out", "c"], ["c", "yes", "a"], ["a", "out", "a2"], ["c", "no", "b"]],
-            "positions": { "start": [0, 0], "c": [300, 0], "a": [600, 0], "a2": [900, 0], "b": [600, 150] },
+            "positions": { "start": [0, 0], "c": [320, 0], "a": [640, 0], "a2": [960, 0], "b": [640, 150] },
             "reachable": ["start", "c", "a", "a2", "b"],
             "ordered": ["start", "c", "a", "a2", "b"]
         },
@@ -29,7 +29,7 @@
             "name": "takken die samenkomen: de stap erna staat rechts van allebei",
             "nodes": [["start", "trigger"], ["c", "condition"], ["a", "task"], ["b", "wait"], ["m", "task"], ["e", "stop"]],
             "edges": [["start", "out", "c"], ["c", "yes", "a"], ["c", "no", "b"], ["a", "out", "m"], ["b", "out", "m"], ["m", "out", "e"]],
-            "positions": { "start": [0, 0], "c": [300, 0], "a": [600, 0], "b": [600, 150], "m": [900, 0], "e": [1200, 0] },
+            "positions": { "start": [0, 0], "c": [320, 0], "a": [640, 0], "b": [640, 150], "m": [960, 0], "e": [1280, 0] },
             "reachable": ["start", "c", "a", "m", "e", "b"],
             "ordered": ["start", "c", "a", "m", "e", "b"]
         },
@@ -37,7 +37,7 @@
             "name": "wat nergens aan hangt, komt onderaan",
             "nodes": [["start", "trigger"], ["n1", "task"], ["n2", "task"], ["n3", "wait"], ["n4", "wait"]],
             "edges": [["start", "out", "n1"], ["n2", "out", "n3"]],
-            "positions": { "start": [0, 0], "n1": [300, 0], "n2": [0, 150], "n3": [300, 150], "n4": [0, 300] },
+            "positions": { "start": [0, 0], "n1": [320, 0], "n2": [0, 150], "n3": [320, 150], "n4": [0, 300] },
             "reachable": ["start", "n1"],
             "ordered": ["start", "n1", "n2", "n3", "n4"]
         },
@@ -45,7 +45,7 @@
             "name": "de langste weg beslist de kolom",
             "nodes": [["start", "trigger"], ["c", "condition"], ["x", "task"], ["y", "wait"], ["z", "task"]],
             "edges": [["start", "out", "c"], ["c", "yes", "x"], ["x", "out", "y"], ["y", "out", "z"], ["c", "no", "z"]],
-            "positions": { "start": [0, 0], "c": [300, 0], "x": [600, 0], "y": [900, 0], "z": [1200, 0] },
+            "positions": { "start": [0, 0], "c": [320, 0], "x": [640, 0], "y": [960, 0], "z": [1280, 0] },
             "reachable": ["start", "c", "x", "y", "z"],
             "ordered": ["start", "c", "x", "y", "z"]
         },
@@ -53,7 +53,7 @@
             "name": "de volgorde in de lijst is niet de volgorde van de flow",
             "nodes": [["n9", "task"], ["start", "trigger"], ["n2", "condition"], ["n7", "task"]],
             "edges": [["n2", "no", "n9"], ["start", "out", "n2"], ["n2", "yes", "n7"]],
-            "positions": { "n9": [600, 150], "start": [0, 0], "n2": [300, 0], "n7": [600, 0] },
+            "positions": { "n9": [640, 150], "start": [0, 0], "n2": [320, 0], "n7": [640, 0] },
             "reachable": ["start", "n2", "n7", "n9"],
             "ordered": ["start", "n2", "n7", "n9"]
         },
@@ -61,7 +61,7 @@
             "name": "ids die getallen zijn, zoals rijen uit een databank",
             "nodes": [["start", "trigger"], ["12", "condition"], ["7", "task"], ["30", "wait"], ["9", "task"], ["41", "task"]],
             "edges": [["start", "out", "12"], ["12", "yes", "7"], ["12", "no", "30"], ["7", "out", "9"], ["30", "out", "9"]],
-            "positions": { "start": [0, 0], "12": [300, 0], "7": [600, 0], "30": [600, 150], "9": [900, 0], "41": [0, 300] },
+            "positions": { "start": [0, 0], "12": [320, 0], "7": [640, 0], "30": [640, 150], "9": [960, 0], "41": [0, 300] },
             "reachable": ["start", "12", "7", "9", "30"],
             "ordered": ["start", "12", "7", "9", "30", "41"]
         },
@@ -69,7 +69,7 @@
             "name": "een splitsing op een veld: elke tak een rij lager, Anders onderaan, en wat geen naam is telt niet",
             "nodes": [["start", "trigger"], ["s", "split", { "values": ["high", "urgent", "Geen naam"] }], ["a", "task"], ["b", "task"], ["c", "task"]],
             "edges": [["start", "out", "s"], ["s", "high", "a"], ["s", "urgent", "b"], ["s", "other", "c"]],
-            "positions": { "start": [0, 0], "s": [300, 0], "a": [600, 0], "b": [600, 150], "c": [600, 300] },
+            "positions": { "start": [0, 0], "s": [320, 0], "a": [640, 0], "b": [640, 150], "c": [640, 300] },
             "reachable": ["start", "s", "a", "b", "c"],
             "ordered": ["start", "s", "a", "b", "c"]
         }

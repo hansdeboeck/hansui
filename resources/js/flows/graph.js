@@ -20,7 +20,7 @@
 | en doen niet mee met de wandeling.
 */
 
-export const COLUMN = 300;
+export const COLUMN = 320;
 export const ROW = 150;
 export const NODE_WIDTH = 240;
 export const NODE_HEIGHT = 76;
@@ -134,7 +134,7 @@ export function outputs(types, node) {
 export function nodeHeight(types, node) {
     const count = outputs(types, node).length;
 
-    return count > 3 ? 24 * (count + 1) : NODE_HEIGHT;
+    return count > 2 ? 24 * (count + 1) : NODE_HEIGHT;
 }
 
 /** Verbindingen van uitgangen die een stap niet meer heeft (een tak die wegviel), weg. */

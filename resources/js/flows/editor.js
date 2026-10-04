@@ -815,6 +815,11 @@ export class FlowEditor {
             const port = element('span', 'flow-port flow-port-out');
             port.dataset.flowOut = output.key;
             port.style.top = `${top}px`;
+
+            if (output.label) {
+                port.title = output.label;
+            }
+
             card.append(port);
 
             if (output.label) {
@@ -2239,11 +2244,18 @@ export class FlowEditor {
 
         const overview = view === 'overview';
 
+        // Wie vanuit het overzicht naar de flow gaat (de weg van een run, een versie), staat daarna op het canvas: anders blijft de focus achter in wat verborgen is, en doen de toetsen niets.
+        const leaving = !overview && this.overview.contains(document.activeElement);
+
         this.stage.hidden = overview;
         this.overview.hidden = !overview;
         this.root.querySelectorAll('[data-flow-view]').forEach((button) => {
             button.setAttribute('aria-pressed', button.dataset.flowView === (overview ? 'overview' : 'flow') ? 'true' : 'false');
         });
+
+        if (leaving) {
+            this.canvas?.focus({ preventScroll: true });
+        }
 
         if (remember) {
             const url = new URL(window.location.href);

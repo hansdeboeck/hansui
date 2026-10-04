@@ -129,7 +129,7 @@ test('wat nog niet af is, in dezelfde volgorde als Graph::issues', () => {
 test('schikt alles, of alleen wat nog geen plaats had', () => {
     const graph = G.updateNode(branching(), 'c', { x: 5, y: 5 });
 
-    assert.deepEqual(G.findNode(G.arrange(graph, types), 'c'), { id: 'c', type: 'condition', config: {}, x: 300, y: 0 });
+    assert.deepEqual(G.findNode(G.arrange(graph, types), 'c'), { id: 'c', type: 'condition', config: {}, x: G.COLUMN, y: 0 });
     assert.deepEqual(G.findNode(G.arrange(graph, types, false), 'c'), { id: 'c', type: 'condition', config: {}, x: 5, y: 5 });
 });
 
@@ -138,12 +138,12 @@ test('tekent een bocht van een uitgang naar een ingang', () => {
     const from = G.outPoint(types, G.findNode(graph, 'c'), 'no');
     const to = G.inPoint(G.findNode(graph, 'b'));
 
-    assert.deepEqual(from, { x: 300 + G.NODE_WIDTH, y: (G.NODE_HEIGHT * 2) / 3 });
-    assert.deepEqual(to, { x: 600, y: 150 + G.NODE_HEIGHT / 2 });
+    assert.deepEqual(from, { x: G.COLUMN + G.NODE_WIDTH, y: (G.NODE_HEIGHT * 2) / 3 });
+    assert.deepEqual(to, { x: 2 * G.COLUMN, y: 150 + G.NODE_HEIGHT / 2 });
     assert.equal(G.edgePath({ x: 0, y: 0 }, { x: 100, y: 50 }), 'M 0 0 C 50 0, 50 50, 100 50');
     assert.deepEqual(G.edgeMiddle({ x: 0, y: 0 }, { x: 100, y: 50 }), { x: 50, y: 25 });
-    assert.deepEqual(G.bounds(graph), { minX: 0, minY: 0, maxX: 900 + G.NODE_WIDTH, maxY: 150 + G.NODE_HEIGHT });
-    assert.deepEqual(G.freeSpot(graph, 600, 0), { x: 600, y: 300 });
+    assert.deepEqual(G.bounds(graph), { minX: 0, minY: 0, maxX: 3 * G.COLUMN + G.NODE_WIDTH, maxY: 150 + G.NODE_HEIGHT });
+    assert.deepEqual(G.freeSpot(graph, 2 * G.COLUMN, 0), { x: 2 * G.COLUMN, y: 300 });
     assert.equal(G.snap(17), 20);
 });
 
@@ -185,6 +185,7 @@ test('haalt de takken van een splitsing uit haar config, voor de vaste uitgangen
 
     // Met veel uitgangen is een stap hoger, en de uitgangen staan verdeeld over die hoogte.
     assert.equal(G.nodeHeight(types, split(['a'])), G.NODE_HEIGHT);
+    assert.equal(G.nodeHeight(types, split(['a', 'b'])), 24 * 4, 'drie uitgangen: elk 24px, zodat hun namen niet op elkaar staan');
     assert.equal(G.nodeHeight(types, split(['a', 'b', 'c', 'd'])), 24 * 6);
     assert.deepEqual(G.outPoint(types, split(['a', 'b', 'c', 'd']), 'other'), { x: G.NODE_WIDTH, y: 24 * 5 });
     assert.deepEqual(G.inPoint(split(['a', 'b', 'c', 'd']), types), { x: 0, y: 72 });

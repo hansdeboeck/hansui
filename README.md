@@ -1005,7 +1005,7 @@ gooit, gaat door naar wie de walker riep.
     "version": 1,
     "nodes": [
         { "id": "start", "type": "trigger", "config": { "event": "deal.won" }, "x": 0, "y": 0 },
-        { "id": "n1", "type": "task", "config": { "title": "Bellen" }, "x": 300, "y": 0 }
+        { "id": "n1", "type": "task", "config": { "title": "Bellen" }, "x": 320, "y": 0 }
     ],
     "edges": [
         { "from": "start", "port": "out", "to": "n1" }
