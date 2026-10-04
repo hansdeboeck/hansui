@@ -3,6 +3,53 @@
 Dit package zit straks in zes applicaties op een gepinde versie. Wat hier staat
 is wat je moet weten voor je die pin verzet.
 
+## 0.14.0
+
+### Nieuw
+
+Uit ProjectTail en socialtail, waar automatisaties als een flow getekend worden,
+zoals in n8n. Het stond daar als een eigen pakket (`hansdeboeck/flows`) dat in
+beide applicaties gekopieerd stond; een wijziging moest dus twee keer.
+
+- **Flows** in `src/Flows` (`HansDeBoeck\HansUi\Flows`): `Graph` leest een
+  flow uit json, controleert ze (bekende soorten, unieke ids, een uitgang met
+  hoogstens een verbinding, precies een start, geen lus, hoogstens 200 stappen)
+  en schrijft ze terug; `NodeType` en `NodeTypes` zijn de soorten stappen;
+  `Layout` schikt van links naar rechts, gelijk aan de browser; `Builder` maakt
+  een flow in code; `Walker`, `Step` en `Walk` voeren ze uit met een functie
+  van de applicatie; `ValidFlow` is de validatieregel. Geen applicatie nodig,
+  behalve voor `ValidFlow`.
+- **`<x-flow-editor>`**: het canvas, het paneel met het formulier van een stap,
+  het palet, terugdraaien, zoomen, volledig scherm en het toetsenbord, met
+  `readonly`, `fill`, `flush` en de slots `header` en `notices`. Het gedrag en
+  de opmaak staan apart, in `resources/js/flows.js` en
+  `resources/css/flows.css`: een applicatie zonder flows laadt ze niet.
+- **De slot `overview`**: een tweede weergave naast de flow, voor wat een
+  pagina anders onder de editor zou zetten. In de balk komt een keuze (Flow,
+  Uitvoeringen), het overzicht scrolt zelf, en `#overzicht` (of de `hash`)
+  staat in de url.
+- `tests/js` met de tests van de graaf in de browser, tegen dezelfde
+  `tests/fixtures/flows-layout.json` als `Layout`; `composer test` draait ze
+  mee (`node --test`, zonder afhankelijkheden).
+- Engelse vertalingen voor de zinnen van de editor en de graaf.
+
+### Wat je moet doen
+
+Niets, als je geen flows tekent: `hansui.css` en `hansui.js` blijven wat ze
+waren. Wie `hansdeboeck/flows` gebruikte:
+
+- haal het pakket weg uit `composer.json` (en `packages/flows`);
+- `HansDeBoeck\Flows\` wordt `HansDeBoeck\HansUi\Flows\`, en
+  `HansDeBoeck\Flows\Laravel\ValidFlow` wordt
+  `HansDeBoeck\HansUi\Flows\ValidFlow`;
+- `<x-flows::editor>` wordt `<x-flow-editor>`;
+- de imports wijzen naar `vendor/hansdeboeck/hansui/resources/js/flows.js` en
+  `vendor/hansdeboeck/hansui/resources/css/flows.css`.
+
+Had je een view van het pakket overschreven (`resources/views/vendor/flows`),
+dan is dat nu `resources/views/components/flow-editor.blade.php`, zoals bij
+elke component van HansUI.
+
 ## 0.13.0
 
 ### Nieuw

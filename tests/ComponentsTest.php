@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace HansDeBoeck\HansUi\Tests;
 
+use HansDeBoeck\HansUi\Flows\Graph;
+use HansDeBoeck\HansUi\Flows\Node;
+use HansDeBoeck\HansUi\Flows\NodeType;
+use HansDeBoeck\HansUi\Flows\NodeTypes;
 use HansDeBoeck\HansUi\HansUiServiceProvider;
 use HansDeBoeck\HansUi\Tests\Fakes\VoorbeeldResultaat;
 use Illuminate\Support\Facades\Blade;
@@ -76,6 +80,25 @@ final class ComponentsTest extends TestCase
             'composer' => ['<x-composer action="/antwoord" draft="gesprek.1" :values="[\'naam\' => \'Nina\']" placeholder="Schrijf…" :maxlength="1000"><x-slot:head>kop</x-slot:head><x-slot:below>handtekening</x-slot:below><x-slot:tools>tools</x-slot:tools><x-slot:actions><button>Versturen</button></x-slot:actions></x-composer><x-composer action="/x" method="put" id="tweede"/>'],
             'ago' => ['<x-ago time="2026-01-05 10:00" class="text-xs"/><x-ago/>'],
             'shortcuts' => ['<x-shortcuts :keys="[\'J\' => \'Volgende\', \'Ctrl ↵\' => \'Versturen\']">Uitleg</x-shortcuts>'],
+            'flow-editor' => ['<x-flow-editor :graph="$flow" name="flow" form="bewaren" :issues="[\'n1\' => [\'Te laat.\']]" :badges="[\'n1\' => \'3 wachten hier\']" :fill="true"><x-slot:header><a href="/terug">Terug</a></x-slot:header><template data-flow-form="taak"><input name="titel"></template></x-flow-editor><x-flow-editor :graph="$flow" :readonly="true"/>'],
+        ];
+    }
+
+    /**
+     * Wat de componenten hierboven nodig hebben en niet in een attribuut past.
+     *
+     * @return array<string, mixed>
+     */
+    private function voorbeelden(): array
+    {
+        $soorten = new NodeTypes([
+            new NodeType('start', 'Als dit gebeurt', icon: 'bolt', start: true),
+            new NodeType('taak', 'Taak maken', icon: 'check', tone: 'ok'),
+        ]);
+
+        return [
+            'resultaat' => new VoorbeeldResultaat,
+            'flow' => Graph::starting($soorten, 'start')->withNode(new Node('n1', 'taak'))->connect('start', 'out', 'n1'),
         ];
     }
 
@@ -83,7 +106,7 @@ final class ComponentsTest extends TestCase
     #[DataProvider('componenten')]
     public function elke_component_tekent_zonder_te_vallen(string $sjabloon): void
     {
-        $html = Blade::render($sjabloon, ['resultaat' => new VoorbeeldResultaat]);
+        $html = Blade::render($sjabloon, $this->voorbeelden());
 
         $this->assertNotSame('', trim($html));
     }
@@ -96,7 +119,7 @@ final class ComponentsTest extends TestCase
         // naam zelf al gebruikt. Intern gebruikt het package altijd de prefix.
         $html = Blade::render(
             preg_replace('/<(\/?)x-(?!hansui::|slot)/', '<$1x-hansui::', $sjabloon),
-            ['resultaat' => new VoorbeeldResultaat],
+            $this->voorbeelden(),
         );
 
         $this->assertNotSame('', trim($html));
