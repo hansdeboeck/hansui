@@ -113,7 +113,7 @@ staat, loopt uit elkaar zodra er iets aan verandert.
 `<x-nav-mega-link>`, `<x-delta>`, `<x-chart.line>`, `<x-chart.columns>`,
 `<x-chart.bars>`, `<x-chart.heatmap>`, `<x-cropper>`, `<x-lightbox>`, `<x-steps>`,
 `<x-panes>`, `<x-list-row>`, `<x-message>`, `<x-thread-day>`, `<x-composer>`,
-`<x-ago>` en `<x-shortcuts>`. Ook bereikbaar als
+`<x-ago>`, `<x-shortcuts>` en `<x-flow-editor>` (zie [Flows](#flows)). Ook bereikbaar als
 `<x-hansui::page>` wanneer een applicatie de korte naam zelf al gebruikt.
 
 `<x-card>` is een kaal vlak, `<x-section>` diezelfde kaart met een kopregel
@@ -615,6 +615,423 @@ zelf scrolt nooit.
 **Een melding onderaan.** Voor wie zelf iets wil melden:
 `window.dispatchEvent(new CustomEvent('toast', { detail: 'Bewaard' }))`, of
 `{ detail: { text: 'Mislukt', tone: 'danger' } }`.
+
+## Flows
+
+Flows tekenen en uitvoeren, zoals in n8n: een start, stappen die na elkaar
+komen, voorwaarden die splitsen in ja en nee, en wachten tot morgen of tot een
+taak af is. Vier delen, in `src/Flows` en `<x-flow-editor>`:
+
+- **Een graaf** (`Graph`): lezen uit json, controleren (geen lus, precies een
+  start, een uitgang met hoogstens een verbinding), wijzigen en terugschrijven.
+  Wat nog niet af is (een leeg verplicht veld, een stap die nergens aan hangt),
+  zijn `issues()` en geen fouten.
+- **Een editor in de browser** (`<x-flow-editor>`): slepen, verbinden, een stap
+  ertussen zetten, terugdraaien, zoomen, volledig scherm, en alles ook met het
+  toetsenbord. Gewoon JavaScript zonder afhankelijkheden, en css op de tokens
+  hierboven.
+- **Een walker** (`Walker`): voert een flow stap voor stap uit met een functie
+  van de applicatie, en zegt waar hij wacht, tot wanneer en langs welke uitgang
+  hij daarna verdergaat.
+- **Schikken** (`Layout`): van links naar rechts, de hoofdweg als rechte lijn;
+  de server en de browser rekenen precies hetzelfde.
+
+De graaf, het schikken en de walker hebben geen applicatie nodig. De editor
+staat apart van `hansui.css` en `hansui.js`, want de meeste schermen tekenen
+geen flow; een applicatie die hem gebruikt, neemt hem op na HansUI:
+
+```css
+/* resources/css/app.css */
+@import '../../vendor/hansdeboeck/hansui/resources/css/flows.css';
+```
+
+```js
+// resources/js/app.js
+import '../../vendor/hansdeboeck/hansui/resources/js/flows.js';
+```
+
+### De soorten stappen
+
+Een applicatie zegt welke stappen er zijn. Een soort heeft een naam, een icoon,
+een kleur als rol (`neutral`, `info`, `ok`, `warn`, `danger`, `brand`),
+uitgangen en verplichte velden:
+
+```php
+use HansDeBoeck\HansUi\Flows\NodeType;
+use HansDeBoeck\HansUi\Flows\NodeTypes;
+
+$types = new NodeTypes([
+    new NodeType('trigger', __('Als dit gebeurt'), icon: 'bolt', tone: 'warn', start: true, required: ['event' => __('Gebeurtenis')]),
+    new NodeType('condition', __('Voorwaarde'), icon: 'filter', tone: 'info', outputs: ['yes' => __('Ja'), 'no' => __('Nee')], group: __('Logica')),
+    new NodeType('wait', __('Wachten'), icon: 'clock', group: __('Logica'), defaults: ['amount' => 1, 'unit' => 'days']),
+    new NodeType('task', __('Taak maken'), icon: 'check', tone: 'ok', group: __('Acties'), required: ['title' => __('Titel')]),
+]);
+```
+
+- `start: true` is waar een flow begint. Er is er precies een, en er gaat
+  niets naartoe.
+- `outputs` zijn namen (`out`, of `yes` en `no`); een verbinding onthoudt de
+  naam, zodat een uitgang die erbij komt niets verschuift. Een soort zonder
+  uitgangen is een einde.
+- `required` noemt de velden die ingevuld moeten zijn, met de naam voor de
+  melding.
+- `max` beperkt hoe vaak een soort in een flow mag staan; `group` en `hint`
+  zijn voor het palet.
+- `branches` maakt een splitsing met meer takken: elke waarde in die sleutel
+  van de config wordt een uitgang, voor de vaste uitgangen (hoogstens
+  `NodeType::MAX_BRANCHES`, nu vier). Een waarde moet een geldige naam voor
+  een uitgang zijn (kleine letters, cijfers, `_` of `-`, beginnend met een
+  letter); de editor toont als label de tekst bij die waarde in het
+  formulier. Wie de uitgangen van een stap wil, vraagt ze met haar config:
+  `$type->outputsFor($node->config)` of `$graph->outputsOf($id)`.
+
+```php
+new NodeType('split', __('Splitsen'), icon: 'route', outputs: ['other' => __('Anders')], branches: 'values');
+```
+
+```blade
+<template data-flow-form="split">
+    <x-field name="field" :label="__('Op')">
+        <select id="field" name="field" class="input"><option value="priority">{{ __('Prioriteit') }}</option></select>
+    </x-field>
+    <fieldset data-flow-when="field:priority">
+        <label class="check"><input type="checkbox" name="values[]" value="high"> {{ __('Hoog') }}</label>
+        <label class="check"><input type="checkbox" name="values[]" value="urgent"> {{ __('Dringend') }}</label>
+    </fieldset>
+</template>
+```
+
+Een tak die uit de keuze valt, verliest zijn verbinding, in de editor en in
+`Graph::withNode()`. Van twee velden met dezelfde naam telt wat te zien is,
+ook voor een lijst: de vinkjes van een verborgen deel tellen dan niet mee.
+
+### Een flow lezen en bewaren
+
+```php
+use HansDeBoeck\HansUi\Flows\Graph;
+
+$graph = Graph::fromJson($request->input('flow'), $types);   // InvalidGraph als het niet klopt
+$graph->start();                       // de start
+$graph->next('n3', 'yes');             // de stap na de uitgang "yes"
+$graph->ordered();                     // alle stappen, in leesvolgorde
+$graph->issues();                      // wat nog niet af is: [Issue(node, message), ...]
+$graph->toJson();                      // om te bewaren
+```
+
+Een nieuwe flow is `Graph::starting($types, 'trigger', ['event' => 'deal.won'])`.
+In code bouw je er een met de `Builder`:
+
+```php
+use HansDeBoeck\HansUi\Flows\Builder;
+
+$flow = new Builder($types);
+$start = $flow->add('trigger', ['event' => 'deal.won']);
+$check = $flow->then($start, 'condition', ['field' => 'value_cents', 'operator' => '>=', 'value' => '5000']);
+$flow->then($check, 'task', ['title' => 'Bellen'], port: 'yes');
+
+$graph = $flow->graph();   // gecontroleerd en geschikt
+```
+
+Een wijziging (`withNode`, `withoutNode`, `connect`, `disconnect`, `renamed`,
+`arranged`) geeft een nieuwe graaf terug, opnieuw gecontroleerd.
+
+Nakijken in een request:
+
+```php
+use HansDeBoeck\HansUi\Flows\ValidFlow;
+
+$request->validate([
+    'flow' => ['required', new ValidFlow($types, complete: $request->boolean('active'))],
+]);
+```
+
+Ongeldig is altijd een fout. Met `complete` mag er ook niets meer open staan:
+een flow die aan staat, moet af zijn. Een derde argument voegt eigen controles
+toe (een team dat niet meer bestaat), zoals bij `issues()`.
+
+De zinnen voor een gebruiker gaan door `__()`, met het Nederlands als sleutel:
+`lang/en.json` hier heeft het Engels, een applicatie vult de rest aan.
+
+### De editor
+
+```blade
+<form id="automatisatie" method="POST" action="...">
+    @csrf
+    @method('PUT')
+</form>
+
+<x-flow-editor :graph="$graph" name="flow" form="automatisatie" :issues="$graph->issuesByNode($extra)">
+    <x-slot:header>
+        <a href="..." class="link-muted">Terug</a>
+        <input name="name" form="automatisatie" class="input">
+        <x-button type="submit" form="automatisatie">Bewaren</x-button>
+    </x-slot:header>
+
+    {{-- een <template> per soort, zie hieronder --}}
+</x-flow-editor>
+```
+
+| Wat je meegeeft | Wat het doet |
+|---|---|
+| `graph` | de flow, met haar soorten |
+| `test` | een url om proef te draaien (zie hieronder); zonder is er geen knop Proefdraaien |
+| `name`, `form` | het verborgen veld met de flow, en het id van het formulier dat het verstuurt: zet de editor **buiten** dat formulier (een formulier in een formulier bestaat niet) |
+| `issues` | wat de server zelf vond, per stap; wat de editor kan zien (een leeg verplicht veld, een stap die nergens aan hangt), rekent hij live |
+| `notes` | zinnen per stap voor in het paneel (een geheim om een webhook te controleren, een uitleg) |
+| `badges` | een kort woord of cijfer per stap op het canvas ("12 wachten hier", "61% geopend") |
+| `icon` | de component voor de iconen van de stappen; standaard `<x-icon>`, die van de applicatie als ze er een heeft |
+| `label` | de naam van het canvas voor een schermlezer |
+| `readonly` | alleen bekijken: een stap opent nog in het paneel (met de velden uit), het canvas verschuift en zoomt, maar er is niets om toe te voegen, te verbinden of weg te halen, en het veld heeft geen naam, zodat er niets verstuurd wordt |
+| `fill` | loopt van waar de editor begint tot onderaan het venster (nooit lager dan `--flow-fill-min`, standaard 28rem; de ruimte eronder is `--flow-fill-gap`), voor een pagina die vooral de editor is; zonder is hij `--flow-height` hoog |
+| `flush` | van rand tot rand: geen rand, geen ronde hoeken en geen ruimte eronder, voor een pagina die alleen de editor is |
+| slot `header` | een balk bovenaan, voor wat de pagina anders boven de editor zou zetten (de weg terug, de naam, Bewaren); de editor zet er zelf Volledig scherm achter |
+| slot `notices` | onder die balk, alleen als er iets in staat: een melding, wat er nog ontbreekt |
+| slot `overview` | een tweede weergave naast de flow, voor wat de pagina anders onder de editor zou zetten (de laatste keren, de cijfers); met `label` (standaard Overzicht) en `hash` (standaard `overzicht`) |
+| slot `example` | de velden om een voorbeeld te kiezen bij Proefdraaien (een deal, een contact) |
+| de slot zelf | de formulieren van de stappen, een `<template>` per soort |
+
+Na een validatiefout toont de editor wat de gebruiker had (`old()`), als dat
+een geldige flow is.
+
+**Volledig scherm** (de knop, of F op het canvas) legt de editor over het hele
+venster, met css, zodat het overal werkt, ook op een iPhone en in een
+ingesloten pagina. Waar de browser het toelaat, verdwijnen ook zijn balken (het
+hele document gaat volledig scherm, zodat een `<dialog>` van de applicatie
+erboven blijft). Escape of dezelfde knop zet het terug.
+
+**Het overzicht** komt in de balk als keuze naast de flow (Flow, Uitvoeringen)
+en neemt de plaats van het canvas in; het scrolt zelf, zodat een pagina met
+`fill` nooit hoeft te scrollen. Wie het kiest, krijgt `#overzicht` (of de
+`hash`) in de url, zonder nieuwe stap in de geschiedenis: herladen, een link en
+de knop Terug komen er weer in uit. Een formulier dat bewaart, stuurt terug
+naar de url zonder, en dan staat de flow er weer. De toetsen van de flow gelden
+in het overzicht niet.
+
+```blade
+<x-slot:overview :label="__('Uitvoeringen')" hash="uitvoeringen" class="space-y-6">
+    @include('automations.partials.runs')
+</x-slot:overview>
+```
+
+In de editor:
+
+| Wat | Hoe |
+|---|---|
+| Een stap toevoegen | de knop Stap toevoegen, de + aan een uitgang, of slepen van een uitgang naar een lege plek |
+| Verbinden | slepen van een uitgang naar een stap, of kiezen bij Daarna in het paneel |
+| Ertussen zetten, loskoppelen | de knoppen op een verbinding |
+| Invullen | een klik op een stap opent het paneel |
+| Verschuiven | slepen, of de pijltjes (Shift voor grotere stappen) |
+| Weghalen | Delete, of de knop in het paneel; een reeks sluit weer aan |
+| Terugdraaien | Ctrl+Z en Ctrl+Shift+Z |
+| Kijken | slepen op het canvas, scrollen, Ctrl+scrollen of knijpen om te zoomen, 0 om alles te tonen |
+| Volledig scherm | de knop, of F; Escape zet het terug |
+| Meer tegelijk kiezen | Shift+klik, Shift en slepen op een lege plek (een kader), of Ctrl+A; samen slepen of weghalen |
+| Kopiëren en plakken | Ctrl+C, Ctrl+X en Ctrl+V, ook naar een andere flow; de start gaat niet mee |
+| Een notitie | de knop Notitie; slepen, en een klik opent haar tekst |
+
+Een lus kan niet: een verbinding die er een zou maken, weigert de editor voor
+ze getekend is. Op een smal scherm zijn het paneel en het palet een blad
+onderaan.
+
+### Het formulier van een stap
+
+Per soort een `<template data-flow-form="soort">` in de slot van de editor, met
+gewone velden. De editor kloont het in het paneel, vult het met de config van
+de stap, en schrijft elke wijziging terug.
+
+```blade
+<template data-flow-form="task" data-flow-summary="{title} · {to}">
+    <x-field name="title" :label="__('Titel')">
+        <input id="title" name="title" class="input" required>
+    </x-field>
+    <x-field name="to" :label="__('Voor')">
+        <select id="to" name="to" class="input">...</select>
+    </x-field>
+    <div data-flow-when="to:team">
+        ...
+    </div>
+</template>
+```
+
+- **De naam van een veld is de sleutel in de config.** Een getal
+  (`type="number"`) wordt een getal, een vinkje `true` of `false`, `naam[]` of
+  `multiple` een lijst.
+- **Wat in het formulier al staat** (`value`, `selected`, `checked`), is de
+  config van een nieuwe stap. `defaults` van de soort komen erbovenop.
+- **`required`** maakt van een leeg veld een issue op de stap ("Nog in te
+  vullen: Titel", met de tekst van het label).
+- **De samenvatting** op de stap komt uit het patroon `data-flow-summary` op de
+  template (`{veld}` is wat het veld toont: de tekst van de gekozen optie, het
+  label van een vinkje), of anders uit de velden met `data-flow-summary`, na
+  elkaar. `data-flow-summary-requires="veld"` toont het patroon alleen als dat
+  veld ingevuld is, en `data-flow-summary-text` op een optie of een vinkje is
+  wat er dan staat in plaats van zijn tekst.
+- **`data-flow-when="veld:a,b"`** toont een deel alleen als het veld een van die
+  waarden heeft; `veld!:a,b` als het er geen van heeft, `veld` als het
+  ingevuld of aangevinkt is. Een verborgen veld is nooit verplicht.
+- Ids krijgen een voorvoegsel en namen een eigen naam met een `form` dat
+  nergens bestaat: wat in het paneel staat, wordt nooit zelf verstuurd.
+
+### Notities, de weg van een uitvoering, versies en proefdraaien
+
+**Notities** staan in de json naast de stappen (`stickies`, zie het formaat):
+een applicatie die de json bewaart, heeft er niets voor te doen; een die haar
+stappen als rijen bewaart, bewaart ze apart (`$graph->stickies()`,
+`$graph->withStickies()`). Ze doen niet mee met de wandeling of de controles.
+
+**De weg van een uitvoering**: een knop of link in de editor (meestal in het
+overzicht) met `data-flow-trace` en json. De editor toont dan de flow, wat ze
+niet deed gedempt, de verbindingen van de weg in de kleur van info, de stap
+waar ze nu staat met een ring (rood voor `failed` en `stopped`, groen voor
+`done`), en bovenaan een balk met `label` en `detail` en een knop terug naar
+de hele flow (of Escape). `notes` is een zin per stap, onder de stap en in
+haar paneel.
+
+```blade
+<button type="button" data-flow-trace="{{ json_encode(['nodes' => ['start', 'n1', 'n3'], 'current' => 'n3', 'status' => 'waiting', 'label' => 'Offerte 2026-014', 'detail' => 'wacht tot 9 okt.', 'notes' => ['n1' => 'Ja: € 12.000']]) }}">…</button>
+```
+
+**Een versie laden**: een knop met `data-flow-load` (de json van een flow) en
+`data-flow-load-label` (zoals "4 okt. 17:20"). De editor zet die flow erin
+als een wijziging: terug te draaien met Ctrl+Z, en pas bewaard met Bewaren.
+Een soort die niet meer bestaat, valt weg. De versies zelf houdt de
+applicatie bij.
+
+**Proefdraaien**: met `test` (een url) en de slot `example` staat er een knop
+Proefdraaien. De editor stuurt met een POST de flow zoals ze nu in de editor
+staat (`flow`, ook als ze niet bewaard is), de velden uit `example` en het
+CSRF-token, en verwacht dezelfde json als `data-flow-trace` terug. Een fout
+(een 422 met `message`) staat in het venster. Er gebeurt niets: de applicatie
+rekent de weg uit zonder een taak te maken of een mail te sturen.
+
+Wie het formulier wil aanpassen voor het getoond wordt (opties wegfilteren
+naargelang de start), luistert op `flows:form`; elke wijziging is een
+`flows:change`, en een editor die klaar is, stuurt `flows:ready`:
+
+```js
+document.addEventListener('flows:form', (event) => {
+    const { node, form, start } = event.detail;
+    // ...
+});
+```
+
+### De haken van de editor
+
+`<x-flow-editor>` tekent ze; een eigen opmaak die ze allemaal heeft, werkt ook.
+
+| Attribuut | Wat het is |
+|---|---|
+| `data-flow-editor` | de omhulling; draagt `data-flow-types`, `data-flow-strings`, `data-flow-issues`, `data-flow-notes` en `data-flow-badges` (json), en naargelang de props `data-flow-readonly`, `data-flow-fill`, `data-flow-flush` en `data-flow-header` |
+| `data-flow-stickies` | de laag met de notities, in `data-flow-world` |
+| `data-flow-sticky-add` | de knop Notitie |
+| `data-flow-trace` | een knop of link die de weg van een uitvoering toont (json, zie hierboven) |
+| `data-flow-trace-bar` | de balk bovenaan bij een weg, met `data-flow-trace-text` en de knop `data-flow-trace-close` |
+| `data-flow-load` | een knop die een versie laadt (json), met `data-flow-load-label` |
+| `data-flow-test-open` | de knop Proefdraaien |
+| `data-flow-test-panel` | het formulier van Proefdraaien, met `data-flow-test-close`, `data-flow-test-error` en de knop `data-flow-test-run` |
+| `data-flow-input` | het verborgen veld met de flow |
+| `data-flow-stage` | het werkvlak: alles onder de balk, wat erin zweeft rekent vanaf hier |
+| `data-flow-canvas` | wat verschuift en zoomt, met `data-flow-world` erin, en daarin `data-flow-edges` (de svg), `data-flow-nodes` en `data-flow-overlay` |
+| `data-flow-add` | de knop Stap toevoegen |
+| `data-flow-undo`, `data-flow-redo`, `data-flow-arrange` | terugdraaien, opnieuw doen, schikken |
+| `data-flow-issues-button` | de knop naar de eerste stap die aandacht vraagt, met het aantal in `data-flow-issue-count` |
+| `data-flow-zoom-in`, `data-flow-zoom-out`, `data-flow-fit` | zoomen, en alles tonen; het percentage staat in `data-flow-zoom-label` |
+| `data-flow-fullscreen` | de knoppen Volledig scherm, met `aria-pressed` |
+| `data-flow-view` | in de balk: `flow` of `overview`, met `aria-pressed` |
+| `data-flow-overview` | het overzicht; de waarde is de hash |
+| `data-flow-panel` | het paneel van een stap |
+| `data-flow-palette` | het palet, met `data-flow-search` en `data-flow-palette-list` |
+| `data-flow-live` | een `aria-live`-regel voor wat een schermlezer hoort |
+| `data-flow-loading` | "Laden…" voor een schermlezer, tot de editor er is |
+| `data-flow-icon` | een `<template>` per soort met haar icoon |
+| `data-flow-chrome` | een `<template>` per icoon van de editor zelf |
+| `data-flow-form` | een `<template>` per soort met haar formulier, met `data-flow-summary`, `data-flow-summary-requires` en `data-flow-when` erin |
+
+Wat de editor zelf zet en wat je dus niet in een view schrijft, maar wel kan
+opmaken: `data-flow-ready` en `data-flow-filled` op de omhulling als hij er
+is en tot onderaan loopt, `data-fullscreen` erop in volledig scherm en
+`data-flow-fullscreen` dan op `<html>`, `data-flow-tracing` als er een weg
+getoond wordt; `data-sticky` op een notitie, met `data-empty`, en in haar
+paneel `data-flow-sticky-text` en `data-flow-sticky-remove`; `data-picked` op
+wat meer tegelijk gekozen is; `data-trace` (`visited` of `current`) en
+`data-trace-status` op een stap van een weg; `data-node` op een stap, met
+`data-tone`, `data-start`, `data-issue`, `data-dragging` terwijl ze versleept
+wordt, `data-drop` (`ok` of `no`) terwijl er een verbinding boven hangt en
+`data-refused` even als die niet kan; `data-flow-out` op een uitgang, en
+`data-flow-out-label` op haar naam (de knop erna staat na die naam);
+`data-edge` op een verbinding, met `data-selected` als ze gekozen is, en
+`data-flow-edge-actions` met `data-flow-edge-insert` en `data-flow-edge-remove`
+erop; in het paneel `data-flow-form-for`, `data-flow-field`,
+`data-flow-panel-issues`, `data-flow-next-section` en `data-flow-next`; en
+`data-active` op de keuze in het palet die Enter neemt.
+
+### Uitvoeren
+
+De walker kent geen stappen: de applicatie geeft een functie die per stap iets
+doet en zegt hoe het verder moet.
+
+```php
+use HansDeBoeck\HansUi\Flows\Node;
+use HansDeBoeck\HansUi\Flows\Step;
+use HansDeBoeck\HansUi\Flows\Walker;
+
+$handler = function (Node $node): Step {
+    return match ($node->type) {
+        'condition' => Step::next($this->matches($node) ? 'yes' : 'no'),
+        'wait' => Step::wait(now()->addDays($node->get('amount'))),
+        'task' => $this->task($node) ? Step::next() : Step::fail('Geen klant.'),
+        default => Step::next(),
+    };
+};
+
+$walk = (new Walker($graph))->resume($graph->start()->id, 'out', $handler);
+
+if ($walk->waiting()) {
+    // bewaar $walk->node, $walk->port, $walk->until en $walk->state bij de run
+}
+
+// later, als de tijd om is:
+$walk = (new Walker($graph))->resume($run->node, $run->port, $handler);
+```
+
+`Step::wait()` zonder tijdstip wacht op iets dat de applicatie zelf meldt (een
+taak die af is); `$state` is wat ze daarvoor onthoudt. Een fout die de functie
+gooit, gaat door naar wie de walker riep.
+
+### Het formaat
+
+```json
+{
+    "version": 1,
+    "nodes": [
+        { "id": "start", "type": "trigger", "config": { "event": "deal.won" }, "x": 0, "y": 0 },
+        { "id": "n1", "type": "task", "config": { "title": "Bellen" }, "x": 360, "y": 0 }
+    ],
+    "edges": [
+        { "from": "start", "port": "out", "to": "n1" }
+    ]
+}
+```
+
+Een id is 1 tot 40 letters, cijfers, `_` of `-`: een applicatie die stappen als
+rijen bewaart, gebruikt het id van de rij, en geeft een stap uit de editor
+(`n4`) na het bewaren dat id met `renamed()`. Een positie mag ontbreken;
+`arranged()` en de editor zetten ze dan zelf.
+
+Notities staan erbij als `"stickies": [{"id": "s1", "text": "…", "x": 0, "y":
+200}]`, hoogstens vijftig van elk duizend tekens; een flow zonder notities
+schrijft de sleutel niet.
+
+Wat niet kan, en met reden:
+
+- Een uitgang heeft een verbinding: twee dingen tegelijk na een stap zet je na
+  elkaar.
+- Geen lussen: een flow loopt vooruit. Herhalen doet een applicatie met een
+  nieuwe run.
+- Hoogstens 200 stappen en 256 kB json.
+- De editor rekent met stappen van 240 bij 76 pixels; wie dat in de css
+  wijzigt, wijzigt het ook in `graph.js`.
 
 ## Afwijken
 

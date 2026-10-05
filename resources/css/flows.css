@@ -1,0 +1,1231 @@
+/*
+|------------------------------------------------------------------------------
+| De flow-editor (<x-flow-editor>)
+|------------------------------------------------------------------------------
+|
+| Apart van hansui.css, want de meeste schermen tekenen geen flow. Een
+| applicatie die hem gebruikt, neemt het op na hansui.css:
+|
+|     @import '../../vendor/hansdeboeck/hansui/resources/css/flows.css';
+|
+| Alleen de tokens van HansUI (--surface, --line, --ink, --brand, --info, ...),
+| zodat de editor meekantelt met het thema en het merk van de applicatie.
+|
+| TWEE REGELS VAN HET ONTWERP gelden hier ook. Een stap krijgt haar kleur van
+| een vlak (het icoon op een zacht vlak in de kleur van haar rol), nooit van
+| een rand aan een kant. En een uitgang is een klein afgerond vierkant, geen
+| bolletje.
+|
+| Een stap is 240 bij 76 pixels: resources/js/flows/graph.js rekent met die maat
+| (NODE_WIDTH, NODE_HEIGHT) om de verbindingen te tekenen.
+*/
+
+@layer components {
+    .flow {
+        --flow-height: clamp(28rem, 72vh, 56rem);
+        --flow-node-width: 240px;
+        --flow-node-height: 76px;
+
+        position: relative;
+        isolation: isolate;
+        display: flex;
+        flex-direction: column;
+        height: var(--flow-height);
+        overflow: hidden;
+        background: var(--surface-sunk);
+        border: 1px solid var(--line);
+        border-radius: 0.75rem;
+        color: var(--ink);
+    }
+
+    /* Het werkvlak: alles onder de balk. Wat erin zweeft, rekent vanaf hier. */
+    .flow-stage {
+        position: relative;
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    /*
+    | DE BALK BOVENAAN (slot header): wat een pagina anders boven de editor
+    | zet, de weg terug, de naam en Bewaren, zodat het meegaat naar volledig
+    | scherm. Een dunne neutrale lijn scheidt hem van het canvas.
+    */
+    .flow-header {
+        flex: none;
+        padding: 0.625rem 1rem;
+        background: var(--surface);
+        border-bottom: 1px solid var(--line);
+    }
+
+    /* De knop Volledig scherm blijft rechts bovenaan; wat de pagina erin zet, breekt zelf af. */
+    .flow-header-row {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    /* Zonder eigen breedte: wat de pagina erin zet, breekt in de balk af, en duwt de knoppen ernaast niet weg. */
+    .flow-header-main {
+        flex: 1 1 0%;
+        min-width: 0;
+    }
+
+    .flow-header-notices {
+        display: grid;
+        gap: 0.5rem;
+        margin-top: 0.625rem;
+    }
+
+    /* De knop toont het icoon van wat hij doet: groter, of terug. */
+    .flow-fullscreen-button > span {
+        display: inline-flex;
+    }
+
+    .flow-fullscreen-button > .flow-fullscreen-exit,
+    .flow[data-fullscreen] .flow-fullscreen-button > .flow-fullscreen-enter {
+        display: none;
+    }
+
+    .flow[data-fullscreen] .flow-fullscreen-button > .flow-fullscreen-exit {
+        display: inline-flex;
+    }
+
+    /* De keuze tussen de flow en het overzicht (slot overview), tussen de pagina en Volledig scherm. */
+    .flow-views {
+        flex: none;
+    }
+
+    /*
+    | HET OVERZICHT (slot overview): wat een pagina anders onder de editor
+    | zet, de laatste keren en de cijfers, als tweede weergave. Het neemt de
+    | plaats van het werkvlak in en scrolt zelf, zodat de pagina dat nooit
+    | hoeft; op de achtergrond van een pagina, met dezelfde ruimte rond.
+    */
+    .flow-overview {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        padding: 1.5rem;
+        background: var(--paper);
+    }
+
+    @media (min-width: 1024px) {
+        .flow-overview {
+            padding: 1.5rem 2rem;
+        }
+    }
+
+    /* Met een balk staat Volledig scherm daar, met zijn naam erbij; niet nog eens bij het zoomen. */
+    .flow[data-flow-header] .flow-zoom [data-flow-fullscreen] {
+        display: none;
+    }
+
+    /* Van rand tot rand (flush): een pagina die alleen de editor is, zonder rand en zonder ruimte eronder. */
+    .flow[data-flow-flush] {
+        --flow-fill-gap: 0px;
+        border: 0;
+        border-radius: 0;
+    }
+
+    /*
+    | OVER DE HELE HOOGTE DIE ER IS (fill): van waar de editor begint tot
+    | onderaan het venster, zodat het canvas en zijn knoppen in beeld staan
+    | zonder te scrollen. De editor meet zelf waar hij begint
+    | (--flow-fill-top); tot dan, en zonder JavaScript, geldt de gewone hoogte.
+    | svh is de kleine hoogte van het venster: een balk die op een telefoon in-
+    | en uitschuift, laat de editor niet springen. Nooit lager dan
+    | --flow-fill-min, ook niet op een laag scherm met veel erboven.
+    */
+    .flow[data-flow-filled] {
+        height: max(var(--flow-fill-min, 28rem), calc(100svh - var(--flow-fill-top, 0px) - var(--flow-fill-gap, 1.5rem)));
+    }
+
+    /*
+    | VOLLEDIG SCHERM: de editor over het hele venster, ook over het menu, met
+    | css; de pagina eronder schuift niet mee. Een venster van de applicatie
+    | (een dialog) staat in de bovenste laag en blijft er dus boven.
+    */
+    .flow:fullscreen,
+    .flow[data-fullscreen] {
+        --flow-height: 100vh;
+        position: fixed;
+        inset: 0;
+        z-index: 60;
+        height: 100vh;
+        height: 100dvh;
+        border: 0;
+        border-radius: 0;
+    }
+
+    html[data-flow-fullscreen] {
+        overflow: hidden;
+    }
+
+    .flow-icon {
+        width: 1.125rem;
+        height: 1.125rem;
+        flex: none;
+    }
+
+    .flow-sr {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        margin: -1px;
+        padding: 0;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+        border: 0;
+    }
+
+    /* ---------------------------------------------------------------- canvas */
+
+    /*
+    | Een fijn raster dat meeschuift en meezoomt (de editor zet de maat en de
+    | plaats): zo zie je dat je schuift, ook als er geen stap in beeld is.
+    */
+    .flow-canvas {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        touch-action: none;
+        cursor: grab;
+        outline: none;
+        background-image:
+            linear-gradient(to right, color-mix(in oklab, var(--line) 55%, transparent) 1px, transparent 1px),
+            linear-gradient(to bottom, color-mix(in oklab, var(--line) 55%, transparent) 1px, transparent 1px);
+        background-size: 24px 24px;
+    }
+
+    .flow-canvas:active {
+        cursor: grabbing;
+    }
+
+    .flow-world {
+        position: absolute;
+        left: 0;
+        top: 0;
+        transform-origin: 0 0;
+    }
+
+    .flow-nodes,
+    .flow-overlay {
+        position: absolute;
+        left: 0;
+        top: 0;
+    }
+
+    .flow-edges {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 1px;
+        height: 1px;
+        overflow: visible;
+        pointer-events: none;
+    }
+
+    /* ------------------------------------------------------------------ stap */
+
+    .flow-node {
+        --flow-tone: var(--ink-soft);
+
+        position: absolute;
+        left: 0;
+        top: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        width: var(--flow-node-width);
+        height: var(--flow-node-height);
+        padding: 0 0.875rem;
+        background: var(--surface);
+        border: 1px solid var(--line-strong);
+        border-radius: 0.75rem;
+        box-shadow: var(--shadow-sm);
+        cursor: pointer;
+        user-select: none;
+        -webkit-user-select: none;
+        transition:
+            border-color 150ms ease,
+            box-shadow 150ms ease;
+    }
+
+    /* De start is rond aan de kant waar niets binnenkomt, zoals een trigger in n8n. */
+    .flow-node[data-start] {
+        border-radius: 2.375rem 0.75rem 0.75rem 2.375rem;
+        padding-left: 1.125rem;
+    }
+
+    @media (hover: hover) {
+        .flow-node:hover {
+            box-shadow: var(--shadow-md);
+        }
+    }
+
+    .flow-node:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 3px color-mix(in oklab, var(--brand) 35%, transparent);
+    }
+
+    .flow-node[aria-pressed='true'] {
+        border-color: var(--brand);
+        box-shadow: 0 0 0 3px color-mix(in oklab, var(--brand) 20%, transparent), var(--shadow-md);
+    }
+
+    .flow-node[data-dragging] {
+        cursor: grabbing;
+        box-shadow: var(--shadow-lg);
+        z-index: 2;
+    }
+
+    /* Meer tegelijk gekozen (Shift+klik, een kader): een ring rondom, nooit een rand aan een kant. */
+    .flow-node[data-picked],
+    .flow-sticky[data-picked] {
+        box-shadow: 0 0 0 3px color-mix(in oklab, var(--info) 30%, transparent), var(--shadow-md);
+    }
+
+    /*
+    | DE WEG VAN EEN UITVOERING (data-flow-tracing): wat ze niet deed, wijkt
+    | terug; waar ze langs kwam, blijft; waar ze nu staat, krijgt een ring in
+    | de kleur van hoe het ervoor staat.
+    */
+    .flow[data-flow-tracing] .flow-node:not([data-trace]),
+    .flow[data-flow-tracing] .flow-sticky {
+        opacity: 0.38;
+    }
+
+    .flow[data-flow-tracing] .flow-edge:not([data-trace]) .flow-edge-line {
+        opacity: 0.3;
+    }
+
+    .flow-edge[data-trace] .flow-edge-line {
+        stroke: var(--info);
+        stroke-width: 2.5;
+    }
+
+    .flow-node[data-trace='current'] {
+        --flow-trace: var(--info);
+
+        box-shadow: 0 0 0 3px color-mix(in oklab, var(--flow-trace) 35%, transparent), var(--shadow-md);
+    }
+
+    .flow-node[data-trace-status='failed'],
+    .flow-node[data-trace-status='stopped'] {
+        --flow-trace: var(--danger);
+    }
+
+    .flow-node[data-trace-status='done'] {
+        --flow-trace: var(--ok);
+    }
+
+    /* Wat er bij deze stap gebeurde (of zou gebeuren): onder de stap, kort; het hele verhaal staat in het paneel. */
+    .flow-node-trace {
+        position: absolute;
+        top: calc(100% + 0.375rem);
+        right: 0;
+        left: 0;
+        display: -webkit-box;
+        overflow: hidden;
+        padding: 0.1875rem 0.5rem;
+        background: color-mix(in oklab, var(--info) 10%, var(--surface));
+        border-radius: 0.5rem;
+        font-size: 0.6875rem;
+        line-height: 1rem;
+        color: var(--ink-soft);
+        pointer-events: none;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+    }
+
+    .flow-panel-trace {
+        background: color-mix(in oklab, var(--info) 10%, var(--surface));
+        color: var(--ink);
+    }
+
+    /* Onder de balk met de knoppen, niet erover: wie de weg ziet, kan nog proefdraaien of terugdraaien. */
+    .flow-trace {
+        position: absolute;
+        top: 3.75rem;
+        left: 50%;
+        z-index: 25;
+        display: flex;
+        max-width: calc(100% - 1.5rem);
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.25rem 0.25rem 0.25rem 0.75rem;
+        background: var(--surface);
+        border-radius: 999px;
+        box-shadow: var(--shadow-md);
+        font-size: 0.8125rem;
+        color: var(--ink);
+        transform: translateX(-50%);
+    }
+
+    .flow-trace[hidden] {
+        display: none;
+    }
+
+    .flow-trace > .flow-icon {
+        flex: none;
+        color: var(--info);
+    }
+
+    .flow-trace[data-status='failed'] > .flow-icon,
+    .flow-trace[data-status='stopped'] > .flow-icon {
+        color: var(--danger);
+    }
+
+    .flow-trace-text {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    /* Het kader om te kiezen: een vlak met een stippellijn rondom. */
+    .flow-band {
+        position: absolute;
+        top: 0;
+        left: 0;
+        z-index: 26;
+        background: color-mix(in oklab, var(--info) 10%, transparent);
+        outline: 1px dashed var(--info);
+        pointer-events: none;
+    }
+
+    /*
+    | EEN NOTITIE: een geel vlak met tekst, achter de stappen, zoals een
+    | papiertje op een bord. Ze doet niets; ze legt uit.
+    */
+    .flow-stickies {
+        position: absolute;
+        top: 0;
+        left: 0;
+    }
+
+    .flow-sticky {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 220px;
+        min-height: var(--flow-node-height);
+        max-height: 14rem;
+        overflow: hidden;
+        padding: 0.625rem 0.75rem;
+        background: color-mix(in oklab, var(--warn) 16%, var(--surface));
+        border-radius: 0.75rem;
+        box-shadow: var(--shadow-sm);
+        font-size: 0.8125rem;
+        line-height: 1.25rem;
+        color: var(--ink);
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        cursor: grab;
+        user-select: none;
+        -webkit-user-select: none;
+    }
+
+    .flow-sticky[data-empty] {
+        color: var(--ink-faint);
+    }
+
+    .flow-sticky[aria-pressed='true']:not([data-picked]) {
+        box-shadow: 0 0 0 3px color-mix(in oklab, var(--brand) 20%, transparent), var(--shadow-md);
+    }
+
+    .flow-sticky:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 3px color-mix(in oklab, var(--brand) 35%, transparent);
+    }
+
+    .flow-sticky[data-dragging] {
+        cursor: grabbing;
+        box-shadow: var(--shadow-lg);
+    }
+
+    .flow-sticky-field {
+        min-height: 9rem;
+        resize: vertical;
+    }
+
+    /* Proefdraaien: een venster bij de knop, met de velden van de applicatie om een voorbeeld te kiezen. */
+    .flow-test {
+        position: absolute;
+        z-index: 30;
+        display: flex;
+        width: min(21rem, calc(100% - 1.5rem));
+        flex-direction: column;
+        gap: 0.75rem;
+        padding: 0.875rem;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 0.75rem;
+        box-shadow: var(--shadow-lg);
+        cursor: auto;
+    }
+
+    .flow-test[hidden] {
+        display: none;
+    }
+
+    .flow-test-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+    }
+
+    .flow-test-fields {
+        display: grid;
+        gap: 0.75rem;
+    }
+
+    .flow-test-error {
+        padding: 0.5rem 0.625rem;
+        background: var(--danger-soft);
+        border-radius: 0.5rem;
+        font-size: 0.8125rem;
+        color: var(--danger);
+    }
+
+    .flow-test > [type='submit'] {
+        align-self: flex-start;
+    }
+
+    /* Wat nog niet af is, krijgt een warm vlak; de zin zegt wat. */
+    .flow-node[data-issue] {
+        background: color-mix(in oklab, var(--warn) 6%, var(--surface));
+    }
+
+    .flow-node[data-drop='ok'] {
+        border-color: var(--brand);
+        box-shadow: 0 0 0 3px color-mix(in oklab, var(--brand) 25%, transparent);
+    }
+
+    .flow-node[data-drop='no'],
+    .flow-node[data-refused] {
+        border-color: var(--danger);
+        cursor: not-allowed;
+    }
+
+    .flow-node[data-tone='info'],
+    [data-tone='info'] > .flow-node-icon { --flow-tone: var(--info); }
+    .flow-node[data-tone='ok'],
+    [data-tone='ok'] > .flow-node-icon { --flow-tone: var(--ok); }
+    .flow-node[data-tone='warn'],
+    [data-tone='warn'] > .flow-node-icon { --flow-tone: var(--warn); }
+    .flow-node[data-tone='danger'],
+    [data-tone='danger'] > .flow-node-icon { --flow-tone: var(--danger); }
+    .flow-node[data-tone='brand'],
+    [data-tone='brand'] > .flow-node-icon { --flow-tone: var(--brand); }
+    [data-tone='neutral'] > .flow-node-icon { --flow-tone: var(--ink-soft); }
+
+    .flow-node-icon {
+        display: grid;
+        flex: none;
+        place-items: center;
+        width: 2.25rem;
+        height: 2.25rem;
+        border-radius: 0.625rem;
+        background: color-mix(in oklab, var(--flow-tone, var(--ink-soft)) 14%, var(--surface));
+        color: var(--flow-tone, var(--ink-soft));
+    }
+
+    .flow-node-text {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        gap: 0.0625rem;
+    }
+
+    .flow-node-label,
+    .flow-node-summary,
+    .flow-node-issue {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .flow-node-label {
+        font-size: 0.8125rem;
+        font-weight: 700;
+        line-height: 1.2rem;
+        color: var(--ink);
+    }
+
+    .flow-node-summary {
+        font-size: 0.75rem;
+        line-height: 1.05rem;
+        color: var(--ink-soft);
+    }
+
+    .flow-node-issue {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+        font-size: 0.6875rem;
+        font-weight: 700;
+        line-height: 1rem;
+        color: var(--warn);
+    }
+
+    .flow-node-issue .flow-icon {
+        width: 0.8125rem;
+        height: 0.8125rem;
+    }
+
+    .flow-node-issue > span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Een cijfer van de server op de stap, zoals "12 wachten hier": een woord op een vlak, geen bolletje. */
+    .flow-node-badge {
+        position: absolute;
+        top: -0.625rem;
+        right: 0.75rem;
+        padding: 0.0625rem 0.5rem;
+        background: var(--info-soft);
+        border-radius: 999px;
+        font-size: 0.6875rem;
+        font-weight: 700;
+        line-height: 1.125rem;
+        color: var(--info);
+        white-space: nowrap;
+        pointer-events: none;
+    }
+
+    /* ------------------------------------------------------------- uitgangen */
+
+    .flow-port {
+        position: absolute;
+        width: 12px;
+        height: 12px;
+        margin-top: -6px;
+        background: var(--surface);
+        border: 1px solid var(--line-strong);
+        border-radius: 4px;
+    }
+
+    .flow-port-in {
+        left: -7px;
+        top: 50%;
+        pointer-events: none;
+    }
+
+    .flow-port-out {
+        right: -7px;
+        cursor: crosshair;
+        transition:
+            background-color 150ms ease,
+            border-color 150ms ease;
+    }
+
+    /* Een groter vlak om te grijpen dan om te zien, ook met een vinger. */
+    .flow-port-out::after {
+        content: '';
+        position: absolute;
+        inset: -10px;
+    }
+
+    .flow-port-out:hover,
+    .flow-node[aria-pressed='true'] .flow-port-out {
+        background: var(--brand);
+        border-color: var(--brand);
+    }
+
+    /* Alleen bekijken: een uitgang is geen greep, en ze licht niet op. */
+    .flow[data-flow-readonly] .flow-port-out {
+        cursor: inherit;
+        pointer-events: none;
+        background: var(--surface);
+        border-color: var(--line-strong);
+    }
+
+    /* Tussen twee kolommen is er 120px: de naam van een uitgang, en daarna de knop om er iets aan te hangen. Een lange naam (een collega, een pijplijn) wordt afgekort; de hele staat in de title van de uitgang. */
+    .flow-port-label {
+        position: absolute;
+        left: calc(100% + 0.75rem);
+        max-width: 4rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        transform: translateY(calc(-100% - 2px));
+        font-size: 0.6875rem;
+        font-weight: 700;
+        line-height: 1.1;
+        color: var(--ink-faint);
+        white-space: nowrap;
+        pointer-events: none;
+    }
+
+    /* ----------------------------------------------------------- verbindingen */
+
+    .flow-edge-line {
+        fill: none;
+        stroke: var(--line-strong);
+        stroke-width: 2;
+        transition: stroke 150ms ease;
+    }
+
+    .flow-edge-hit {
+        fill: none;
+        stroke: transparent;
+        stroke-width: 16;
+        pointer-events: stroke;
+        cursor: pointer;
+    }
+
+    .flow-edge:hover .flow-edge-line {
+        stroke: var(--ink-faint);
+    }
+
+    .flow-edge[data-selected] .flow-edge-line {
+        stroke: var(--brand);
+    }
+
+    .flow-edge-draft {
+        fill: none;
+        stroke: var(--brand);
+        stroke-width: 2;
+        stroke-dasharray: 6 5;
+    }
+
+    .flow-stub-line {
+        fill: none;
+        stroke: var(--line-strong);
+        stroke-width: 2;
+        stroke-dasharray: 2 4;
+    }
+
+    /* De knop aan het einde van een uitgang zonder vervolg: hier hangt de volgende stap. */
+    .flow-stub {
+        position: absolute;
+        left: 0;
+        top: 0;
+        display: grid;
+        place-items: center;
+        width: 24px;
+        height: 24px;
+        background: var(--surface);
+        border: 1px solid var(--line-strong);
+        border-radius: 7px;
+        box-shadow: var(--shadow-sm);
+        color: var(--ink-soft);
+        cursor: pointer;
+        transition:
+            color 150ms ease,
+            border-color 150ms ease;
+    }
+
+    .flow-stub .flow-icon {
+        width: 0.875rem;
+        height: 0.875rem;
+    }
+
+    .flow-stub:hover,
+    .flow-stub:focus-visible {
+        border-color: var(--brand);
+        color: var(--brand);
+        outline: none;
+    }
+
+    .flow-edge-actions {
+        position: absolute;
+        left: 0;
+        top: 0;
+        display: flex;
+        gap: 2px;
+        padding: 2px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 0.5rem;
+        box-shadow: var(--shadow-md);
+    }
+
+    .flow-edge-actions button {
+        display: grid;
+        place-items: center;
+        width: 1.625rem;
+        height: 1.625rem;
+        border-radius: 0.375rem;
+        color: var(--ink-soft);
+        cursor: pointer;
+    }
+
+    .flow-edge-actions .flow-icon {
+        width: 0.9375rem;
+        height: 0.9375rem;
+    }
+
+    .flow-edge-actions button:hover,
+    .flow-edge-actions button:focus-visible {
+        background: var(--surface-sunk);
+        color: var(--ink);
+        outline: none;
+    }
+
+    .flow-edge-actions [data-flow-edge-remove]:hover,
+    .flow-edge-actions [data-flow-edge-remove]:focus-visible {
+        background: var(--danger-soft);
+        color: var(--danger);
+    }
+
+    /* ---------------------------------------------------------------- knoppen */
+
+    .flow-toolbar {
+        position: absolute;
+        z-index: 10;
+        top: 0.75rem;
+        left: 0.75rem;
+        right: 0.75rem;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem;
+        pointer-events: none;
+    }
+
+    .flow-toolbar > * {
+        pointer-events: auto;
+    }
+
+    .flow-toolbar > .btn {
+        box-shadow: var(--shadow-sm);
+    }
+
+    .flow-tools {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        padding: 2px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 0.625rem;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .flow-tool {
+        display: grid;
+        place-items: center;
+        width: 2rem;
+        height: 2rem;
+        border-radius: 0.5rem;
+        color: var(--ink-soft);
+        cursor: pointer;
+        transition:
+            background-color 150ms ease,
+            color 150ms ease;
+    }
+
+    .flow-tool:hover:not(:disabled),
+    .flow-tool:focus-visible {
+        background: var(--surface-sunk);
+        color: var(--ink);
+        outline: none;
+    }
+
+    .flow-tool:disabled {
+        cursor: default;
+        opacity: 0.4;
+    }
+
+    .flow-zoom {
+        position: absolute;
+        z-index: 10;
+        left: 0.75rem;
+        bottom: 0.75rem;
+    }
+
+    .flow-zoom-label {
+        min-width: 2.75rem;
+        font-size: 0.75rem;
+        font-variant-numeric: tabular-nums;
+        text-align: center;
+        color: var(--ink-soft);
+    }
+
+    .flow-issue-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        padding: 0.375rem 0.625rem;
+        background: var(--warn-soft);
+        border-radius: 0.5rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--warn);
+        cursor: pointer;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .flow-issue-button .flow-icon {
+        width: 0.9375rem;
+        height: 0.9375rem;
+    }
+
+    .flow-issue-button[hidden] {
+        display: none;
+    }
+
+    /* ---------------------------------------------------------------- paneel */
+
+    .flow-panel {
+        position: absolute;
+        z-index: 20;
+        top: 0.75rem;
+        right: 0.75rem;
+        bottom: 0.75rem;
+        display: flex;
+        width: min(23rem, calc(100% - 1.5rem));
+        flex-direction: column;
+        overflow: hidden;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 0.75rem;
+        box-shadow: var(--shadow-lg);
+        cursor: auto;
+    }
+
+    .flow-panel[hidden] {
+        display: none;
+    }
+
+    .flow-panel-head {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+        padding: 0.875rem 0.875rem 0.75rem 1rem;
+    }
+
+    .flow-panel-heading {
+        min-width: 0;
+        flex: 1;
+        padding-top: 0.125rem;
+    }
+
+    .flow-panel-title {
+        font-size: 0.9375rem;
+        font-weight: 700;
+        color: var(--ink);
+    }
+
+    .flow-panel-hint {
+        margin-top: 0.125rem;
+        font-size: 0.75rem;
+        color: var(--ink-soft);
+    }
+
+    .flow-panel-body {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        gap: 1.25rem;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        padding: 0.25rem 1rem 1.25rem;
+    }
+
+    .flow-panel-issues {
+        display: flex;
+        flex-direction: column;
+        gap: 0.375rem;
+    }
+
+    .flow-panel-issues[hidden] {
+        display: none;
+    }
+
+    .flow-panel-issue {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.5rem;
+        padding: 0.5rem 0.625rem;
+        background: var(--warn-soft);
+        border-radius: 0.5rem;
+        font-size: 0.8125rem;
+        color: var(--warn);
+    }
+
+    .flow-panel-issue .flow-icon {
+        width: 1rem;
+        height: 1rem;
+        margin-top: 0.0625rem;
+    }
+
+    .flow-panel-note {
+        padding: 0.5rem 0.625rem;
+        background: var(--surface-sunk);
+        border-radius: 0.5rem;
+        font-size: 0.8125rem;
+        color: var(--ink-soft);
+        overflow-wrap: anywhere;
+    }
+
+    .flow-form {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .flow-form [hidden] {
+        display: none;
+    }
+
+    .flow-next {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        padding: 0.75rem;
+        background: var(--surface-sunk);
+        border-radius: 0.625rem;
+    }
+
+    .flow-next-title {
+        font-size: 0.875rem;
+        font-weight: 700;
+        color: var(--ink-soft);
+    }
+
+    .flow-next-row {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .flow-next-row > .label {
+        margin-bottom: 0;
+    }
+
+    .flow-next-label {
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--ink-faint);
+    }
+
+    .flow-panel-foot {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.5rem;
+        padding: 0.75rem 1rem;
+        background: var(--surface-sunk);
+    }
+
+    .flow-panel-foot .flow-icon {
+        width: 0.875rem;
+        height: 0.875rem;
+    }
+
+    /* ----------------------------------------------------------------- palet */
+
+    .flow-palette {
+        position: absolute;
+        z-index: 30;
+        display: flex;
+        width: min(21rem, calc(100% - 1.5rem));
+        max-height: min(26rem, calc(100% - 1.5rem));
+        flex-direction: column;
+        overflow: hidden;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 0.75rem;
+        box-shadow: var(--shadow-lg);
+        cursor: auto;
+    }
+
+    .flow-palette[hidden] {
+        display: none;
+    }
+
+    .flow-palette-search {
+        padding: 0.625rem;
+    }
+
+    .flow-palette-list {
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        padding: 0 0.375rem 0.375rem;
+    }
+
+    .flow-palette-group {
+        padding: 0.5rem 0.5rem 0.25rem;
+        font-size: 0.625rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--ink-faint);
+    }
+
+    .flow-palette-item {
+        display: flex;
+        width: 100%;
+        align-items: flex-start;
+        gap: 0.625rem;
+        padding: 0.5rem;
+        border-radius: 0.5rem;
+        text-align: left;
+        cursor: pointer;
+    }
+
+    .flow-palette-item .flow-node-icon {
+        width: 2rem;
+        height: 2rem;
+        border-radius: 0.5rem;
+    }
+
+    .flow-palette-item[data-active],
+    .flow-palette-item:hover {
+        background: var(--brand-soft);
+    }
+
+    .flow-palette-text {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        gap: 0.0625rem;
+        padding-top: 0.0625rem;
+    }
+
+    .flow-palette-label {
+        font-size: 0.8125rem;
+        font-weight: 700;
+        color: var(--ink);
+    }
+
+    .flow-palette-hint {
+        font-size: 0.75rem;
+        color: var(--ink-soft);
+    }
+
+    .flow-palette-empty {
+        padding: 1rem 0.5rem;
+        font-size: 0.8125rem;
+        text-align: center;
+        color: var(--ink-faint);
+    }
+
+    /* ---------------------------------------------------------------- laden */
+
+    /*
+    | Zolang de editor er niet is, de vorm van een flow: drie stappen op een
+    | rij. Pas na 120 ms, zoals elk skelet: wat sneller klaar is, flitst niet.
+    */
+    .flow-skeleton {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        gap: 60px;
+        padding: 0 4rem;
+        visibility: hidden;
+        animation: flow-skeleton-in 0s linear 120ms forwards;
+    }
+
+    .flow-skeleton > span {
+        flex: none;
+        width: var(--flow-node-width);
+        height: var(--flow-node-height);
+        border-radius: 0.75rem;
+        background: var(--skeleton, color-mix(in oklab, var(--ink) 8%, var(--surface)));
+    }
+
+    .flow[data-flow-ready] .flow-skeleton,
+    .flow[data-flow-ready] [data-flow-loading] {
+        display: none;
+    }
+
+    .flow-noscript {
+        position: absolute;
+        inset: auto 1rem 1rem;
+        padding: 0.75rem 1rem;
+        background: var(--surface);
+        border-radius: 0.625rem;
+        font-size: 0.875rem;
+        color: var(--ink-soft);
+    }
+
+    @keyframes flow-skeleton-in {
+        to {
+            visibility: visible;
+        }
+    }
+
+    /* ------------------------------------------------------------- telefoon */
+
+    /*
+    | Op een smal scherm zijn het paneel en het palet een blad onderaan: het
+    | canvas blijft erboven zichtbaar, en een duim haalt de velden.
+    */
+    @media (max-width: 639px) {
+        /* Op een telefoon staat er veel boven de editor: hij blijft minstens zo hoog als zonder fill. */
+        .flow {
+            --flow-height: clamp(26rem, 78vh, 48rem);
+            --flow-fill-min: clamp(26rem, 78svh, 48rem);
+        }
+
+        .flow-header {
+            padding: 0.5rem 0.75rem;
+        }
+
+        /* Op een telefoon alleen het icoon: de naam staat erop voor een schermlezer (aria-label). */
+        .flow-header-row {
+            align-items: flex-start;
+        }
+
+        .flow-fullscreen-button > span:last-child {
+            display: none;
+        }
+
+        /* De keuze tussen de flow en het overzicht krijgt een eigen regel, over de hele breedte. */
+        .flow-header-row {
+            flex-wrap: wrap;
+        }
+
+        .flow-views {
+            order: 3;
+            flex: 1 0 100%;
+        }
+
+        .flow-views > .segment {
+            flex: 1 1 0;
+        }
+
+        .flow-overview {
+            padding: 1rem;
+        }
+
+        .flow-panel,
+        .flow-palette,
+        .flow-test {
+            top: auto !important;
+            right: 0;
+            bottom: 0;
+            left: 0 !important;
+            width: auto;
+            max-height: 78%;
+            border-radius: 1rem 1rem 0 0;
+        }
+
+        .flow-zoom-label {
+            display: none;
+        }
+
+        /* Op een telefoon de knop Notitie zonder woord: het icoon, en de naam voor een schermlezer. */
+        .flow-sticky-button > span {
+            display: none;
+        }
+
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .flow-sticky,
+        .flow-node,
+        .flow-tool,
+        .flow-stub,
+        .flow-edge-line {
+            transition: none;
+        }
+    }
+}
