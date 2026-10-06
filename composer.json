@@ -44,7 +44,10 @@
     "scripts": {
         "lint": "pint --test",
         "fix": "pint",
-        "test": "phpunit"
+        "test": [
+            "phpunit",
+            "node --test \"tests/js/*.test.js\""
+        ]
     },
     "config": {
         "sort-packages": true

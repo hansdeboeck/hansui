@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace HansDeBoeck\HansUi\Tests;
 
+use HansDeBoeck\HansUi\Flows\Graph;
+use HansDeBoeck\HansUi\Flows\Node;
+use HansDeBoeck\HansUi\Flows\NodeType;
+use HansDeBoeck\HansUi\Flows\NodeTypes;
 use HansDeBoeck\HansUi\HansUiServiceProvider;
 use HansDeBoeck\HansUi\Tests\Fakes\VoorbeeldResultaat;
 use Illuminate\Support\Facades\Blade;
@@ -57,10 +61,44 @@ final class ComponentsTest extends TestCase
             'section' => ['<x-section title="Verdeling" subtitle="Per afdeling" :padding="false"><x-slot:actions>knop</x-slot:actions> Inhoud <x-slot:footer>voet</x-slot:footer></x-section>'],
             'stat' => ['<x-stat label="Leden" value="128" icon="people" tone="brand" hint="deze week" href="/leden"/><x-stat label="Saldo"><x-money :cents="1250"/></x-stat>'],
             'modal' => ['<x-modal id="rang" title="Nieuwe rang" size="lg" :open="true"><div class="modal-body">veld</div></x-modal>'],
-            'avatar' => ['<x-avatar name="Nina Bodart" size="lg"/><x-avatar name="Nina" src="/n.jpg"/>'],
+            'avatar' => ['<x-avatar name="Nina Bodart" size="lg"/><x-avatar name="Nina" src="/n.jpg"/><x-avatar name="Nina" :tint="true"><x-slot:badge style="background: #1877f2" title="Facebook">FB</x-slot:badge></x-avatar>'],
             'tabs' => ['<x-tabs :items="[[\'label\' => \'Jobs\', \'href\' => \'/jobs\', \'active\' => true, \'count\' => 4]]">terug</x-tabs>'],
             'choice' => ['<x-choice name="job" value="politie" label="Politie" icon="shield" hint="Rang 3" :checked="true"/>'],
             'alert' => ['<x-alert variant="warning" title="Let op" :dismissible="true">Dit kan niet terug.</x-alert><x-alert>Los.</x-alert>'],
+            'delta' => ['<x-delta :change="12.5"/><x-delta :change="-3" :invert="true"/><x-delta/>'],
+            'chart.line' => ['<x-chart.line :series="[[\'label\' => \'Volgers\', \'color\' => \'var(--series-1)\', \'points\' => [\'2026-01-01\' => 10, \'2026-01-02\' => 14]]]" :from-zero="false"/><x-chart.line/>'],
+            'chart.columns' => ['<x-chart.columns :data="[\'2026-01-01\' => 3, \'2026-01-02\' => 0]"/><x-chart.columns :data="[\'Beeld\' => 4]" :dates="false"/>'],
+            'chart.bars' => ['<x-chart.bars :rows="[[\'label\' => \'Instagram\', \'value\' => 4.2, \'hint\' => \'12 berichten\']]" unit="%" :decimals="1"/>'],
+            'chart.heatmap' => ['<x-chart.heatmap :cells="[1 => [9 => [\'value\' => 3.1, \'tip\' => \'2 berichten\'], 10 => [\'value\' => 1, \'weak\' => true]]]" less="rustig" more="druk"/>'],
+            'cropper' => ['<x-cropper src="/foto.jpg" alt="Etalage" :ratios="[\'free\', \'1:1\', \'4:5\' => \'Instagram 4:5\']" ratio="4:5" name="uitsnede"/><x-cropper/>'],
+            'steps' => ['<x-steps label="Voortgang" :items="[[\'label\' => \'DNS\', \'state\' => \'done\'], [\'label\' => \'Certificaat\', \'hint\' => \'Een paar minuten\', \'state\' => \'current\'], [\'label\' => \'Fout\', \'state\' => \'error\'], [\'label\' => \'Actief\']]"/><x-steps/>'],
+            'lightbox' => ['<x-lightbox id="voorbeeld" group="fotos" label="Voorbeeld"><p>Paneel</p><x-slot:actions>knop</x-slot:actions></x-lightbox><x-lightbox id="kaal"/><x-lightbox id="leeg" :aside="true"/>'],
+            'panes' => ['<x-panes :detail="true"><x-slot:head class="flex">Inbox</x-slot:head><p>melding</p><x-slot:list class="pane" aria-label="Lijst">rijen</x-slot:list><x-slot:main class="pane">gesprek</x-slot:main><x-slot:aside class="pane">details</x-slot:aside></x-panes><x-panes><x-slot:list>rijen</x-slot:list><x-slot:main>leeg</x-slot:main></x-panes>'],
+            'list-row' => ['<x-list-row href="/gesprek/1" :active="true" :strong="true" :count="3" check="1" check-label="Kiezen: Nina" shortcut="j"><x-slot:avatar><x-avatar name="Nina Bodart" :tint="true"/></x-slot:avatar><x-slot:title>Nina Bodart</x-slot:title><x-slot:time class="text-red-700">5 min</x-slot:time><x-slot:subject>Levering</x-slot:subject> Waar blijft mijn pakje?<x-slot:meta>label</x-slot:meta></x-list-row><x-list-row href="/gesprek/2" title="Jan"/>'],
+            'message' => ['<x-message name="Nina" body="Hallo" time="2026-01-05 10:00"/><x-message type="out" name="Hans" body="Dag Nina"/><x-message type="auto" body="Ontvangen"/><x-message type="failed" name="Hans" body="Toch" error="Geen verbinding"><x-slot:retry><button>Opnieuw</button></x-slot:retry></x-message><x-message type="note" name="Hans" body="Bellen"/><x-message layout="card" name="Nina" address="nina@voorbeeld.be" to="hallo@winkel.be" body="Een mail"><x-slot:avatar><x-avatar name="Nina"/></x-slot:avatar><x-slot:top>sterren</x-slot:top> bijlagen</x-message><x-message layout="card" type="failed" name="Hans" error="Geweigerd"/>'],
+            'thread-day' => ['<x-thread-day date="2026-01-05 10:00" zone="Europe/Brussels"/>'],
+            'composer' => ['<x-composer action="/antwoord" draft="gesprek.1" :values="[\'naam\' => \'Nina\']" placeholder="Schrijf…" :maxlength="1000"><x-slot:head>kop</x-slot:head><x-slot:below>handtekening</x-slot:below><x-slot:tools>tools</x-slot:tools><x-slot:actions><button>Versturen</button></x-slot:actions></x-composer><x-composer action="/x" method="put" id="tweede"/>'],
+            'ago' => ['<x-ago time="2026-01-05 10:00" class="text-xs"/><x-ago/>'],
+            'shortcuts' => ['<x-shortcuts :keys="[\'J\' => \'Volgende\', \'Ctrl ↵\' => \'Versturen\']">Uitleg</x-shortcuts>'],
+            'flow-editor' => ['<x-flow-editor :graph="$flow" name="flow" form="bewaren" :issues="[\'n1\' => [\'Te laat.\']]" :badges="[\'n1\' => \'3 wachten hier\']" :fill="true"><x-slot:header><a href="/terug">Terug</a></x-slot:header><template data-flow-form="taak"><input name="titel"></template></x-flow-editor><x-flow-editor :graph="$flow" :readonly="true"/>'],
+        ];
+    }
+
+    /**
+     * Wat de componenten hierboven nodig hebben en niet in een attribuut past.
+     *
+     * @return array<string, mixed>
+     */
+    private function voorbeelden(): array
+    {
+        $soorten = new NodeTypes([
+            new NodeType('start', 'Als dit gebeurt', icon: 'bolt', start: true),
+            new NodeType('taak', 'Taak maken', icon: 'check', tone: 'ok'),
+        ]);
+
+        return [
+            'resultaat' => new VoorbeeldResultaat,
+            'flow' => Graph::starting($soorten, 'start')->withNode(new Node('n1', 'taak'))->connect('start', 'out', 'n1'),
         ];
     }
 
@@ -68,7 +106,7 @@ final class ComponentsTest extends TestCase
     #[DataProvider('componenten')]
     public function elke_component_tekent_zonder_te_vallen(string $sjabloon): void
     {
-        $html = Blade::render($sjabloon, ['resultaat' => new VoorbeeldResultaat]);
+        $html = Blade::render($sjabloon, $this->voorbeelden());
 
         $this->assertNotSame('', trim($html));
     }
@@ -81,7 +119,7 @@ final class ComponentsTest extends TestCase
         // naam zelf al gebruikt. Intern gebruikt het package altijd de prefix.
         $html = Blade::render(
             preg_replace('/<(\/?)x-(?!hansui::|slot)/', '<$1x-hansui::', $sjabloon),
-            ['resultaat' => new VoorbeeldResultaat],
+            $this->voorbeelden(),
         );
 
         $this->assertNotSame('', trim($html));
@@ -98,9 +136,11 @@ final class ComponentsTest extends TestCase
         | HansUI in de gedeelde ruimte claimt -- en een inventaris die niemand
         | controleert, is een lijst die uit de pas loopt.
         */
+        // Ook een map dieper: chart/line.blade.php is <x-chart.line>.
+        $map = $this->pakket('resources/views/components/');
         $bestanden = array_map(
-            static fn (string $pad): string => basename($pad, '.blade.php'),
-            glob($this->pakket('resources/views/components/*.blade.php')) ?: [],
+            static fn (string $pad): string => str_replace('/', '.', substr($pad, strlen($map), -strlen('.blade.php'))),
+            array_merge(glob($map.'*.blade.php') ?: [], glob($map.'*/*.blade.php') ?: []),
         );
 
         sort($bestanden);
@@ -113,6 +153,49 @@ final class ComponentsTest extends TestCase
 
         $this->assertSame($bestanden, $geclaimd, 'COMPONENTS en de componentmap lopen uit elkaar.');
         $this->assertSame($geclaimd, $gedekt, 'Er is een component zonder regel in deze test.');
+    }
+
+    #[Test]
+    public function een_verschil_kleurt_naar_wat_beter_is(): void
+    {
+        // Minder is soms beter (een reactietijd): dan kantelt de kleur, niet
+        // het teken. Het teken blijft zeggen wat er gebeurde.
+        $this->assertStringContainsString('text-emerald-700', Blade::render('<x-delta :change="-4" :invert="true"/>'));
+        $this->assertStringContainsString('-4,0%', Blade::render('<x-delta :change="-4" :invert="true"/>'));
+        $this->assertStringContainsString('text-red-700', Blade::render('<x-delta :change="-4"/>'));
+        $this->assertSame('', trim(Blade::render('<x-delta/>')));
+    }
+
+    #[Test]
+    public function een_kerncijfer_toont_zijn_verschil(): void
+    {
+        $html = Blade::render('<x-stat label="Weergaven" value="4.210" :change="18"/>');
+
+        $this->assertStringContainsString('+18%', $html);
+    }
+
+    #[Test]
+    public function elke_grafiek_heeft_een_tabel_of_tooltips(): void
+    {
+        // Kleur alleen is geen identiteit: wie de reeksen niet uit elkaar
+        // houdt, leest de tabel eronder of de tooltip.
+        $lijn = Blade::render('<x-chart.line :series="[[\'label\' => \'A\', \'color\' => \'var(--series-1)\', \'points\' => [\'2026-01-01\' => 1]]]"/>');
+
+        $this->assertStringContainsString('<details class="chart-table', $lijn);
+        $this->assertStringContainsString('data-tip=', $lijn);
+    }
+
+    #[Test]
+    public function een_lijn_met_meer_reeksen_schaalt_op_de_hoogste(): void
+    {
+        // Twee reeksen op dezelfde datums: de schaal moet de hoogste volgen,
+        // niet de laatste. Zo stond het eerst niet.
+        $html = Blade::render('<x-chart.line :series="$reeksen"/>', ['reeksen' => [
+            ['label' => 'Hoog', 'color' => 'var(--series-1)', 'points' => ['2026-01-01' => 900, '2026-01-02' => 950]],
+            ['label' => 'Laag', 'color' => 'var(--series-2)', 'points' => ['2026-01-01' => 10, '2026-01-02' => 12]],
+        ]]);
+
+        $this->assertStringContainsString('>1.000</text>', $html);
     }
 
     #[Test]
@@ -149,5 +232,26 @@ final class ComponentsTest extends TestCase
         $this->assertStringContainsString('€&nbsp;1.234,56', Blade::render('<x-money :cents="123456"/>'));
         $this->assertStringContainsString('-€&nbsp;12,50', Blade::render('<x-money :cents="-1250"/>'));
         $this->assertStringContainsString('—', Blade::render('<x-money/>'));
+    }
+
+    #[Test]
+    public function de_bijsnijder_levert_vier_velden_en_de_gekozen_verhouding(): void
+    {
+        /*
+        | De velden en de knoppen horen bij de dichtstbijzijnde bijsnijder, en
+        | de knop met aria-pressed is de verhouding waarmee hansui.js begint.
+        | Staat die er niet, dan begint het kader vrij en klopt de eerste
+        | uitsnede niet met wat de knoppen beloven.
+        */
+        $html = Blade::render('<x-cropper src="/foto.jpg" :ratios="[\'free\', \'1:1\', \'4:5\' => \'Instagram 4:5\']" ratio="4:5" name="uitsnede"/>');
+
+        foreach (['x', 'y', 'width', 'height'] as $veld) {
+            $this->assertStringContainsString('name="uitsnede['.$veld.']" data-crop-'.$veld, $html);
+        }
+
+        $this->assertSame(1, substr_count($html, 'aria-pressed="true"'));
+        $this->assertMatchesRegularExpression('/data-crop-ratio="4:5"\s+aria-pressed="true">Instagram 4:5</', $html);
+        $this->assertStringContainsString('data-crop-ratio="free"', $html);
+        $this->assertMatchesRegularExpression('/data-crop="[^"]+"/', $html, 'Het kader heeft een label nodig voor een schermlezer.');
     }
 }

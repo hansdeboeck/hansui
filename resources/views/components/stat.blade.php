@@ -5,6 +5,8 @@
     'tone' => 'neutral',
     'hint' => null,
     'href' => null,
+    'change' => null,
+    'invert' => false,
 ])
 
 {{--
@@ -25,6 +27,11 @@
 
     De TOON kleurt alleen de icoon. Het getal blijft inkt: een rij tegels waarin
     elk cijfer zijn eigen kleur heeft, leest als een waarschuwing die er niet is.
+
+    `change` zet het verschil met de vorige periode naast het getal, via
+    <x-delta>; `invert` voor een cijfer waar minder beter is. Een cijfer zonder
+    vergelijking zegt op een rapport te weinig: "4.210 weergaven" -- is dat
+    goed? "+18%" beantwoordt dat.
 --}}
 
 @php
@@ -47,7 +54,10 @@
     @endif
 
     <div class="min-w-0">
-        <p class="truncate text-xl font-semibold text-gray-900">{{ $value ?? $slot }}</p>
+        <p class="flex flex-wrap items-baseline gap-x-2">
+            <span class="truncate text-xl font-semibold text-gray-900">{{ $value ?? $slot }}</span>
+            <x-hansui::delta :change="$change" :invert="$invert"/>
+        </p>
         <p class="truncate text-xs text-gray-500">{{ $label }}</p>
 
         @if ($hint)

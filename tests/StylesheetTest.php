@@ -87,6 +87,27 @@ final class StylesheetTest extends TestCase
     }
 
     #[Test]
+    public function de_flow_editor_leunt_alleen_op_tokens_die_bestaan(): void
+    {
+        /*
+        | flows.css staat apart, want de meeste schermen tekenen geen flow, maar
+        | het leunt op de tokens van hansui.css. Verdwijnt er daar een of krijgt
+        | het een andere naam, dan valt er niets om: de editor wordt gewoon
+        | kleurloos. Dus hier, net als hierboven: zonder terugval moet het
+        | bestaan.
+        */
+        $flows = (string) file_get_contents($this->pakket('resources/css/flows.css'));
+
+        preg_match_all('/(--[\w-]+)\s*:/', $this->css().$flows, $gedefinieerd);
+        preg_match_all('/var\((--[\w-]+)\)/', $flows, $gebruikt);
+
+        $ontbreekt = array_diff(array_unique($gebruikt[1]), $gedefinieerd[1]);
+
+        $this->assertNotEmpty($gebruikt[1]);
+        $this->assertSame([], array_values($ontbreekt), 'De flow-editor gebruikt tokens die nergens gezet worden.');
+    }
+
+    #[Test]
     public function geen_token_staat_er_zonder_gebruiker(): void
     {
         /*
@@ -110,7 +131,10 @@ final class StylesheetTest extends TestCase
             .'|ink|ink-soft|ink-faint|nav|nav-ink|nav-high|brand|brand-primary|brand-primary-dark'
             .'|brand-deep|brand-soft|brand-line|on-brand|ok|ok-soft|danger|danger-soft'
             .'|warn|warn-soft|info|info-soft|row-y|font-sans|shadow-(sm|md|lg)'
-            .'|ease-(out|in-out|drawer)|color-.*)$/';
+            .'|ease-(out|in-out|drawer)|color-.*'
+            // De grafiekkleuren staan in inline stijlen van de views
+            // (style="fill: var(--series-3)"), niet in dit stijlblad.
+            .'|series-\d|seq-\d)$/';
 
         $css = $this->css();
 

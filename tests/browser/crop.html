@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="utf-8">
+    <title>HansUI bijsnijden, harnas</title>
+
+    <!--
+        Net genoeg opmaak om het kader te zien: hansui.css zelf gaat door
+        Tailwind en laadt hier dus niet rechtstreeks. Wat hieronder staat is
+        de kern van .crop, .crop-frame en .crop-handle, zonder de afwerking.
+    -->
+    <style>
+        :root { --crop-shade: rgb(0 0 0 / 0.55); --crop-line: rgb(255 255 255 / 0.92); }
+        .crop { position: relative; display: inline-block; overflow: hidden; line-height: 0; touch-action: none; user-select: none; }
+        .crop > img { display: block; max-width: 100%; max-height: 60vh; pointer-events: none; }
+        .crop-frame { position: absolute; cursor: move; box-shadow: 0 0 0 100vmax var(--crop-shade); outline: 1px solid var(--crop-line); }
+        .crop-handle { position: absolute; width: 24px; height: 24px; }
+        .crop-handle[data-crop-handle='nw'] { left: 0; top: 0; }
+        .crop-handle[data-crop-handle='ne'] { right: 0; top: 0; }
+        .crop-handle[data-crop-handle='sw'] { left: 0; bottom: 0; }
+        .crop-handle[data-crop-handle='se'] { right: 0; bottom: 0; }
+        .crop-size { position: absolute; left: 4px; bottom: 4px; color: #fff; font: 11px/1 sans-serif; }
+        [aria-pressed='true'] { font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<!--
+    Een liggende foto van 1600 bij 900 en de verhoudingen van socialtail.
+    Wat je naloopt: het kader begint op 4:5 in het midden, slepen blijft binnen
+    het beeld (en veert terug als je erover trekt), een hoek houdt de
+    verhouding vast, "Vrij" laat breedte en hoogte los, en de vier velden
+    onderaan volgen elke beweging.
+-->
+<div id="een">
+    <div role="group" aria-label="Verhouding">
+        <button type="button" data-crop-ratio="free">Vrij</button>
+        <button type="button" data-crop-ratio="1:1">1:1</button>
+        <button type="button" data-crop-ratio="4:5" aria-pressed="true">4:5</button>
+        <button type="button" data-crop-ratio="9:16">9:16</button>
+        <button type="button" data-crop-ratio="16:9">16:9</button>
+        <button type="button" data-crop-ratio="1.91:1">1.91:1</button>
+    </div>
+
+    <div class="crop" data-crop="Uitsnede" id="crop-een">
+        <img alt="" src="data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1600' height='900'%3E%3Crect width='1600' height='900' fill='%23166534'/%3E%3Ccircle cx='500' cy='450' r='300' fill='%2365a30d'/%3E%3C/svg%3E">
+    </div>
+
+    <p>
+        <input data-crop-x id="x" size="8">
+        <input data-crop-y id="y" size="8">
+        <input data-crop-width id="w" size="8">
+        <input data-crop-height id="h" size="8">
+    </p>
+</div>
+
+<!--
+    Een tweede op dezelfde pagina, zonder id's ertussen: de knoppen en velden
+    horen bij de dichtstbijzijnde bijsnijder.
+-->
+<div id="twee">
+    <button type="button" data-crop-ratio="1:1" aria-pressed="true">1:1</button>
+    <div class="crop" data-crop="Tweede uitsnede" id="crop-twee">
+        <img alt="" src="data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='1200'%3E%3Crect width='600' height='1200' fill='%237c3aed'/%3E%3C/svg%3E">
+    </div>
+    <input data-crop-width id="w2" size="8">
+    <input data-crop-height id="h2" size="8">
+    <input data-crop-x size="8">
+    <input data-crop-y size="8">
+</div>
+
+<!--
+    Open dit bestand met een statische server naast het package:
+
+        cd hansui && php -S 127.0.0.1:8020
+        open http://127.0.0.1:8020/tests/browser/crop.html
+-->
+<script type="module" src="../../resources/js/hansui.js"></script>
+</body>
+</html>

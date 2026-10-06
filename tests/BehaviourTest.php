@@ -17,14 +17,50 @@ use PHPUnit\Framework\Attributes\Test;
  */
 final class BehaviourTest extends TestCase
 {
+    /**
+     * De gedragslaag: hansui.js, en de flow-editor die een applicatie apart
+     * opneemt (resources/js/flows.js en wat die laadt).
+     *
+     * @return array<int, string>
+     */
+    private function scripts(): array
+    {
+        $flows = glob($this->pakket('resources/js/flows/*.js')) ?: [];
+        sort($flows);
+
+        return [$this->pakket('resources/js/hansui.js'), $this->pakket('resources/js/flows.js'), ...$flows];
+    }
+
     private function js(): string
     {
-        return (string) file_get_contents($this->pakket('resources/js/hansui.js'));
+        return implode("\n", array_map(static fn (string $pad): string => (string) file_get_contents($pad), $this->scripts()));
     }
 
     private function css(): string
     {
-        return (string) file_get_contents($this->pakket('resources/css/hansui.css'));
+        return (string) file_get_contents($this->pakket('resources/css/hansui.css'))
+            .(string) file_get_contents($this->pakket('resources/css/flows.css'));
+    }
+
+    /**
+     * Wat de gedragslaag oppakt: de scripts en de stijlen, en wat een script
+     * via `dataset` leest onder de naam die in de view staat.
+     *
+     * Zonder die laatste stap telde `root.dataset.flowTypes` niet als iets dat
+     * naar data-flow-types luistert, terwijl het precies dat doet. De editor
+     * kent twee vormen: `x.dataset.flowTypes`, en `'flowAdd' in data` met
+     * `data` een dataset.
+     */
+    private function achterkant(): string
+    {
+        preg_match_all("/\\bdataset\\.([a-z][a-zA-Z0-9]*)|'([a-z][a-zA-Z0-9]*)' in data\\b/", $this->js(), $m);
+
+        $gelezen = array_map(
+            static fn (string $naam): string => 'data-'.strtolower((string) preg_replace('/[A-Z]/', '-$0', $naam)),
+            array_unique(array_filter([...$m[1], ...$m[2]])),
+        );
+
+        return $this->js().$this->css().' '.implode(' ', $gelezen);
     }
 
     private function readme(): string
@@ -61,7 +97,7 @@ final class BehaviourTest extends TestCase
         | hansui.css -- dan is het een dood attribuut, en dat merk je pas als
         | een gebruiker op iets duwt dat niet opengaat.
         */
-        $achterkant = $this->js().$this->css();
+        $achterkant = $this->achterkant();
         $dood = [];
 
         foreach ($this->bladeBestanden() as $view) {
@@ -99,7 +135,7 @@ final class BehaviourTest extends TestCase
     {
         // En de andere richting, want een tabel die iets belooft dat er niet
         // is, kost meer dan een tabel die zwijgt.
-        $achterkant = $this->js().$this->css();
+        $achterkant = $this->achterkant();
 
         preg_match_all('/`(data-[a-z0-9-]+)`/', $this->readme(), $m);
 
@@ -136,12 +172,16 @@ final class BehaviourTest extends TestCase
     #[Test]
     public function er_staat_nergens_nog_een_sleutel_van_een_enkele_applicatie(): void
     {
-        foreach (['resources/js/hansui.js', 'resources/css/hansui.css', 'README.md'] as $bestand) {
-            $this->assertStringNotContainsString(
-                'growtail.',
-                (string) file_get_contents($this->pakket($bestand)),
-                $bestand.' draagt nog een sleutel van een van de applicaties.',
-            );
+        $bestanden = [...$this->scripts(), $this->pakket('resources/css/hansui.css'), $this->pakket('resources/css/flows.css'), $this->pakket('README.md')];
+
+        foreach ($bestanden as $bestand) {
+            foreach (['growtail.', 'projecttail.', 'socialtail.'] as $sleutel) {
+                $this->assertStringNotContainsString(
+                    $sleutel,
+                    (string) file_get_contents($bestand),
+                    basename($bestand).' draagt nog een sleutel van een van de applicaties.',
+                );
+            }
         }
     }
 }

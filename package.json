@@ -1,0 +1,9 @@
+{
+    "name": "@hansdeboeck/hansui",
+    "private": true,
+    "description": "Alleen om de tests van de gedragslaag te draaien: HansUI heeft geen afhankelijkheden in node.",
+    "type": "module",
+    "scripts": {
+        "test": "node --test \"tests/js/*.test.js\""
+    }
+}

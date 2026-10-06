@@ -3,9 +3,9 @@
 Dit package zit straks in zes applicaties op een gepinde versie. Wat hier staat
 is wat je moet weten voor je die pin verzet.
 
-## 0.7.0
+## 0.15.0
 
-### Toegevoegd
+### Nieuw
 
 - **De aanmeldpagina**, als layout: `@extends('hansui::layouts.auth')`. Het
   formulier links in een kaart, een foto rechts, en op een smal scherm alleen
@@ -34,6 +34,310 @@ is wat je moet weten voor je die pin verzet.
 
 - **`Aanmelden` in `lang/en.json`**, want de kop en de tabtitel vallen daarop
   terug wanneer de applicatie ze niet zet.
+
+## 0.14.0
+
+### Nieuw
+
+Uit ProjectTail en socialtail, waar automatisaties als een flow getekend worden,
+zoals in n8n. Het stond daar als een eigen pakket (`hansdeboeck/flows`) dat in
+beide applicaties gekopieerd stond; een wijziging moest dus twee keer.
+
+- **Flows** in `src/Flows` (`HansDeBoeck\HansUi\Flows`): `Graph` leest een
+  flow uit json, controleert ze (bekende soorten, unieke ids, een uitgang met
+  hoogstens een verbinding, precies een start, geen lus, hoogstens 200 stappen)
+  en schrijft ze terug; `NodeType` en `NodeTypes` zijn de soorten stappen;
+  `Layout` schikt van links naar rechts, gelijk aan de browser; `Builder` maakt
+  een flow in code; `Walker`, `Step` en `Walk` voeren ze uit met een functie
+  van de applicatie; `ValidFlow` is de validatieregel. Geen applicatie nodig,
+  behalve voor `ValidFlow`.
+- **`<x-flow-editor>`**: het canvas, het paneel met het formulier van een stap,
+  het palet, terugdraaien, zoomen, volledig scherm en het toetsenbord, met
+  `readonly`, `fill`, `flush` en de slots `header` en `notices`. Het gedrag en
+  de opmaak staan apart, in `resources/js/flows.js` en
+  `resources/css/flows.css`: een applicatie zonder flows laadt ze niet.
+- **De slot `overview`**: een tweede weergave naast de flow, voor wat een
+  pagina anders onder de editor zou zetten. In de balk komt een keuze (Flow,
+  Uitvoeringen), het overzicht scrolt zelf, en `#overzicht` (of de `hash`)
+  staat in de url.
+- **Een splitsing met meer takken**: een `NodeType` met `branches` (de sleutel
+  in de config met de takken) krijgt een uitgang per tak, hoogstens vier, en
+  de vaste uitgangen erna (Anders). Een tak die verdwijnt, neemt haar
+  verbinding mee; `outputsFor($config)` en `hasOutput($port, $config)` kennen
+  ze, de graaf en de wandeling ook.
+- **Notities op het canvas** (`stickies` in de json, hoogstens 50): ze doen
+  niet mee met de wandeling of de controles.
+- **Meer stappen tegelijk**: Shift + klik, Shift + slepen voor een kader en
+  Ctrl+A. Samen verplaatsen, verwijderen, kopiëren, knippen en plakken, ook
+  in een andere flow (het klembord draagt json met een merkteken).
+- **De weg van een uitvoering**: een knop met `data-flow-trace` toont welke
+  stappen een uitvoering nam, waar ze staat en wat er bij elke stap gebeurde.
+- **Een versie laden** met `data-flow-load`, als een wijziging die je
+  terugdraait met Ctrl+Z.
+- **Proefdraaien**: de prop `test` (een url) en de slot `example`. De server
+  rekent de weg uit zonder iets te doen, en de editor toont ze zoals een
+  uitvoering.
+- `tests/js` met de tests van de graaf in de browser, tegen dezelfde
+  `tests/fixtures/flows-layout.json` als `Layout`; `composer test` draait ze
+  mee (`node --test`, zonder afhankelijkheden).
+- Engelse vertalingen voor de zinnen van de editor en de graaf.
+
+### Wat je moet doen
+
+Niets, als je geen flows tekent: `hansui.css` en `hansui.js` blijven wat ze
+waren. Wie `hansdeboeck/flows` gebruikte:
+
+- haal het pakket weg uit `composer.json` (en `packages/flows`);
+- `HansDeBoeck\Flows\` wordt `HansDeBoeck\HansUi\Flows\`, en
+  `HansDeBoeck\Flows\Laravel\ValidFlow` wordt
+  `HansDeBoeck\HansUi\Flows\ValidFlow`;
+- `<x-flows::editor>` wordt `<x-flow-editor>`;
+- de imports wijzen naar `vendor/hansdeboeck/hansui/resources/js/flows.js` en
+  `vendor/hansdeboeck/hansui/resources/css/flows.css`.
+
+Een bewaarde flow houdt haar plaatsen; Schikken zet de kolommen nu 360 uit
+elkaar (was 300), zodat de naam van een tak en de knop erna ertussen passen.
+
+Had je een view van het pakket overschreven (`resources/views/vendor/flows`),
+dan is dat nu `resources/views/components/flow-editor.blade.php`, zoals bij
+elke component van HansUI.
+
+## 0.13.0
+
+### Nieuw
+
+Uit de inbox van socialtail, waar reacties, berichten, reviews en mail in een
+lijst samenkomen. Niets daarvan is aan een inbox gebonden: het is de vorm van
+elke lijst die je afwerkt, van tickets tot bestellingen.
+
+- **`<x-panes>`**: een werkblad met een lijst, wat je opende en de details,
+  die elk op zich scrollen en samen het venster vullen vanaf `lg`. Op een
+  telefoon de lijst of wat open staat (`detail`). Klassen `.panes`,
+  `.panes-head`, `.panes-grid`, `.panes-list`, `.panes-main`, `.panes-aside`,
+  en voor de panelen zelf `.pane`, `.pane-head`, `.pane-body`, `.pane-foot` en
+  `.pane-empty`. De maten zijn tokens met een terugval: `--panes-offset`,
+  `--panes-list` en `--panes-aside`.
+- **`<x-list-row>`**: een rij die een link is, met een vinkje over de avatar
+  voor `data-bulk`, een tijd, een onderwerp, een voorbeeld van twee regels en
+  een voet. Klassen `.list-row` en zijn onderdelen; de hoogte volgt `--row-y`.
+- **`<x-message>`**: een bericht in een gesprek, als ballon of als kaart (een
+  mail), in vijf soorten: `in`, `out`, `auto`, `failed` en `note`. Met
+  **`<x-thread-day>`** ("Vandaag", "Gisteren", "maandag 3 maart") in een
+  `.thread`. Klassen `.message`, `.message-card`, `.message-note`,
+  `.message-files` en hun onderdelen.
+- **`<x-composer>`**: een antwoordvak dat meegroeit, onthoudt wat je typte tot
+  het vertrokken is, en verstuurt met `Ctrl`/`Cmd` + `Enter`. Een notitie
+  kleurt het vak (`data-composer-note`). Klassen `.composer` en zijn onderdelen.
+- **`<x-ago>`**: hoe lang geleden, kort ("12 min", "3 u", "2 d").
+- **`<x-shortcuts>`**: het overzicht van de sneltoetsen van een scherm, in een
+  venster.
+- **`tint` en de slot `badge` op `<x-avatar>`**: een kleur voor de letter die
+  bij de persoon blijft, en een bolletje rechtsonder.
+- **`.segmented`** met **`.segment`**, `.segment-success`, `.segment-warning`
+  en `.segment-danger`: twee of drie keuzes naast elkaar, voor links, knoppen
+  en radioknoppen. En **`.kbd`** voor een toets.
+- **Gedrag**: `data-shortcut` (een toets die doet wat een klik doet),
+  `data-kbd-mod`, `data-autogrow`, `data-draft`, `data-count-for` met
+  `data-count-max`, `data-composer-form` met `data-composer-placeholder`,
+  `data-composer-note` en `data-composer-values`, `data-insert` en
+  `data-scroll-here`. Niet `data-composer` en niet `data-count` zonder meer:
+  die heeft socialtail al voor de opsteller van zijn berichten.
+- **`tests/browser/werkblad.html`**: een harnas voor de sneltoetsen, het
+  antwoordvak en wat bij het laden in beeld staat.
+- Engelse vertalingen voor de nieuwe zinnen.
+
+### Veranderd
+
+- **`<x-avatar>` met een foto** neemt een `alt` die je meegeeft. Naast een naam
+  in het scherm is `alt=""` beter; anders hoor je de naam twee keer. Zonder
+  `alt` blijft het de naam.
+
+### Wat je moet doen
+
+Niets. Stond er in een view al een `data-shortcut` zonder script erachter, dan
+werkt die nu: kijk na of die toets doet wat je wil. Had je zelf een werkblad,
+een antwoordvak of een tijd als "3 u", haal ze weg of laat ze op deze
+componenten steunen. Een applicatie die zelf al een `<x-ago>` had, houdt de
+hare (de applicatie wint); gebruik dan `<x-hansui::ago>` waar je die van het
+package wil.
+
+## 0.12.0
+
+### Nieuw
+
+Uit de korte links van socialtail, waar een eigen domein eerst op zijn DNS
+en dan op zijn certificaat wacht. Niets daarvan is aan domeinen gebonden.
+
+- **`<x-steps>`**: een rij stappen die toont waar een proces staat, met per
+  stap `done`, `current`, `error` of `todo` in `data-step`. Liggend vanaf
+  `sm`, staand op een telefoon. De toestand staat er ook als teken in het
+  rondje en als verborgen tekst voor een schermlezer.
+- **Klassen** `.steps`, `.step`, `.step-dot`, `.step-label` en `.step-hint`.
+- Engelse vertalingen voor de toestanden (`klaar`, `bezig`, `probleem`,
+  `nog niet`).
+
+## 0.11.0
+
+### Nieuw
+
+Uit de mediabibliotheek van socialtail, en nergens in die vorm aan media
+gebonden: het werkt op elke lijst van dingen.
+
+- **Een contextmenu**: `data-context-menu` op een element (of op de omhulling,
+  voor een lege plek) opent een menu met role="menu" bij rechtsklikken, met
+  een knop met `data-context-trigger`, met de ContextMenu-toets en met
+  `Shift` + `F10`. De waarden uit `data-context-item` (JSON) worden ingevuld:
+  `{sleutel}` in attributen, `data-context-text`, `data-context-value`,
+  `data-context-if`, `data-context-disabled` en `data-context-ids`. Submenu's
+  met `data-context-sub`, sneltoetsen met `data-context-key`,
+  `data-context-click` en `data-context-fill`. Volledig met het toetsenbord
+  te bedienen, en binnen het venster.
+- **`<x-lightbox>`** en `data-lightbox`: een groot voorbeeld van een beeld,
+  video of geluid, met vorige en volgende (pijltjes, vegen), focusbeheer en
+  een zijpaneel dat uit de slot of per link van een url komt
+  (`data-lightbox-aside`).
+- **Selecteren zoals in een verkenner** in `data-bulk`: `Shift` + klik voor
+  een bereik, `Ctrl`/`Cmd` + klik op een `data-bulk-row`, `Ctrl`/`Cmd` + `A`,
+  `Escape` wist, `Ctrl` + spatie. `data-bulk-form` spiegelt de selectie ook
+  naar een formulier buiten de balk, `data-bulk-name` geeft een formulier in
+  de balk een eigen veldnaam, `data-bulk-clear` vinkt alles uit, en elke
+  wijziging stuurt `bulk:change`.
+- **`data-grid-nav`** en `data-grid-item`: een raster als een tabstop, met
+  pijltjes die de rij volgen zoals ze op het scherm staat.
+- **Slepen naar een doel**: `data-drag-item` en `data-drop-target` (met
+  `data-drop-name`, `data-drop-fields`, `data-drop-token` en
+  `data-drag-label`), met een POST en daarna een herladen pagina.
+- **`data-hover-play`**: een video die gedempt speelt zolang de muis erboven
+  staat.
+- **`data-async`**: een formulier bewaren met fetch, met de melding in
+  `data-async-status`.
+- **Een melding onderaan** (`.toast`) via het venster-event `toast`, en na
+  kopiëren met `data-copy` als er `data-copied` op staat.
+- **`data-upload-hint`** op het `data-upload-surface` toont een tekst over de
+  hele pagina terwijl er een bestand boven hangt. Staat de uploadlijst in een
+  dicht venster, dan gaat dat open bij het eerste bestand.
+- **Klassen** `.media-thumb`, `.media-icon`, `.media-meta`, `.media-open` en
+  `.media-more` voor wat er in een `.media-tile` staat, `.grid-tiles-sm` voor
+  kleine tegels, `.context-menu` met zijn onderdelen, `.lightbox` en `.toast`.
+- **Iconen** `more`, `chevron-left`, `chevron-right`, `folder-move` en `select`.
+- **`tests/browser/verkenner.html`**: een harnas met het contextmenu, de
+  selectie, het raster en het voorbeeldvenster samen.
+- `hansui.css` scant ook `hansui.js` (`@source '../js'`): de klassen die het
+  script zelf tekent, zoals de regels van de uploader, bestonden anders alleen
+  als een applicatie ze toevallig ook gebruikte.
+
+### Opgelost
+
+- **Het icoon `folder`** was een blad papier en geen map; het leek op `file`.
+- De regels van de uploader waren op een smal scherm breder dan het venster.
+- `data-copy` op een knop kopieerde niets: een lege `value` telde als waarde.
+
+### Wat je moet doen
+
+Niets. Had je een eigen contextmenu, voorbeeldvenster of selectie met `Shift`,
+haal die weg. Gebruik je het icoon `folder` voor een bestand, neem dan `file`.
+
+## 0.10.0
+
+### Nieuw
+
+- **Een code in losse vakjes**: `data-code-group`, `data-code-cell`,
+  `data-code-value` en `data-code-autofocus`, met de klassen `.code-input` en
+  `.code-display`. Uit signagetail, waar je de koppelcode van een scherm
+  overtypt; bruikbaar voor elke verificatiecode (`data-code-group="digits"`).
+
+### Wat je moet doen
+
+Had je een eigen script en eigen klassen voor deze vakjes, haal ze weg.
+
+## 0.9.0
+
+### Nieuw
+
+- **Bijsnijden**: `data-crop` op een omhulling met een `<img>` zet er een
+  kader over dat je versleept, aan de hoeken groter of kleiner maakt en met
+  het toetsenbord bijstuurt (pijltjes verschuiven, `Shift` + pijltjes
+  vergroten of verkleinen, `Alt` voor kleine stapjes). Werkt met muis en
+  aanraking, zonder bibliotheek. Knoppen met `data-crop-ratio` kiezen de
+  verhouding (`1:1`, `4:5`, `9:16`, `16:9`, `1.91:1` of `free`); de uitsnede
+  komt in procenten in `data-crop-x`, `data-crop-y`, `data-crop-width` en
+  `data-crop-height`, en als `crop:change`-event op de omhulling. `crop:reset`
+  begint opnieuw. Gemaakt voor socialtail, waar een foto per netwerk een
+  andere verhouding moet hebben.
+- **`<x-cropper>`** zet de knoppen, het beeld en de vier velden bij elkaar:
+  `src`, `alt`, `ratios` (een lijst, of verhouding => naam), `ratio`, `name`
+  en `label`.
+- **Klassen** `.crop`, `.crop-frame`, `.crop-handle`, `.crop-size`,
+  `.crop-ratios` en `.crop-ratio`, met twee nieuwe tokens `--crop-shade` (het
+  waas rond de uitsnede) en `--crop-line` (het kader). Die staan alleen in
+  `:root` en niet in de donkere blokken: ze liggen op een foto, en een foto
+  kantelt niet mee. `--crop-max-height` (standaard `60vh`) begrenst de hoogte
+  van het beeld.
+- **Icoon `crop`** in `<x-icon>`, voor de knop die de bijsnijder opent.
+- **Iconen** `ear` (luisteren), `arrow-up` en `arrow-down`.
+- **`data-filter`**, `data-filter-item` en `data-filter-empty`: een lijst
+  filteren terwijl je typt, op woordgrens zoals het zoekpalet.
+- **`data-show-when`**: een element tonen naargelang de waarde van een
+  formulierveld, zonder eigen script per formulier.
+
+### Opgelost
+
+- **`<x-chart.line>` met meer reeksen op dezelfde datums** schaalde op de
+  laatste reeks in plaats van op de hoogste, zodat de andere lijnen boven de
+  as uitliepen.
+
+### Wat je moet doen
+
+Niets, tenzij je zelf een bijsnijder had: haal die dan weg. Het snijden zelf
+blijft bij de applicatie; de browser meldt alleen waar.
+
+## 0.8.0
+
+### Nieuw
+
+Wat socialtail en signagetail elk voor zich hadden, of allebei als kopie.
+
+- **Grafieken**: `<x-chart.line>`, `<x-chart.columns>`, `<x-chart.bars>` en
+  `<x-chart.heatmap>`, op de server getekend als SVG. Een as, een tabel onder
+  elke lijn- en kolomgrafiek, een `data-tip` op elk teken. Het rekenwerk staat
+  in `HansDeBoeck\HansUi\Chart` (`scale`, `tick`, `series`).
+- **Grafiekkleuren**: `--series-1` tot `--series-8` en `--seq-0` tot `--seq-6`,
+  met een eigen donkere reeks in beide donkere blokken. Nagekeken op
+  onderscheid bij kleurenblindheid tegen wit en tegen `--n-0` in het donker.
+- **`<x-delta>`** en **`change`/`invert` op `<x-stat>`**: het verschil met de
+  vorige periode naast een kerncijfer.
+- **Zevenendertig iconen** in `<x-icon>`, onder meer `link`, `inbox`, `globe`,
+  `send`, `eye`, `heart`, `share`, `comment`, `reply`, `hash`, `sparkles`,
+  `copy`, `external`, `upload`, `download`, `trend-up`, `trend-down`, `play`,
+  `pause`, `refresh`, `filter`, `layers`, `drag`, `printer`, `video`.
+- **Klassen voor een bibliotheek**: `.tree-item`, `.media-tile` met
+  `.media-check` en `.media-badge`, `.dropzone`, `.meter` met `.meter-fill`,
+  `.locked`, en de utilities `.grid-tiles`, `.grid-tiles-lg` en `.no-select`.
+- **Gedrag**: `data-tip` (tooltips), het zoekpalet (`data-palette` en zijn
+  onderdelen, het antwoord op `open-palette`), uploaden (`data-uploader` en
+  zijn onderdelen) en `data-turnstile-melding`. De teksten van de uploader
+  komen uit `data-upload-texts`, die van de botcontrole uit de waarde van
+  het attribuut.
+
+### Opgelost
+
+- **`.check` op een `<label>`** maakte de label zelf 16 bij 16 pixels, zodat
+  de tekst er letter per letter onder liep. Op een label wordt het nu een rij,
+  en krijgt het vinkje erin de maat.
+
+### Wat je moet doen
+
+Haal uit je applicatie weg wat nu hier staat: dezelfde klassen in `app.css`,
+eigen kopieën van het palet, de uploader, de botcontrole en de tooltip, en
+eigen grafiekcomponenten. Blijven ze staan, dan wint die van de applicatie
+(componenten) of staan de regels dubbel (css), en dan loopt het op den duur
+uit elkaar.
+
+Een `data-turnstile-melding` zonder waarde toont de Nederlandse terugvaltekst;
+geef hem een vertaalde waarde. Voor de uploader geldt hetzelfde met
+`data-upload-texts`.
+
+## 0.7.0
 
 ### Opgelost
 
